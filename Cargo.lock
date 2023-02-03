@@ -342,17 +342,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-recursion"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cda8f4bcc10624c4e85bc66b3f452cca98cfa5ca002dc83a16aad2367641bea"
-dependencies = [
- "proc-macro2 1.0.49",
- "quote 1.0.23",
- "syn 1.0.107",
-]
-
-[[package]]
 name = "async-stream"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3383,7 +3372,6 @@ dependencies = [
  "prometheus-closure-metric",
  "scopeguard",
  "tap",
- "tokio",
  "tracing",
  "uuid",
  "workspace-hack",
@@ -3697,7 +3685,6 @@ dependencies = [
  "anemo-tower",
  "anyhow",
  "arc-swap",
- "async-recursion",
  "async-trait",
  "backoff",
  "base64",
@@ -6031,7 +6018,6 @@ dependencies = [
  "multiaddr",
  "narwhal-config",
  "narwhal-crypto",
- "narwhal-executor",
  "once_cell",
  "proptest",
  "rand 0.8.5",
@@ -7207,7 +7193,6 @@ dependencies = [
  "asn1-rs",
  "asn1-rs-derive",
  "asn1-rs-impl",
- "async-recursion",
  "async-stream",
  "async-stream-impl",
  "async-trait",
