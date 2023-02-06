@@ -1,4 +1,0 @@
-packages:
-  - "sdk/**"
-  - "apps/**"
-  - "dapps/**"
