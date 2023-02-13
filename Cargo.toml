@@ -1,13 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/component",
     "crates/mysten-metrics",
     "crates/mysten-network",
     "crates/mysten-util-mem",
     "crates/mysten-util-mem-derive",
     "crates/prometheus-closure-metric",
-    "crates/rccheck",
     "crates/sui-cost-tables",
     "crates/sui-keys",
     "crates/sui-macros",
