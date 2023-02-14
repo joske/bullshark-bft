@@ -114,11 +114,6 @@ strip = 'none'
 # For convenience.
 strip = 'none'
 
-[profile.test.package.move-compiler]
-# opt-level 2 for move-compiler reduces the size of some of its
-# (recursive) stack frames by up to 10x, avoiding stack overflows.
-opt-level = 2
-
 [profile.simulator]
 inherits = "test"
 debug = true
@@ -134,26 +129,14 @@ tokio = "1.27.0"
 axum = { version = "0.6.6", default-features = false, features = ["headers", "tokio", "http1", "http2", "json", "matched-path", "original-uri", "form", "query"] }
 
 # Move dependencies
-move-binary-format = { path = "external-crates/move/move-binary-format" }
-move-bytecode-utils = { path = "external-crates/move/tools/move-bytecode-utils" }
-move-bytecode-verifier = { path = "external-crates/move/move-bytecode-verifier" }
-move-cli = { path = "external-crates/move/tools/move-cli" }
-move-compiler = { path = "external-crates/move/move-compiler" }
-move-core-types = { path = "external-crates/move/move-core/types", features = ["address32"] }
-move-disassembler = { path = "external-crates/move/tools/move-disassembler" }
-move-package = { path = "external-crates/move/tools/move-package" }
-move-stdlib = { path = "external-crates/move/move-stdlib" }
-move-vm-runtime =  { path = "external-crates/move/move-vm/runtime" }
-move-unit-test = { path = "external-crates/move/tools/move-unit-test" }
-move-vm-test-utils = { path = "external-crates/move/move-vm/test-utils" }
-move-vm-types = { path = "external-crates/move/move-vm/types" }
-move-command-line-common = { path = "external-crates/move/move-command-line-common" }
-move-transactional-test-runner = { path = "external-crates/move/testing-infra/transactional-test-runner" }
-move-ir-types = { path = "external-crates/move/move-ir/types" }
-move-prover = { path = "external-crates/move/move-prover" }
-move-prover-boogie-backend = { path = "external-crates/move/move-prover/boogie-backend" }
-move-stackless-bytecode = { path = "external-crates/move/move-prover/bytecode" }
-move-symbol-pool = { path = "external-crates/move/move-symbol-pool" }
+move-binary-format = { git = "https://github.com/move-language/move", rev = "f976503ec92e6942eac1c05dd8231918d07e0af6" }
+move-bytecode-utils = { git = "https://github.com/move-language/move", rev = "f976503ec92e6942eac1c05dd8231918d07e0af6" }
+move-core-types = { git = "https://github.com/move-language/move", rev = "f976503ec92e6942eac1c05dd8231918d07e0af6", features = ["address20"] }
+move-command-line-common = { git = "https://github.com/move-language/move", rev = "f976503ec92e6942eac1c05dd8231918d07e0af6" }
+move-disassembler = { git = "https://github.com/move-language/move", rev = "f976503ec92e6942eac1c05dd8231918d07e0af6" }
+move-ir-types = { git = "https://github.com/move-language/move", rev = "f976503ec92e6942eac1c05dd8231918d07e0af6" }
+move-vm-runtime = { git = "https://github.com/move-language/move", rev = "f976503ec92e6942eac1c05dd8231918d07e0af6" }
+move-vm-types = { git = "https://github.com/move-language/move", rev = "f976503ec92e6942eac1c05dd8231918d07e0af6" }
 
 fastcrypto = { git = "https://github.com/MystenLabs/fastcrypto", rev = "84fd7c7428c5f59185aecc56a2e0a006e8e07de1" }
 fastcrypto-zkp = { git = "https://github.com/MystenLabs/fastcrypto", rev = "84fd7c7428c5f59185aecc56a2e0a006e8e07de1", package = "fastcrypto-zkp" }
