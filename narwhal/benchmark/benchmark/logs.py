@@ -10,7 +10,7 @@ from multiprocessing import Pool
 from os.path import join
 from re import findall, search
 from statistics import mean
-
+import time
 
 from benchmark.utils import Print
 
@@ -349,6 +349,7 @@ class LogGrpcParser:
         # Parse the primaries logs.
         try:
             with Pool() as p:
+                time.sleep(1)
                 results = p.map(self._parse_primaries, primaries)
         except (ValueError, IndexError, AttributeError) as e:
             exception(e)
@@ -356,6 +357,7 @@ class LogGrpcParser:
         self.grpc_ports = results
 
     def _parse_primaries(self, log):
+        print(log)
         port = search(
             r'Consensus API gRPC Server listening on /ip4/.+/tcp/(.+)/http', log).group(1)
         return port
