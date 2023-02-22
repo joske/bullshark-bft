@@ -6,8 +6,6 @@ members = [
     "crates/mysten-util-mem",
     "crates/mysten-util-mem-derive",
     "crates/prometheus-closure-metric",
-    "crates/sui-macros",
-    "crates/sui-proc-macros",
     "crates/sui-protocol-constants",
     "crates/telemetry-subscribers",
     "crates/typed-store",
@@ -46,14 +44,6 @@ panic = 'abort'
 [profile.bench]
 # For convenience.
 strip = 'none'
-
-[profile.simulator]
-inherits = "test"
-debug = true
-debug-assertions = true
-overflow-checks = true
-# opt-level 1 gives >5x speedup for simulator tests without slowing down build times very much.
-opt-level = 1
 
 # Dependencies that should be kept in sync through the whole workspace
 [workspace.dependencies]
