@@ -17,7 +17,6 @@ use std::{sync::Arc, time::Duration, vec};
 
 use async_trait::async_trait;
 use fastcrypto::hash::Hash;
-use mysten_metrics::spawn_logged_monitored_task;
 use rand::prelude::SliceRandom;
 use rand::rngs::ThreadRng;
 use tokio::time::Instant;
@@ -75,11 +74,10 @@ pub fn spawn_subscriber<State: ExecutionState + Send + Sync + 'static>(
         .unwrap_or_else(|| panic!("Not enough shutdown receivers"));
 
     vec![
-        spawn_logged_monitored_task!(
-            run_notify(state, rx_notifier, rx_shutdown_notify),
-            "SubscriberNotifyTask"
+        tokio::spawn(
+            run_notify(state, rx_notifier, rx_shutdown_notify)
         ),
-        spawn_logged_monitored_task!(
+        tokio::spawn(
             create_and_run_subscriber(
                 name,
                 network,
@@ -90,8 +88,7 @@ pub fn spawn_subscriber<State: ExecutionState + Send + Sync + 'static>(
                 metrics,
                 restored_consensus_output,
                 tx_notifier,
-            ),
-            "SubscriberTask"
+            )
         ),
     ]
 }

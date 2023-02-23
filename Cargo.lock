@@ -2954,7 +2954,6 @@ dependencies = [
  "match_opt",
  "mockall",
  "multiaddr",
- "mysten-metrics",
  "narwhal-config",
  "narwhal-consensus",
  "narwhal-crypto",
