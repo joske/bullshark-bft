@@ -2995,7 +2995,6 @@ dependencies = [
  "fastcrypto",
  "futures",
  "multiaddr",
- "mysten-metrics",
  "narwhal-crypto",
  "narwhal-test-utils",
  "narwhal-types",
