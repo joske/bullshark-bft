@@ -13,7 +13,6 @@ use tracing::error;
 
 use futures::{Future, StreamExt};
 
-use mysten_metrics::spawn_logged_monitored_task;
 use std::sync::Arc;
 use tokio::{
     task::JoinHandle,
@@ -71,25 +70,22 @@ impl BatchMaker {
         store: Store<BatchDigest, Batch>,
         tx_digest: Sender<(WorkerOurBatchMessage, PrimaryResponse)>,
     ) -> JoinHandle<()> {
-        spawn_logged_monitored_task!(
-            async move {
-                Self {
-                    id,
-                    batch_size,
-                    max_batch_delay,
-                    rx_shutdown,
-                    rx_batch_maker,
-                    tx_message,
-                    batch_start_timestamp: Instant::now(),
-                    node_metrics,
-                    store,
-                    tx_digest,
-                }
-                .run()
-                .await;
-            },
-            "BatchMakerTask"
-        )
+        tokio::spawn(async move {
+            Self {
+                id,
+                batch_size,
+                max_batch_delay,
+                rx_shutdown,
+                rx_batch_maker,
+                tx_message,
+                batch_start_timestamp: Instant::now(),
+                node_metrics,
+                store,
+                tx_digest,
+            }
+            .run()
+            .await;
+        })
     }
 
     /// Main loop receiving incoming transactions and creating batches.

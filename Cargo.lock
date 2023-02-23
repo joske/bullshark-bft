@@ -3246,7 +3246,6 @@ dependencies = [
  "futures",
  "governor",
  "multiaddr",
- "mysten-metrics",
  "mysten-network",
  "narwhal-config",
  "narwhal-consensus",

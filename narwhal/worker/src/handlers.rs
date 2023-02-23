@@ -20,8 +20,6 @@ use types::{
     WorkerReconfigureMessage, WorkerSynchronizeMessage, WorkerToWorker, WorkerToWorkerClient,
 };
 
-use mysten_metrics::monitored_future;
-
 use crate::TransactionValidator;
 
 #[cfg(test)]
@@ -163,11 +161,11 @@ impl<V: TransactionValidator> PrimaryToWorker for PrimaryReceiverHandler<V> {
             let request_batch_fn =
                 |mut client: WorkerToWorkerClient<anemo::Peer>, batch_request, timeout| {
                     // Wrapper function enables us to move `client` into the future.
-                    monitored_future!(async move {
+                    async move {
                         client
                             .request_batch(anemo::Request::new(batch_request).with_timeout(timeout))
                             .await
-                    })
+                    }
                 };
             if first_attempt {
                 // Send first sync request to a single node.
