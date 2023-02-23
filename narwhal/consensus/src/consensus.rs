@@ -8,7 +8,6 @@ use crate::{metrics::ConsensusMetrics, ConsensusError, SequenceNumber};
 use config::Committee;
 use crypto::PublicKey;
 use fastcrypto::hash::Hash;
-use mysten_metrics::spawn_logged_monitored_task;
 use std::{
     cmp::{max, Ordering},
     collections::{BTreeMap, HashMap},
@@ -262,7 +261,7 @@ where
             state,
         };
 
-        spawn_logged_monitored_task!(s.run(), "Consensus", INFO)
+        tokio::spawn(s.run())
     }
 
     async fn run(self) {
