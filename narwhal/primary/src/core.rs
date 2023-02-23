@@ -15,7 +15,6 @@ use crypto::{NetworkPublicKey, PublicKey, Signature};
 use fastcrypto::{hash::Hash as _, signature_service::SignatureService};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use mysten_metrics::{monitored_future, spawn_logged_monitored_task};
 use network::{anemo_ext::NetworkExt, CancelOnDropHandler, ReliableNetwork};
 use std::time::Duration;
 use std::{collections::HashMap, sync::Arc, time::Instant};
@@ -121,40 +120,37 @@ impl Core {
         metrics: Arc<PrimaryMetrics>,
         primary_network: anemo::Network,
     ) -> JoinHandle<()> {
-        spawn_logged_monitored_task!(
-            async move {
-                Self {
-                    name,
-                    committee,
-                    header_store,
-                    certificate_store,
-                    synchronizer,
-                    signature_service,
-                    rx_consensus_round_updates,
-                    rx_narwhal_round_updates,
-                    gc_depth,
-                    rx_shutdown,
-                    rx_certificates,
-                    rx_certificates_loopback,
-                    rx_headers,
-                    tx_new_certificates,
-                    tx_parents,
-                    gc_round: 0,
-                    highest_received_round: 0,
-                    highest_processed_round: 0,
-                    pending_certificates: HashMap::new(),
-                    background_tasks: JoinSet::new(),
-                    cancel_proposed_header: None,
-                    propose_header_tasks: JoinSet::new(),
-                    certificates_aggregators: HashMap::with_capacity(2 * gc_depth as usize),
-                    network: primary_network,
-                    metrics,
-                }
-                .run_inner()
-                .await
-            },
-            "CoreTask"
-        )
+        tokio::spawn(async move {
+            Self {
+                name,
+                committee,
+                header_store,
+                certificate_store,
+                synchronizer,
+                signature_service,
+                rx_consensus_round_updates,
+                rx_narwhal_round_updates,
+                gc_depth,
+                rx_shutdown,
+                rx_certificates,
+                rx_certificates_loopback,
+                rx_headers,
+                tx_new_certificates,
+                tx_parents,
+                gc_round: 0,
+                highest_received_round: 0,
+                highest_processed_round: 0,
+                pending_certificates: HashMap::new(),
+                background_tasks: JoinSet::new(),
+                cancel_proposed_header: None,
+                propose_header_tasks: JoinSet::new(),
+                certificates_aggregators: HashMap::with_capacity(2 * gc_depth as usize),
+                network: primary_network,
+                metrics,
+            }
+            .run_inner()
+            .await
+        })
     }
 
     #[instrument(level = "info", skip_all)]
@@ -725,7 +721,7 @@ impl Core {
                     let signature_service = self.signature_service.clone();
                     let metrics = self.metrics.clone();
                     let network = self.network.clone();
-                    self.propose_header_tasks.spawn(monitored_future!(Self::propose_header(
+                    self.propose_header_tasks.spawn(Self::propose_header(
                         name,
                         committee,
                         header_store,
@@ -735,7 +731,7 @@ impl Core {
                         network,
                         header,
                         rx_cancel,
-                    )));
+                    ));
                     Ok(())
                 },
 
