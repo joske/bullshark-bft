@@ -4,21 +4,24 @@
 
 #![allow(clippy::mutable_key_type)]
 
-use crate::utils::gc_round;
-use crate::{metrics::ConsensusMetrics, ConsensusError, Outcome, SequenceNumber};
-use config::{AuthorityIdentifier, Committee};
+use crate::{ConsensusError, SequenceNumber};
+use config::Committee;
+use crypto::PublicKey;
 use fastcrypto::hash::Hash;
 use std::{
     cmp::{max, Ordering},
     collections::{BTreeMap, BTreeSet, HashMap},
     sync::Arc,
 };
-use storage::{CertificateStore, ConsensusStore};
-use tokio::{sync::watch, task::JoinHandle};
+use storage::CertificateStore;
+use tokio::{
+    sync::{mpsc, watch},
+    task::JoinHandle,
+};
 use tracing::{debug, info, instrument};
 use types::{
-    metered_channel, Certificate, CertificateAPI, CertificateDigest, CommittedSubDag,
-    ConditionalBroadcastReceiver, ConsensusCommit, HeaderAPI, Round, Timestamp,
+    Certificate, CertificateDigest, CommittedSubDag, ConditionalBroadcastReceiver, ConsensusStore,
+    Round, StoreResult, Timestamp,
 };
 
 #[cfg(test)]
@@ -42,39 +45,31 @@ pub struct ConsensusState {
     /// Keeps the latest committed certificate (and its parents) for every authority. Anything older
     /// must be regularly cleaned up through the function `update`.
     pub dag: Dag,
-    /// Metrics handler
-    pub metrics: Arc<ConsensusMetrics>,
 }
 
 impl ConsensusState {
-    pub fn new(metrics: Arc<ConsensusMetrics>, gc_depth: Round) -> Self {
+    pub fn new() -> Self {
         Self {
             last_round: ConsensusRound::default(),
             gc_depth,
             last_committed: Default::default(),
             dag: Default::default(),
-            last_committed_sub_dag: None,
-            metrics,
         }
     }
 
     pub fn new_from_store(
-        metrics: Arc<ConsensusMetrics>,
-        last_committed_round: Round,
-        gc_depth: Round,
-        recovered_last_committed: HashMap<AuthorityIdentifier, Round>,
-        latest_sub_dag: Option<ConsensusCommit>,
+        recover_last_committed: HashMap<PublicKey, Round>,
+        latest_sub_dag_index: SequenceNumber,
         cert_store: CertificateStore,
     ) -> Self {
-        let last_round = ConsensusRound::new_with_gc_depth(last_committed_round, gc_depth);
+        let last_committed_round = *recover_last_committed
+            .iter()
+            .max_by(|a, b| a.1.cmp(b.1))
+            .map(|(_k, v)| v)
+            .unwrap_or_else(|| &0);
+        let dag = Self::construct_dag_from_cert_store(cert_store, &recover_last_committed);
 
-        let dag = Self::construct_dag_from_cert_store(
-            &cert_store,
-            &recovered_last_committed,
-            last_round.gc_round,
-        )
-        .expect("error when recovering DAG from store");
-        metrics.recovered_consensus_state.inc();
+        // TODO(metrics): Increment recovered_consensus_state by 1.
 
         let last_committed_sub_dag = if let Some(latest_sub_dag) = latest_sub_dag.as_ref() {
             let certificates = latest_sub_dag
@@ -108,7 +103,6 @@ impl ConsensusState {
             last_committed: recovered_last_committed,
             last_committed_sub_dag,
             dag,
-            metrics,
         }
     }
 
@@ -197,14 +191,11 @@ impl ConsensusState {
             .or_insert_with(|| certificate.round());
         self.last_round = self.last_round.update(certificate.round(), self.gc_depth);
 
-        self.metrics
-            .last_committed_round
-            .with_label_values(&[])
-            .set(self.last_round.committed_round as i64);
-        let elapsed = certificate.metadata().created_at.elapsed().as_secs_f64();
-        self.metrics
-            .certificate_commit_latency
-            .observe(certificate.metadata().created_at.elapsed().as_secs_f64());
+        // TODO(metrics): Set last_committed_round to `self.last_committed_round as u64`
+
+        let elapsed = certificate.metadata.created_at.elapsed().as_secs_f64();
+
+        // TODO(metrics): Set certificate_commit_latency to `certificate.metadata.created_at.elapsed().as_secs_f64()`
 
         // NOTE: This log entry is used to compute performance.
         tracing::debug!(
@@ -308,19 +299,16 @@ pub struct Consensus<ConsensusProtocol> {
     rx_shutdown: ConditionalBroadcastReceiver,
     /// Receives new certificates from the primary. The primary should send us new certificates only
     /// if it already sent us its whole history.
-    rx_new_certificates: metered_channel::Receiver<Certificate>,
+    rx_new_certificates: mpsc::Receiver<Certificate>,
     /// Outputs the sequence of ordered certificates to the primary (for cleanup and feedback).
-    tx_committed_certificates: metered_channel::Sender<(Round, Vec<Certificate>)>,
-    /// Outputs the highest committed round & corresponding gc_round in the consensus.
-    tx_consensus_round_updates: watch::Sender<ConsensusRound>,
+    tx_committed_certificates: mpsc::Sender<(Round, Vec<Certificate>)>,
+    /// Outputs the highest committed round in the consensus. Controls GC round downstream.
+    tx_consensus_round_updates: watch::Sender<Round>,
     /// Outputs the sequence of ordered certificates to the application layer.
-    tx_sequence: metered_channel::Sender<CommittedSubDag>,
+    tx_sequence: mpsc::Sender<CommittedSubDag>,
 
     /// The consensus protocol to run.
     protocol: ConsensusProtocol,
-
-    /// Metrics handler
-    metrics: Arc<ConsensusMetrics>,
 
     /// Inner state
     state: ConsensusState,
@@ -337,12 +325,11 @@ where
         store: Arc<ConsensusStore>,
         cert_store: CertificateStore,
         rx_shutdown: ConditionalBroadcastReceiver,
-        rx_new_certificates: metered_channel::Receiver<Certificate>,
-        tx_committed_certificates: metered_channel::Sender<(Round, Vec<Certificate>)>,
-        tx_consensus_round_updates: watch::Sender<ConsensusRound>,
-        tx_sequence: metered_channel::Sender<CommittedSubDag>,
+        rx_new_certificates: mpsc::Receiver<Certificate>,
+        tx_committed_certificates: mpsc::Sender<(Round, Vec<Certificate>)>,
+        tx_consensus_round_updates: watch::Sender<Round>,
+        tx_sequence: mpsc::Sender<CommittedSubDag>,
         protocol: Protocol,
-        metrics: Arc<ConsensusMetrics>,
     ) -> JoinHandle<()> {
         // The consensus state (everything else is immutable).
         let recovered_last_committed = store.read_last_committed();
@@ -363,9 +350,6 @@ where
         }
 
         let state = ConsensusState::new_from_store(
-            metrics.clone(),
-            last_committed_round,
-            gc_depth,
             recovered_last_committed,
             latest_sub_dag,
             cert_store,
@@ -383,7 +367,6 @@ where
             tx_consensus_round_updates,
             tx_sequence,
             protocol,
-            metrics,
             state,
         };
 
@@ -465,10 +448,7 @@ where
                         .map_err(|_|ConsensusError::ShuttingDown)?;
                     }
 
-                    self.metrics
-                        .consensus_dag_rounds
-                        .with_label_values(&[])
-                        .set(self.state.dag.len() as i64);
+                    // TODO(metrics): Set consensus_dag_rounds to `self.state.dag.len() as i64`
                 },
 
             }
