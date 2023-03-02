@@ -5,17 +5,17 @@ use axum::routing::post;
 use axum::{extract::Extension, http::StatusCode, routing::get, Json, Router};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener};
 use std::time::Duration;
+use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
 use tracing::{error, info};
-use types::metered_channel::Sender;
 use types::{ConditionalBroadcastReceiver, ReconfigureNotification};
 
 pub fn start_admin_server(
     port: u16,
     network: anemo::Network,
     mut tr_shutdown: ConditionalBroadcastReceiver,
-    tx_state_handler: Option<Sender<ReconfigureNotification>>,
+    tx_state_handler: Option<mpsc::Sender<ReconfigureNotification>>,
 ) -> Vec<JoinHandle<()>> {
     let mut router = Router::new()
         .route("/peers", get(get_peers))
@@ -113,7 +113,7 @@ async fn get_known_peers(
 }
 
 async fn reconfigure(
-    Extension(tx_state_handler): Extension<Sender<ReconfigureNotification>>,
+    Extension(tx_state_handler): Extension<mpsc::Sender<ReconfigureNotification>>,
     Json(reconfigure_notification): Json<ReconfigureNotification>,
 ) -> StatusCode {
     let _ = tx_state_handler.send(reconfigure_notification).await;

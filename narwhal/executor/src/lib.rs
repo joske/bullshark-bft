@@ -10,23 +10,20 @@ pub use errors::{SubscriberError, SubscriberResult};
 pub use state::ExecutionIndices;
 use tracing::info;
 
-use crate::metrics::ExecutorMetrics;
 use async_trait::async_trait;
 use config::{Committee, SharedWorkerCache};
 use crypto::PublicKey;
-
-use prometheus::Registry;
 
 use std::sync::Arc;
 use storage::CertificateStore;
 
 use crate::subscriber::spawn_subscriber;
 use mockall::automock;
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinHandle;
 use types::{
-    metered_channel, CertificateDigest, CommittedSubDag, ConditionalBroadcastReceiver,
-    ConsensusOutput, ConsensusStore,
+    CertificateDigest, CommittedSubDag, ConditionalBroadcastReceiver, ConsensusOutput,
+    ConsensusStore,
 };
 
 /// Convenience type representing a serialized transaction.
@@ -58,18 +55,12 @@ impl Executor {
         committee: Committee,
         execution_state: State,
         shutdown_receivers: Vec<ConditionalBroadcastReceiver>,
-        rx_sequence: metered_channel::Receiver<CommittedSubDag>,
-        registry: &Registry,
+        rx_sequence: mpsc::Receiver<CommittedSubDag>,
         restored_consensus_output: Vec<CommittedSubDag>,
     ) -> SubscriberResult<Vec<JoinHandle<()>>>
     where
         State: ExecutionState + Send + Sync + 'static,
     {
-        let metrics = ExecutorMetrics::new(registry);
-
-        // We expect this will ultimately be needed in the `Core` as well as the `Subscriber`.
-        let arc_metrics = Arc::new(metrics);
-
         // Spawn the subscriber.
         let subscriber_handle = spawn_subscriber(
             name,
@@ -78,7 +69,6 @@ impl Executor {
             committee,
             shutdown_receivers,
             rx_sequence,
-            arc_metrics,
             restored_consensus_output,
             execution_state,
         );

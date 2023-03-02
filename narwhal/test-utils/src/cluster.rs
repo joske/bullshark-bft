@@ -8,7 +8,6 @@ use executor::SerializedTransaction;
 use fastcrypto::traits::KeyPair as _;
 use itertools::Itertools;
 use multiaddr::Multiaddr;
-use mysten_metrics::RegistryService;
 use node::primary_node::PrimaryNode;
 use node::worker_node::WorkerNode;
 use node::{execution_state::SimpleExecutionState, metrics::worker_metrics_registry};
@@ -299,13 +298,7 @@ impl PrimaryNodeDetails {
         // used just to initialise the struct value
         let (tx, _) = tokio::sync::broadcast::channel(1);
 
-        let registry_service = RegistryService::new(Registry::new());
-
-        let node = PrimaryNode::new(
-            parameters.clone(),
-            internal_consensus_enabled,
-            registry_service,
-        );
+        let node = PrimaryNode::new(parameters.clone(), internal_consensus_enabled);
 
         Self {
             id,
@@ -324,12 +317,10 @@ impl PrimaryNodeDetails {
 
     /// Returns the metric - if exists - identified by the provided name.
     /// If metric has not been found then None is returned instead.
-    pub async fn metric(&self, name: &str) -> Option<Metric> {
-        let (_registry_id, registry) = self.node.registry().await.unwrap();
-        let metrics = registry.gather();
-
-        let metric = metrics.into_iter().find(|m| m.get_name() == name);
-        metric.map(|m| m.get_metric().first().unwrap().clone())
+    pub async fn metric(&self, _name: &str) -> Option<Metric> {
+        // TODO(metrics): Somehow add this back?
+        // Stub due to removal mysten-metrics
+        None
     }
 
     async fn start(&mut self, preserve_store: bool) {
@@ -422,8 +413,7 @@ impl WorkerNodeDetails {
         committee: SharedCommittee,
         worker_cache: SharedWorkerCache,
     ) -> Self {
-        let registry_service = RegistryService::new(Registry::new());
-        let node = WorkerNode::new(id, parameters, registry_service);
+        let node = WorkerNode::new(id, parameters);
 
         Self {
             id,
@@ -464,7 +454,6 @@ impl WorkerNodeDetails {
                 self.worker_cache.clone(),
                 &worker_store,
                 TrivialTransactionValidator::default(),
-                None,
             )
             .await
             .unwrap();

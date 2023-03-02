@@ -1,14 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::metrics::NetworkConnectionMetrics;
 use anemo::PeerId;
 use std::collections::HashMap;
 use tokio::task::JoinHandle;
 
 pub struct ConnectionMonitor {
     network: anemo::NetworkRef,
-    connection_metrics: NetworkConnectionMetrics,
     peer_id_types: HashMap<PeerId, String>,
 }
 
@@ -16,13 +14,11 @@ impl ConnectionMonitor {
     #[must_use]
     pub fn spawn(
         network: anemo::NetworkRef,
-        connection_metrics: NetworkConnectionMetrics,
         peer_id_types: HashMap<PeerId, String>,
     ) -> JoinHandle<()> {
         tokio::spawn(
             Self {
                 network,
-                connection_metrics,
                 peer_id_types,
             }
             .run(),
@@ -44,16 +40,11 @@ impl ConnectionMonitor {
 
         // we report first all the known peers as disconnected - so we can see
         // their labels in the metrics reporting tool
-        for (peer_id, ty) in &self.peer_id_types {
-            self.connection_metrics
-                .network_peer_connected
-                .with_label_values(&[&format!("{peer_id}"), ty])
-                .set(0)
+        for (_peer_id, _ty) in &self.peer_id_types {
+            // TODO(metrics): Set `network_peer_connected` to 0
         }
 
-        self.connection_metrics
-            .network_peers
-            .set(connected_peers.len() as i64);
+        // TODO(metrics): Set `network_peers` to `connected_peers.len() as i64`
 
         // now report the connected peers
         for peer_id in connected_peers {
@@ -73,24 +64,18 @@ impl ConnectionMonitor {
     }
 
     fn handle_peer_connect(&self, peer_id: PeerId) {
-        self.connection_metrics.network_peers.inc();
+        // TODO(metrics): Increment `network_peers` by 1
 
-        if let Some(ty) = self.peer_id_types.get(&peer_id) {
-            self.connection_metrics
-                .network_peer_connected
-                .with_label_values(&[&format!("{peer_id}"), ty])
-                .set(1)
+        if let Some(_ty) = self.peer_id_types.get(&peer_id) {
+            // TODO(metrics): Set `network_peer_connected` to 1
         }
     }
 
     fn handle_peer_disconnect(&self, peer_id: PeerId) {
-        self.connection_metrics.network_peers.dec();
+        // TODO(metrics): Decrement `network_peers` by 1
 
-        if let Some(ty) = self.peer_id_types.get(&peer_id) {
-            self.connection_metrics
-                .network_peer_connected
-                .with_label_values(&[&format!("{peer_id}"), ty])
-                .set(0)
+        if let Some(_ty) = self.peer_id_types.get(&peer_id) {
+            // TODO(metrics): Set `network_peer_connected` to 0
         }
     }
 }

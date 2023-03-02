@@ -9,9 +9,9 @@ use fastcrypto::hash::Hash;
 use futures::stream::{futures_unordered::FuturesUnordered, FuturesOrdered, StreamExt as _};
 use network::{CancelOnDropHandler, ReliableNetwork};
 use std::time::Duration;
-use tokio::{task::JoinHandle, time::timeout};
+use tokio::{sync::mpsc, task::JoinHandle, time::timeout};
 use tracing::{error, trace};
-use types::{metered_channel::Receiver, Batch, ConditionalBroadcastReceiver, WorkerBatchMessage};
+use types::{Batch, ConditionalBroadcastReceiver, WorkerBatchMessage};
 
 #[cfg(test)]
 #[path = "tests/quorum_waiter_tests.rs"]
@@ -30,7 +30,7 @@ pub struct QuorumWaiter {
     /// Receiver for shutdown.
     rx_shutdown: ConditionalBroadcastReceiver,
     /// Input Channel to receive commands.
-    rx_message: Receiver<(Batch, Option<tokio::sync::oneshot::Sender<()>>)>,
+    rx_message: mpsc::Receiver<(Batch, Option<tokio::sync::oneshot::Sender<()>>)>,
     /// A network sender to broadcast the batches to the other workers.
     network: anemo::Network,
 }
@@ -44,7 +44,7 @@ impl QuorumWaiter {
         committee: Committee,
         worker_cache: SharedWorkerCache,
         rx_shutdown: ConditionalBroadcastReceiver,
-        rx_message: Receiver<(Batch, Option<tokio::sync::oneshot::Sender<()>>)>,
+        rx_message: mpsc::Receiver<(Batch, Option<tokio::sync::oneshot::Sender<()>>)>,
         network: anemo::Network,
     ) -> JoinHandle<()> {
         tokio::spawn(async move {

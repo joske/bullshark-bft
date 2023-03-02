@@ -1,6 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
-use crate::{errors::SubscriberResult, metrics::ExecutorMetrics, ExecutionState};
+use crate::{errors::SubscriberResult, ExecutionState};
 
 use config::{Committee, SharedWorkerCache, WorkerId};
 use crypto::{NetworkPublicKey, PublicKey};
@@ -12,8 +12,8 @@ use futures::StreamExt;
 use network::WorkerRpc;
 
 use anyhow::bail;
-use prometheus::IntGauge;
 use std::{sync::Arc, time::Duration, vec};
+use tokio::sync::mpsc;
 
 use async_trait::async_trait;
 use fastcrypto::hash::Hash;
@@ -24,8 +24,8 @@ use tokio::{sync::oneshot, task::JoinHandle};
 use tracing::{debug, error, warn};
 use tracing::{info, instrument};
 use types::{
-    metered_channel, Batch, BatchDigest, Certificate, CommittedSubDag,
-    ConditionalBroadcastReceiver, ConsensusOutput, Timestamp,
+    Batch, BatchDigest, Certificate, CommittedSubDag, ConditionalBroadcastReceiver,
+    ConsensusOutput, Timestamp,
 };
 
 /// The `Subscriber` receives certificates sequenced by the consensus and waits until the
@@ -35,16 +35,13 @@ pub struct Subscriber<Network> {
     /// Receiver for shutdown
     rx_shutdown: ConditionalBroadcastReceiver,
     /// A channel to receive sequenced consensus messages.
-    rx_sequence: metered_channel::Receiver<CommittedSubDag>,
-    /// The metrics handler
-    metrics: Arc<ExecutorMetrics>,
+    rx_sequence: mpsc::Receiver<CommittedSubDag>,
 
     fetcher: Fetcher<Network>,
 }
 
 struct Fetcher<Network> {
     network: Network,
-    metrics: Arc<ExecutorMetrics>,
 }
 
 pub fn spawn_subscriber<State: ExecutionState + Send + Sync + 'static>(
@@ -53,8 +50,7 @@ pub fn spawn_subscriber<State: ExecutionState + Send + Sync + 'static>(
     worker_cache: SharedWorkerCache,
     committee: Committee,
     mut shutdown_receivers: Vec<ConditionalBroadcastReceiver>,
-    rx_sequence: metered_channel::Receiver<CommittedSubDag>,
-    metrics: Arc<ExecutorMetrics>,
+    rx_sequence: mpsc::Receiver<CommittedSubDag>,
     restored_consensus_output: Vec<CommittedSubDag>,
     state: State,
 ) -> Vec<JoinHandle<()>> {
@@ -63,8 +59,7 @@ pub fn spawn_subscriber<State: ExecutionState + Send + Sync + 'static>(
     // To construct server side we need to set up routes first, which requires starting Primary
     // Some cleanup is needed
 
-    let (tx_notifier, rx_notifier) =
-        metered_channel::channel(primary::CHANNEL_CAPACITY, &metrics.tx_notifier);
+    let (tx_notifier, rx_notifier) = mpsc::channel(primary::CHANNEL_CAPACITY);
 
     let rx_shutdown_notify = shutdown_receivers
         .pop()
@@ -82,7 +77,6 @@ pub fn spawn_subscriber<State: ExecutionState + Send + Sync + 'static>(
             committee,
             rx_shutdown_subscriber,
             rx_sequence,
-            metrics,
             restored_consensus_output,
             tx_notifier,
         )),
@@ -91,7 +85,7 @@ pub fn spawn_subscriber<State: ExecutionState + Send + Sync + 'static>(
 
 async fn run_notify<State: ExecutionState + Send + Sync + 'static>(
     state: State,
-    mut tr_notify: metered_channel::Receiver<ConsensusOutput>,
+    mut tr_notify: mpsc::Receiver<ConsensusOutput>,
     mut rx_shutdown: ConditionalBroadcastReceiver,
 ) {
     loop {
@@ -114,10 +108,9 @@ async fn create_and_run_subscriber(
     worker_cache: SharedWorkerCache,
     committee: Committee,
     rx_shutdown: ConditionalBroadcastReceiver,
-    rx_sequence: metered_channel::Receiver<CommittedSubDag>,
-    metrics: Arc<ExecutorMetrics>,
+    rx_sequence: mpsc::Receiver<CommittedSubDag>,
     restored_consensus_output: Vec<CommittedSubDag>,
-    tx_notifier: metered_channel::Sender<ConsensusOutput>,
+    tx_notifier: mpsc::Sender<ConsensusOutput>,
 ) {
     let network = network.await.expect("Failed to receive network");
     info!("Starting subscriber");
@@ -127,14 +120,10 @@ async fn create_and_run_subscriber(
         committee,
         network,
     };
-    let fetcher = Fetcher {
-        network,
-        metrics: metrics.clone(),
-    };
+    let fetcher = Fetcher { network };
     let subscriber = Subscriber {
         rx_shutdown,
         rx_sequence,
-        metrics,
         fetcher,
     };
     subscriber
@@ -151,7 +140,7 @@ impl<Network: SubscriberNetwork> Subscriber<Network> {
     async fn run(
         mut self,
         restored_consensus_output: Vec<CommittedSubDag>,
-        tx_notifier: metered_channel::Sender<ConsensusOutput>,
+        tx_notifier: mpsc::Sender<ConsensusOutput>,
     ) -> SubscriberResult<()> {
         // It's important to have the futures in ordered fashion as we want
         // to guarantee that will deliver to the executor the certificates
@@ -167,7 +156,7 @@ impl<Network: SubscriberNetwork> Subscriber<Network> {
             let future = self.fetcher.fetch_payloads(message);
             waiting.push_back(future);
 
-            self.metrics.subscriber_recovered_certificates_count.inc();
+            // TODO(metrics): Increment `subscriber_recovered_certificates_count` by 1.
         }
 
         // Listen to sequenced consensus message and process them.
@@ -196,9 +185,7 @@ impl<Network: SubscriberNetwork> Subscriber<Network> {
 
             }
 
-            self.metrics
-                .waiting_elements_subscriber
-                .set(waiting.len() as i64);
+            // TODO(metrics): Set `waiting_elements_subscriber` to `waiting.len() as i64`
         }
     }
 }
@@ -229,16 +216,11 @@ impl<Network: SubscriberNetwork> Fetcher<Network> {
             let mut batches = Vec::with_capacity(num_batches);
             let output_cert = cert.clone();
 
-            self.metrics
-                .subscriber_current_round
-                .set(cert.round() as i64);
-
-            self.metrics
-                .subscriber_certificate_latency
-                .observe(cert.metadata.created_at.elapsed().as_secs_f64());
+            // TODO(metrics): Set `subscriber_current_round` to `cert.round() as i64`.
+            // TODO(metrics): Set `subscriber_certificate_latency` to `cert.metadata.created_at.elapsed().as_secs_f64()`.
 
             for (digest, (worker_id, _)) in cert.header.payload.iter() {
-                self.metrics.subscriber_processed_batches.inc();
+                // TODO(metrics): Increment `subscriber_processed_batches` by 1.
 
                 let mut workers = self.network.workers_for_certificate(cert, worker_id);
 
@@ -270,9 +252,8 @@ impl<Network: SubscriberNetwork> Fetcher<Network> {
     ) -> Batch {
         if let Some(payload) = self.try_fetch_locally(digest, worker_id).await {
             let batch_fetch_duration = payload.metadata.created_at.elapsed().as_secs_f64();
-            self.metrics
-                .batch_execution_latency
-                .observe(batch_fetch_duration);
+            // TODO(metrics): Observe `batch_fetch_duration` as `batch_execution_latency`
+
             debug!(
                 "Batch {:?} took {} seconds to be fetched for execution since creation",
                 payload.digest(),
@@ -280,7 +261,7 @@ impl<Network: SubscriberNetwork> Fetcher<Network> {
             );
             return payload;
         }
-        let _timer = self.metrics.subscriber_remote_fetch_latency.start_timer();
+        // TODO(metrics): Start `subscriber_remote_fetch_latency` timer.
         let mut stagger = Duration::from_secs(0);
         let mut futures = vec![];
         for worker in workers {
@@ -292,9 +273,9 @@ impl<Network: SubscriberNetwork> Fetcher<Network> {
         }
         let (batch, _, _) = futures::future::select_all(futures).await;
         let batch_fetch_duration = batch.metadata.created_at.elapsed().as_secs_f64();
-        self.metrics
-            .batch_execution_latency
-            .observe(batch_fetch_duration);
+
+        // TODO(metrics): Observe `batch_fetch_duration` as `batch_execution_latency`
+
         debug!(
             "Batch {:?} took {} seconds to be fetched for execution since creation",
             batch.digest(),
@@ -305,13 +286,13 @@ impl<Network: SubscriberNetwork> Fetcher<Network> {
 
     #[instrument(level = "debug", skip_all, fields(digest = % digest, worker_id = % worker_id))]
     async fn try_fetch_locally(&self, digest: BatchDigest, worker_id: WorkerId) -> Option<Batch> {
-        let _timer = self.metrics.subscriber_local_fetch_latency.start_timer();
+        // TODO(metrics): Start `subscriber_local_fetch_latency` timer.
         let worker = self.network.my_worker(&worker_id);
         let payload = self.network.request_batch(digest, worker).await;
         match payload {
             Ok(Some(batch)) => {
                 debug!("Payload {} found locally", digest);
-                self.metrics.subscriber_local_hit.inc();
+                // TODO(metrics): Increment `subscriber_local_hit` by 1.
                 return Some(batch);
             }
             Ok(None) => debug!("Payload {} not found locally", digest),
@@ -338,12 +319,11 @@ impl<Network: SubscriberNetwork> Fetcher<Network> {
         loop {
             attempt += 1;
             let deadline = Instant::now() + timeout;
-            let request_batch_guard =
-                PendingGuard::make_inc(&self.metrics.pending_remote_request_batch);
+            // TODO(metrics): Increment `pending_remote_request_batch` by 1.
             let payload =
                 tokio::time::timeout_at(deadline, self.safe_request_batch(digest, worker.clone()))
                     .await;
-            drop(request_batch_guard);
+            // TODO(metrics): Decrement `pending_remote_request_batch` by 1.
             match payload {
                 Ok(Ok(Some(payload))) => return payload,
                 Ok(Ok(None)) => error!("[Protocol violation] Payload {} was not found at worker {} while authority signed certificate", digest, worker),
@@ -379,24 +359,6 @@ impl<Network: SubscriberNetwork> Fetcher<Network> {
         } else {
             Ok(None)
         }
-    }
-}
-
-// todo - make it generic so that other can reuse
-struct PendingGuard<'a> {
-    metric: &'a IntGauge,
-}
-
-impl<'a> PendingGuard<'a> {
-    pub fn make_inc(metric: &'a IntGauge) -> Self {
-        metric.inc();
-        Self { metric }
-    }
-}
-
-impl<'a> Drop for PendingGuard<'a> {
-    fn drop(&mut self) {
-        self.metric.dec()
     }
 }
 

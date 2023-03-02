@@ -1,7 +1,6 @@
 // Copyright (c) 2021, Facebook, Inc. and its affiliates
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
-use crate::metrics::PrimaryMetrics;
 use config::{Committee, SharedWorkerCache};
 use crypto::{NetworkPublicKey, PublicKey};
 use futures::{stream::FuturesUnordered, StreamExt};
@@ -16,14 +15,16 @@ use std::{
 use storage::CertificateStore;
 use tokio::task::{spawn_blocking, JoinSet};
 use tokio::{
-    sync::{oneshot, watch},
+    sync::{
+        mpsc::{Receiver, Sender},
+        oneshot, watch,
+    },
     task::JoinHandle,
     time::{sleep, timeout, Instant},
 };
 use tracing::{debug, error, instrument, trace, warn};
 use types::{
     error::{DagError, DagResult},
-    metered_channel::{Receiver, Sender},
     Certificate, ConditionalBroadcastReceiver, FetchCertificatesRequest, FetchCertificatesResponse,
     Round,
 };
@@ -95,8 +96,6 @@ struct CertificateFetcherState {
     network: anemo::Network,
     /// Loops fetched certificates back to the core. Certificates are ensured to have all parents.
     tx_certificates_loopback: Sender<CertificateLoopbackMessage>,
-    /// The metrics handler
-    metrics: Arc<PrimaryMetrics>,
 }
 
 impl CertificateFetcher {
@@ -112,13 +111,11 @@ impl CertificateFetcher {
         rx_shutdown: ConditionalBroadcastReceiver,
         rx_certificate_fetcher: Receiver<Certificate>,
         tx_certificates_loopback: Sender<CertificateLoopbackMessage>,
-        metrics: Arc<PrimaryMetrics>,
     ) -> JoinHandle<()> {
         let state = Arc::new(CertificateFetcherState {
             name,
             network,
             tx_certificates_loopback,
-            metrics,
         });
 
         tokio::spawn(async move {
@@ -269,7 +266,7 @@ impl CertificateFetcher {
             gc_round
         );
         self.fetch_certificates_task.spawn(async move {
-            state.metrics.certificate_fetcher_inflight_fetch.inc();
+            // TODO(metrics): Increment `certificate_fetcher_inflight_fetch` by 1
 
             let now = Instant::now();
             match run_fetch_task(
@@ -292,7 +289,7 @@ impl CertificateFetcher {
                 }
             };
 
-            state.metrics.certificate_fetcher_inflight_fetch.dec();
+            // TODO(metrics): Decrement `certificate_fetcher_inflight_fetch` by 1
         });
     }
 
@@ -331,10 +328,8 @@ async fn run_fetch_task(
         &worker_cahce,
     )
     .await?;
-    state
-        .metrics
-        .certificate_fetcher_num_certificates_processed
-        .add(num_certs_fetched as i64);
+
+    // TODO(metrics): Increment `certificate_fetcher_num_certificates_processed` by `num_certs_fetched as i64`
 
     debug!("Successfully fetched and processed {num_certs_fetched} certificates");
     Ok(())

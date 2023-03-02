@@ -1,18 +1,17 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
-use crate::metrics::WorkerEndpointMetrics;
 use crate::TransactionValidator;
 use async_trait::async_trait;
 use futures::StreamExt;
 use multiaddr::Multiaddr;
 use mysten_network::server::Server;
 use std::time::Duration;
+use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio::time::{sleep, timeout};
 use tonic::{Request, Response, Status};
 use tracing::{error, info, warn};
 use types::error::DagError;
-use types::metered_channel::Sender;
 use types::{
     ConditionalBroadcastReceiver, Empty, Transaction, TransactionProto, Transactions,
     TransactionsServer, TxResponse,
@@ -24,8 +23,7 @@ pub const MAX_ALLOWED_TRANSACTION_SIZE: usize = 6 * 1024 * 1024;
 pub struct TxServer<V: TransactionValidator> {
     address: Multiaddr,
     rx_shutdown: ConditionalBroadcastReceiver,
-    endpoint_metrics: WorkerEndpointMetrics,
-    tx_batch_maker: Sender<(Transaction, TxResponse)>,
+    tx_batch_maker: mpsc::Sender<(Transaction, TxResponse)>,
     validator: V,
 }
 
@@ -34,15 +32,13 @@ impl<V: TransactionValidator> TxServer<V> {
     pub fn spawn(
         address: Multiaddr,
         rx_shutdown: ConditionalBroadcastReceiver,
-        endpoint_metrics: WorkerEndpointMetrics,
-        tx_batch_maker: Sender<(Transaction, TxResponse)>,
+        tx_batch_maker: mpsc::Sender<(Transaction, TxResponse)>,
         validator: V,
     ) -> JoinHandle<()> {
         tokio::spawn(
             Self {
                 address,
                 tx_batch_maker,
-                endpoint_metrics,
                 validator,
                 rx_shutdown,
             }
@@ -67,7 +63,7 @@ impl<V: TransactionValidator> TxServer<V> {
 
         loop {
             match mysten_network::config::Config::new()
-                .server_builder_with_metrics(self.endpoint_metrics.clone())
+                .server_builder()
                 .add_service(TransactionsServer::new(tx_handler.clone()))
                 .bind(&self.address)
                 .await
@@ -125,7 +121,7 @@ impl<V: TransactionValidator> TxServer<V> {
 /// Defines how the network receiver handles incoming transactions.
 #[derive(Clone)]
 pub(crate) struct TxReceiverHandler<V> {
-    pub(crate) tx_batch_maker: Sender<(Transaction, TxResponse)>,
+    pub(crate) tx_batch_maker: mpsc::Sender<(Transaction, TxResponse)>,
     pub(crate) validator: V,
 }
 

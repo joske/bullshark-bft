@@ -12,11 +12,11 @@ use futures::{stream::FuturesUnordered, StreamExt};
 use rand::seq::SliceRandom;
 use std::{collections::HashSet, time::Duration};
 use store::Store;
-use tokio::time::sleep;
+use tokio::{sync::mpsc, time::sleep};
 use tracing::{debug, error, info, trace, warn};
 use types::{
-    metered_channel::Sender, Batch, BatchDigest, PrimaryToWorker, RequestBatchRequest,
-    RequestBatchResponse, WorkerBatchMessage, WorkerDeleteBatchesMessage, WorkerOthersBatchMessage,
+    Batch, BatchDigest, PrimaryToWorker, RequestBatchRequest, RequestBatchResponse,
+    WorkerBatchMessage, WorkerDeleteBatchesMessage, WorkerOthersBatchMessage,
     WorkerReconfigureMessage, WorkerSynchronizeMessage, WorkerToWorker, WorkerToWorkerClient,
 };
 
@@ -30,7 +30,7 @@ pub mod handlers_tests;
 #[derive(Clone)]
 pub struct WorkerReceiverHandler<V> {
     pub id: WorkerId,
-    pub tx_others_batch: Sender<WorkerOthersBatchMessage>,
+    pub tx_others_batch: mpsc::Sender<WorkerOthersBatchMessage>,
     pub store: Store<BatchDigest, Batch>,
     pub validator: V,
 }

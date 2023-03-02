@@ -7,7 +7,6 @@ use crate::{
     certificate_fetcher::CertificateFetcher,
     core::Core,
     grpc_server::ConsensusAPIGrpc,
-    metrics::{initialise_metrics, PrimaryMetrics},
     proposer::{OurDigestMessage, Proposer},
     state_handler::StateHandler,
     synchronizer::Synchronizer,
@@ -36,8 +35,7 @@ use fastcrypto::{
 };
 use multiaddr::{Multiaddr, Protocol};
 use network::epoch_filter::{AllowedEpoch, EPOCH_HEADER_KEY};
-use network::{failpoints::FailpointsMakeCallbackHandler, metrics::MetricsMakeCallbackHandler};
-use prometheus::Registry;
+use network::failpoints::FailpointsMakeCallbackHandler;
 use std::collections::HashMap;
 use std::{
     cmp::Reverse,
@@ -49,8 +47,12 @@ use std::{
 };
 use storage::{CertificateStore, PayloadToken, ProposerStore};
 use store::Store;
-use tokio::{sync::oneshot, time::Instant};
+use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::{sync::watch, task::JoinHandle};
+use tokio::{
+    sync::{mpsc, oneshot},
+    time::Instant,
+};
 use tower::ServiceBuilder;
 use tracing::{debug, error, info, instrument, trace, warn};
 
@@ -58,7 +60,6 @@ pub use types::PrimaryMessage;
 use types::{
     ensure,
     error::{DagError, DagResult},
-    metered_channel::{channel_with_total, Receiver, Sender},
     now, BatchDigest, Certificate, CertificateDigest, FetchCertificatesRequest,
     FetchCertificatesResponse, GetCertificatesRequest, GetCertificatesResponse, Header,
     HeaderDigest, PayloadAvailabilityRequest, PayloadAvailabilityResponse,
@@ -110,7 +111,6 @@ impl Primary {
         network_model: NetworkModel,
         tx_shutdown: &mut PreSubscribedBroadcastSender,
         tx_committed_certificates: Sender<(Round, Vec<Certificate>)>,
-        registry: &Registry,
         // See comments in Subscriber::spawn
         tx_executor_network: Option<oneshot::Sender<anemo::Network>>,
     ) -> Vec<JoinHandle<()>> {
@@ -124,72 +124,16 @@ impl Primary {
             name.encode_base64()
         );
 
-        // Initialize the metrics
-        let metrics = initialise_metrics(registry);
-        let endpoint_metrics = metrics.endpoint_metrics.unwrap();
-        let mut primary_channel_metrics = metrics.primary_channel_metrics.unwrap();
-        let inbound_network_metrics = Arc::new(metrics.inbound_network_metrics.unwrap());
-        let outbound_network_metrics = Arc::new(metrics.outbound_network_metrics.unwrap());
-        let node_metrics = Arc::new(metrics.node_metrics.unwrap());
-        let network_connection_metrics = metrics.network_connection_metrics.unwrap();
-
-        let (tx_our_digests, rx_our_digests) = channel_with_total(
-            CHANNEL_CAPACITY,
-            &primary_channel_metrics.tx_our_digests,
-            &primary_channel_metrics.tx_our_digests_total,
-        );
-        let (tx_parents, rx_parents) = channel_with_total(
-            CHANNEL_CAPACITY,
-            &primary_channel_metrics.tx_parents,
-            &primary_channel_metrics.tx_parents_total,
-        );
-        let (tx_headers, rx_headers) = channel_with_total(
-            CHANNEL_CAPACITY,
-            &primary_channel_metrics.tx_headers,
-            &primary_channel_metrics.tx_headers_total,
-        );
-        let (tx_certificate_fetcher, rx_certificate_fetcher) = channel_with_total(
-            CHANNEL_CAPACITY,
-            &primary_channel_metrics.tx_certificate_fetcher,
-            &primary_channel_metrics.tx_certificate_fetcher_total,
-        );
-        let (tx_certificates_loopback, rx_certificates_loopback) = channel_with_total(
-            1, // Only one inflight item is possible.
-            &primary_channel_metrics.tx_certificates_loopback,
-            &primary_channel_metrics.tx_certificates_loopback_total,
-        );
-        let (tx_certificates, rx_certificates) = channel_with_total(
-            CHANNEL_CAPACITY,
-            &primary_channel_metrics.tx_certificates,
-            &primary_channel_metrics.tx_certificates_total,
-        );
-        let (tx_block_synchronizer_commands, rx_block_synchronizer_commands) = channel_with_total(
-            CHANNEL_CAPACITY,
-            &primary_channel_metrics.tx_block_synchronizer_commands,
-            &primary_channel_metrics.tx_block_synchronizer_commands_total,
-        );
-        let (tx_state_handler, _rx_state_handler) = channel_with_total(
-            CHANNEL_CAPACITY,
-            &primary_channel_metrics.tx_state_handler,
-            &primary_channel_metrics.tx_state_handler_total,
-        );
-        let (tx_committed_own_headers, rx_committed_own_headers) = channel_with_total(
-            CHANNEL_CAPACITY,
-            &primary_channel_metrics.tx_commited_own_headers,
-            &primary_channel_metrics.tx_commited_own_headers_total,
-        );
-
-        // we need to hack the gauge from this consensus channel into the primary registry
-        // This avoids a cyclic dependency in the initialization of consensus and primary
-        let committed_certificates_gauge = tx_committed_certificates.gauge().clone();
-        primary_channel_metrics.replace_registered_committed_certificates_metric(
-            registry,
-            Box::new(committed_certificates_gauge),
-        );
-
-        let new_certificates_gauge = tx_new_certificates.gauge().clone();
-        primary_channel_metrics
-            .replace_registered_new_certificates_metric(registry, Box::new(new_certificates_gauge));
+        let (tx_our_digests, rx_our_digests) = mpsc::channel(CHANNEL_CAPACITY);
+        let (tx_parents, rx_parents) = mpsc::channel(CHANNEL_CAPACITY);
+        let (tx_headers, rx_headers) = mpsc::channel(CHANNEL_CAPACITY);
+        let (tx_certificate_fetcher, rx_certificate_fetcher) = mpsc::channel(CHANNEL_CAPACITY);
+        let (tx_certificates_loopback, rx_certificates_loopback) = mpsc::channel(1);
+        let (tx_certificates, rx_certificates) = mpsc::channel(CHANNEL_CAPACITY);
+        let (tx_block_synchronizer_commands, rx_block_synchronizer_commands) =
+            mpsc::channel(CHANNEL_CAPACITY);
+        let (tx_state_handler, _rx_state_handler) = mpsc::channel(CHANNEL_CAPACITY);
+        let (tx_committed_own_headers, rx_committed_own_headers) = mpsc::channel(CHANNEL_CAPACITY);
 
         let (tx_narwhal_round_updates, rx_narwhal_round_updates) = watch::channel(0u64);
 
@@ -234,7 +178,6 @@ impl Primary {
             payload_store: payload_store.clone(),
             vote_digest_store,
             rx_narwhal_round_updates: rx_narwhal_round_updates.clone(),
-            metrics: node_metrics.clone(),
         })
         // Allow only one inflight RequestVote RPC at a time per peer.
         // This is required for correctness.
@@ -312,9 +255,6 @@ impl Primary {
                     .make_span_with(DefaultMakeSpan::new().level(tracing::Level::INFO))
                     .on_failure(DefaultOnFailure::new().level(tracing::Level::WARN)),
             )
-            .layer(CallbackLayer::new(MetricsMakeCallbackHandler::new(
-                inbound_network_metrics,
-            )))
             .layer(CallbackLayer::new(FailpointsMakeCallbackHandler::new()))
             .layer(SetResponseHeaderLayer::overriding(
                 EPOCH_HEADER_KEY.parse().unwrap(),
@@ -328,9 +268,6 @@ impl Primary {
                     .make_span_with(DefaultMakeSpan::new().level(tracing::Level::INFO))
                     .on_failure(DefaultOnFailure::new().level(tracing::Level::WARN)),
             )
-            .layer(CallbackLayer::new(MetricsMakeCallbackHandler::new(
-                outbound_network_metrics,
-            )))
             .layer(CallbackLayer::new(FailpointsMakeCallbackHandler::new()))
             .layer(SetRequestHeaderLayer::overriding(
                 EPOCH_HEADER_KEY.parse().unwrap(),
@@ -430,11 +367,8 @@ impl Primary {
             );
         }
 
-        let connection_monitor_handle = network::connectivity::ConnectionMonitor::spawn(
-            network.downgrade(),
-            network_connection_metrics,
-            peer_types,
-        );
+        let connection_monitor_handle =
+            network::connectivity::ConnectionMonitor::spawn(network.downgrade(), peer_types);
 
         info!(
             "Primary {} listening to network admin messages on 127.0.0.1:{}",
@@ -475,7 +409,6 @@ impl Primary {
             rx_headers,
             tx_new_certificates,
             tx_parents,
-            node_metrics.clone(),
             network.clone(),
         );
 
@@ -492,7 +425,6 @@ impl Primary {
             tx_shutdown.subscribe(),
             rx_certificate_fetcher,
             tx_certificates_loopback,
-            node_metrics.clone(),
         );
 
         // When the `Core` collects enough parent certificates, the `Proposer` generates a new header with new batch
@@ -514,7 +446,6 @@ impl Primary {
             tx_headers,
             tx_narwhal_round_updates,
             rx_committed_own_headers,
-            node_metrics,
         );
 
         let mut handles = vec![
@@ -586,7 +517,6 @@ impl Primary {
                 block_synchronizer_handler,
                 dag,
                 committee.clone(),
-                endpoint_metrics,
                 tx_shutdown.subscribe(),
             );
 
@@ -652,7 +582,6 @@ struct PrimaryReceiverHandler {
     vote_digest_store: Store<PublicKey, VoteInfo>,
     /// Get a signal when the round changes.
     rx_narwhal_round_updates: watch::Receiver<Round>,
-    metrics: Arc<PrimaryMetrics>,
 }
 
 #[allow(clippy::result_large_err)]
@@ -681,7 +610,7 @@ impl PrimaryReceiverHandler {
         let digest = certificate.digest();
         if self.certificate_store.contains(&digest)? {
             trace!("Certificate {digest:?} has already been processed. Skip processing.");
-            self.metrics.duplicate_certificates_processed.inc();
+            // TODO(metrics): Increment `duplicate_certificates_processed` by 1
             return Ok(false);
         }
         certificate.verify(&self.committee.load(), self.worker_cache.clone())?;
@@ -885,7 +814,7 @@ impl PrimaryReceiverHandler {
                         "Authority {} submitted duplicate header for votes at epoch {}, round {}",
                         header.author, header.epoch, header.round
                     );
-                    self.metrics.votes_dropped_equivocation_protection.inc();
+                    // TODO(metrics): Increment `votes_dropped_equivocation_protection` by 1
                     return Err(DagError::AlreadyVoted(vote_info.vote_digest, header.round));
                 }
             }

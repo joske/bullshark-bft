@@ -28,10 +28,14 @@ use std::{
 use storage::{CertificateStore, PayloadToken};
 use store::Store;
 use thiserror::Error;
-use tokio::{sync::mpsc::Sender, task::JoinHandle, time::timeout};
+use tokio::{
+    sync::mpsc::{self, Sender},
+    task::JoinHandle,
+    time::timeout,
+};
 use tracing::{debug, error, info, instrument, trace, warn};
 use types::{
-    metered_channel, BatchDigest, Certificate, CertificateDigest, ConditionalBroadcastReceiver,
+    BatchDigest, Certificate, CertificateDigest, ConditionalBroadcastReceiver,
     GetCertificatesRequest, PayloadAvailabilityRequest, PrimaryToPrimaryClient,
     WorkerSynchronizeMessage,
 };
@@ -158,7 +162,7 @@ pub struct BlockSynchronizer {
     rx_shutdown: ConditionalBroadcastReceiver,
 
     /// Receive the commands for the synchronizer
-    rx_block_synchronizer_commands: metered_channel::Receiver<Command>,
+    rx_block_synchronizer_commands: mpsc::Receiver<Command>,
 
     /// Pending block requests either for header or payload type
     pending_requests: HashMap<PendingIdentifier, Vec<ResultSender>>,
@@ -189,7 +193,7 @@ impl BlockSynchronizer {
         committee: Committee,
         worker_cache: SharedWorkerCache,
         rx_shutdown: ConditionalBroadcastReceiver,
-        rx_block_synchronizer_commands: metered_channel::Receiver<Command>,
+        rx_block_synchronizer_commands: mpsc::Receiver<Command>,
         network: anemo::Network,
         payload_store: Store<(BatchDigest, WorkerId), PayloadToken>,
         certificate_store: CertificateStore,
