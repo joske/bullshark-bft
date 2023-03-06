@@ -3097,7 +3097,6 @@ dependencies = [
  "narwhal-types",
  "narwhal-worker",
  "once_cell",
- "prometheus",
  "proptest",
  "prost",
  "rand",
