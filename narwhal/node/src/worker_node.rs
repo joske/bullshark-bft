@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{try_join_all, FuturesUnordered, NodeError};
-use arc_swap::{ArcSwap, ArcSwapOption};
+use arc_swap::ArcSwap;
 use config::{Parameters, SharedCommittee, SharedWorkerCache, WorkerId};
 use crypto::{NetworkKeyPair, PublicKey};
-use mysten_metrics::{RegistryID, RegistryService};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
@@ -176,17 +175,13 @@ impl WorkerNode {
 
 pub struct WorkerNodes {
     workers: ArcSwap<HashMap<WorkerId, WorkerNode>>,
-    registry_service: RegistryService,
-    registry_id: ArcSwapOption<RegistryID>,
     parameters: Parameters,
 }
 
 impl WorkerNodes {
-    pub fn new(registry_service: RegistryService, parameters: Parameters) -> Self {
+    pub fn new(parameters: Parameters) -> Self {
         Self {
             workers: ArcSwap::from(Arc::new(HashMap::default())),
-            registry_service,
-            registry_id: ArcSwapOption::empty(),
             parameters,
         }
     }
@@ -247,12 +242,6 @@ impl WorkerNodes {
         for (key, worker) in self.workers.load_full().as_ref() {
             info!("Shutting down worker {}", key);
             worker.shutdown().await;
-        }
-
-        // now remove the registry id
-        if let Some(old_registry_id) = self.registry_id.swap(None) {
-            // a little of defensive programming - ensure that we always clean up the previous registry
-            self.registry_service.remove(*old_registry_id.as_ref());
         }
 
         // now clean up the worker handles
