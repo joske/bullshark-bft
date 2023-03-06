@@ -2998,7 +2998,6 @@ dependencies = [
  "narwhal-crypto",
  "narwhal-test-utils",
  "narwhal-types",
- "prometheus",
  "rand",
  "serde",
  "thiserror",
