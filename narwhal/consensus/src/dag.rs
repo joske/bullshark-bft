@@ -9,7 +9,7 @@ use std::{
     borrow::Borrow,
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
     ops::RangeInclusive,
-    sync::{Arc, RwLock},
+    sync::RwLock,
 };
 use thiserror::Error;
 use tokio::{
@@ -22,7 +22,7 @@ use tokio::{
 use tracing::instrument;
 use types::{Certificate, CertificateDigest, ConditionalBroadcastReceiver, Round};
 
-use crate::{metrics::ConsensusMetrics, DEFAULT_CHANNEL_SIZE};
+use crate::DEFAULT_CHANNEL_SIZE;
 
 #[cfg(any(test))]
 #[path = "tests/dag_tests.rs"]
@@ -48,8 +48,6 @@ struct InnerDag {
     /// Secondary index: An authority-aware map of the DAG's vertex Certificates
     vertices: RwLock<BTreeMap<(PublicKey, Round), CertificateDigest>>,
 
-    /// Metrics handler
-    metrics: Arc<ConsensusMetrics>,
     /// Receiver of shutdown signal
     rx_shutdown: ConditionalBroadcastReceiver,
 }
@@ -109,7 +107,6 @@ impl InnerDag {
         rx_commands: Receiver<DagCommand>,
         dag: NodeDag<Certificate>,
         vertices: RwLock<BTreeMap<(PublicKey, Round), CertificateDigest>>,
-        metrics: Arc<ConsensusMetrics>,
         rx_shutdown: ConditionalBroadcastReceiver,
     ) -> Self {
         let mut idg = InnerDag {
@@ -117,7 +114,6 @@ impl InnerDag {
             rx_commands,
             dag,
             vertices,
-            metrics,
             rx_shutdown,
         };
         let genesis = Certificate::genesis(committee);
@@ -339,7 +335,6 @@ impl Dag {
     pub fn new(
         committee: &Committee,
         rx_primary: mpsc::Receiver<Certificate>,
-        metrics: Arc<ConsensusMetrics>,
         rx_shutdown: ConditionalBroadcastReceiver,
     ) -> (JoinHandle<()>, Self) {
         let (tx_commands, rx_commands) = tokio::sync::mpsc::channel(DEFAULT_CHANNEL_SIZE);
@@ -349,7 +344,6 @@ impl Dag {
             rx_commands,
             /* dag */ NodeDag::new(),
             /* vertices */ RwLock::new(BTreeMap::new()),
-            metrics,
             rx_shutdown,
         );
 

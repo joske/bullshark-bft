@@ -4,7 +4,6 @@ use crate::{try_join_all, FuturesUnordered, NodeError};
 use config::{Parameters, SharedCommittee, SharedWorkerCache};
 use consensus::bullshark::Bullshark;
 use consensus::dag::Dag;
-use consensus::metrics::ConsensusMetrics;
 use consensus::Consensus;
 use crypto::{KeyPair, NetworkKeyPair, PublicKey};
 use executor::{get_restored_consensus_output, ExecutionState, Executor, SubscriberResult};
@@ -166,11 +165,9 @@ impl PrimaryNodeInner {
         let (tx_consensus_round_updates, rx_consensus_round_updates) = watch::channel(0u64);
         let (dag, network_model) = if !internal_consensus {
             debug!("Consensus is disabled: the primary will run w/o Bullshark");
-            let consensus_metrics = Arc::new(ConsensusMetrics::new());
             let (handle, dag) = Dag::new(
                 &committee.load(),
                 rx_new_certificates,
-                consensus_metrics,
                 tx_shutdown.subscribe(),
             );
 
