@@ -3667,7 +3667,6 @@ dependencies = [
  "narwhal-types",
  "narwhal-worker",
  "once_cell",
- "prometheus",
  "rand",
  "serde",
  "telemetry-subscribers",
