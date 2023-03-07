@@ -33,7 +33,7 @@ pub mod randomized_tests;
 pub struct LastRound {
     /// True when the leader has actually proposed a certificate
     /// and found in our DAG
-    leader_found: bool,
+    _leader_found: bool,
     /// When the leader has enough support from downstream
     /// certificates
     leader_has_support: bool,
@@ -105,7 +105,7 @@ impl ConsensusProtocol for Bullshark {
             Some(x) => x,
             None => {
                 self.last_leader_election = LastRound {
-                    leader_found: false,
+                    _leader_found: false,
                     leader_has_support: false,
                 };
                 // leader has not been found - we don't have any certificate
@@ -124,7 +124,7 @@ impl ConsensusProtocol for Bullshark {
             .sum();
 
         self.last_leader_election = LastRound {
-            leader_found: true,
+            _leader_found: true,
             leader_has_support: false,
         };
 
