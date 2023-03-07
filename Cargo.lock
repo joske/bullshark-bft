@@ -5752,7 +5752,6 @@ dependencies = [
  "console-subscriber",
  "crossterm",
  "once_cell",
- "prometheus",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
