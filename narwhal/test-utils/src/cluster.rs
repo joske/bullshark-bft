@@ -11,7 +11,6 @@ use multiaddr::Multiaddr;
 use node::execution_state::SimpleExecutionState;
 use node::primary_node::PrimaryNode;
 use node::worker_node::WorkerNode;
-use prometheus::{proto::Metric, Registry};
 use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc, sync::Arc, time::Duration};
 use storage::NodeStorage;
 use telemetry_subscribers::TelemetryGuards;
@@ -27,6 +26,9 @@ use worker::TrivialTransactionValidator;
 #[cfg(test)]
 #[path = "tests/cluster_tests.rs"]
 pub mod cluster_tests;
+
+// Mock metric struct
+pub struct Metric;
 
 pub struct Cluster {
     #[allow(unused)]
@@ -242,19 +244,20 @@ impl Cluster {
     }
 
     async fn authorities_latest_commit_round(&self) -> HashMap<usize, f64> {
-        let mut authorities_latest_commit = HashMap::new();
+        let authorities_latest_commit = HashMap::new();
 
         for authority in self.authorities().await {
             let primary = authority.primary().await;
-            if let Some(metric) = primary.metric("last_committed_round").await {
-                let value = metric.get_gauge().get_value();
+            if let Some(_metric) = primary.metric("last_committed_round").await {
+                unreachable!("Metrics always return `None`");
+                // let value = metric.get_gauge().get_value();
 
-                authorities_latest_commit.insert(primary.id, value);
+                // authorities_latest_commit.insert(primary.id, value);
 
-                info!(
-                    "[Node {}] Metric narwhal_primary_last_committed_round -> {value}",
-                    primary.id
-                );
+                // info!(
+                //     "[Node {}] Metric narwhal_primary_last_committed_round -> {value}",
+                //     primary.id
+                // );
             }
         }
 
@@ -396,7 +399,6 @@ impl PrimaryNodeDetails {
 pub struct WorkerNodeDetails {
     pub id: WorkerId,
     pub transactions_address: Multiaddr,
-    pub registry: Registry,
     name: PublicKey,
     node: WorkerNode,
     committee: SharedCommittee,
@@ -418,7 +420,6 @@ impl WorkerNodeDetails {
         Self {
             id,
             name,
-            registry: Registry::new(),
             store_path: temp_dir(),
             transactions_address,
             committee,
