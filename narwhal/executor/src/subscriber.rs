@@ -444,10 +444,7 @@ mod tests {
         let batch2 = Batch::new(vec![vec![2]]);
         network.put(&[1, 2], batch1.clone());
         network.put(&[2, 3], batch2.clone());
-        let fetcher = Fetcher {
-            network,
-            metrics: Arc::new(ExecutorMetrics::default()),
-        };
+        let fetcher = Fetcher { network };
         let batch = fetcher
             .fetch_payload(batch1.digest(), 0, test_pks(&[1, 2]))
             .await;

@@ -4,16 +4,13 @@
 #![allow(clippy::mutable_key_type)]
 
 use fastcrypto::hash::Hash;
-use prometheus::Registry;
 use std::collections::BTreeSet;
-use std::sync::Arc;
 use storage::NodeStorage;
 use telemetry_subscribers::TelemetryGuards;
 use test_utils::{temp_dir, CommitteeFixture};
 use tokio::sync::watch;
 
 use crate::bullshark::Bullshark;
-use crate::metrics::ConsensusMetrics;
 use crate::Consensus;
 use crate::NUM_SHUTDOWN_RECEIVERS;
 use types::{Certificate, PreSubscribedBroadcastSender};
@@ -60,13 +57,7 @@ async fn test_consensus_recovery_with_bullshark() {
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
 
     let gc_depth = 50;
-    let metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
-    let bullshark = Bullshark::new(
-        committee.clone(),
-        consensus_store.clone(),
-        gc_depth,
-        metrics.clone(),
-    );
+    let bullshark = Bullshark::new(committee.clone(), consensus_store.clone(), gc_depth);
 
     let consensus_handle = Consensus::spawn(
         committee.clone(),
@@ -78,7 +69,6 @@ async fn test_consensus_recovery_with_bullshark() {
         tx_consensus_round_updates,
         tx_output,
         bullshark,
-        metrics.clone(),
     );
 
     // WHEN we feed all certificates to the consensus.
@@ -150,12 +140,7 @@ async fn test_consensus_recovery_with_bullshark() {
     let consensus_store = storage.consensus_store;
     let certificate_store = storage.certificate_store;
 
-    let bullshark = Bullshark::new(
-        committee.clone(),
-        consensus_store.clone(),
-        gc_depth,
-        metrics.clone(),
-    );
+    let bullshark = Bullshark::new(committee.clone(), consensus_store.clone(), gc_depth);
 
     let consensus_handle = Consensus::spawn(
         committee.clone(),
@@ -167,7 +152,6 @@ async fn test_consensus_recovery_with_bullshark() {
         tx_consensus_round_updates,
         tx_output,
         bullshark,
-        metrics.clone(),
     );
 
     // WHEN we send same certificates but up to round 3 (inclusive)
@@ -217,12 +201,7 @@ async fn test_consensus_recovery_with_bullshark() {
     let (tx_output, mut rx_output) = test_utils::test_channel!(1);
     let (tx_consensus_round_updates, _rx_consensus_round_updates) = watch::channel(0);
 
-    let bullshark = Bullshark::new(
-        committee.clone(),
-        consensus_store.clone(),
-        gc_depth,
-        metrics.clone(),
-    );
+    let bullshark = Bullshark::new(committee.clone(), consensus_store.clone(), gc_depth);
 
     let _consensus_handle = Consensus::spawn(
         committee.clone(),
@@ -234,7 +213,6 @@ async fn test_consensus_recovery_with_bullshark() {
         tx_consensus_round_updates,
         tx_output,
         bullshark,
-        metrics.clone(),
     );
 
     // WHEN send the certificates of round >= 5 to trigger a leader election for round 4

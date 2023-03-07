@@ -4,11 +4,9 @@
 use arc_swap::ArcSwap;
 use config::Parameters;
 use fastcrypto::traits::KeyPair;
-use mysten_metrics::RegistryService;
 use narwhal_node::execution_state::SimpleExecutionState;
 use narwhal_node::primary_node::PrimaryNode;
 use narwhal_node::worker_node::WorkerNodes;
-use prometheus::Registry;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
@@ -24,7 +22,6 @@ async fn simple_primary_worker_node_start_stop() {
 
     // GIVEN
     let parameters = Parameters::default();
-    let registry_service = RegistryService::new(Registry::new());
     let fixture = CommitteeFixture::builder()
         .number_of_workers(NonZeroUsize::new(1).unwrap())
         .randomize_ports(true)
@@ -43,7 +40,7 @@ async fn simple_primary_worker_node_start_stop() {
     let execution_state = Arc::new(SimpleExecutionState::new(tx_confirmation));
 
     // WHEN
-    let primary_node = PrimaryNode::new(parameters.clone(), true, registry_service.clone());
+    let primary_node = PrimaryNode::new(parameters.clone(), true);
     primary_node
         .start(
             key_pair.copy(),
@@ -57,7 +54,7 @@ async fn simple_primary_worker_node_start_stop() {
         .unwrap();
 
     // AND
-    let workers = WorkerNodes::new(registry_service, parameters.clone());
+    let workers = WorkerNodes::new(parameters.clone());
 
     workers
         .start(
@@ -104,7 +101,6 @@ async fn primary_node_restart() {
 
     // GIVEN
     let parameters = Parameters::default();
-    let registry_service = RegistryService::new(Registry::new());
     let fixture = CommitteeFixture::builder()
         .number_of_workers(NonZeroUsize::new(1).unwrap())
         .randomize_ports(true)
@@ -123,7 +119,7 @@ async fn primary_node_restart() {
     let execution_state = Arc::new(SimpleExecutionState::new(tx_confirmation));
 
     // AND
-    let primary_node = PrimaryNode::new(parameters.clone(), true, registry_service.clone());
+    let primary_node = PrimaryNode::new(parameters.clone(), true);
     primary_node
         .start(
             key_pair.copy(),
