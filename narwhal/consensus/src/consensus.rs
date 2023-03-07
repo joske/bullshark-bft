@@ -150,7 +150,7 @@ impl ConsensusState {
             .or_insert_with(|| certificate.round());
         self.last_committed_round = max(self.last_committed_round, certificate.round());
 
-        // TODO(metrics): Set last_committed_round to `self.last_committed_round as u64`
+        // TODO(metrics): Set last_committed_round to `self.last_committed_round as i64`
 
         let elapsed = certificate.metadata.created_at.elapsed().as_secs_f64();
 
