@@ -16,11 +16,14 @@ use std::time::Duration;
 use storage::CertificateStore;
 use thiserror::Error;
 use tokio::{
-    sync::{mpsc::channel, oneshot},
+    sync::{
+        mpsc::{self, channel},
+        oneshot,
+    },
     time::timeout,
 };
 use tracing::{debug, error, instrument, trace};
-use types::{error::DagResult, metered_channel, Certificate, CertificateDigest};
+use types::{error::DagResult, Certificate, CertificateDigest};
 
 #[cfg(test)]
 #[path = "tests/handler_tests.rs"]
@@ -101,12 +104,12 @@ pub trait Handler {
 /// process them and causally complete their history.
 pub struct BlockSynchronizerHandler {
     /// Channel to send commands to the block_synchronizer.
-    tx_block_synchronizer: metered_channel::Sender<Command>,
+    tx_block_synchronizer: mpsc::Sender<Command>,
 
     /// Channel to send the fetched certificates to Core for
     /// further processing, validation and possibly causal
     /// completion.
-    tx_certificates: metered_channel::Sender<(Certificate, Option<oneshot::Sender<DagResult<()>>>)>,
+    tx_certificates: mpsc::Sender<(Certificate, Option<oneshot::Sender<DagResult<()>>>)>,
 
     /// The store that holds the certificates.
     certificate_store: CertificateStore,
@@ -118,11 +121,8 @@ pub struct BlockSynchronizerHandler {
 
 impl BlockSynchronizerHandler {
     pub fn new(
-        tx_block_synchronizer: metered_channel::Sender<Command>,
-        tx_certificates: metered_channel::Sender<(
-            Certificate,
-            Option<oneshot::Sender<DagResult<()>>>,
-        )>,
+        tx_block_synchronizer: mpsc::Sender<Command>,
+        tx_certificates: mpsc::Sender<(Certificate, Option<oneshot::Sender<DagResult<()>>>)>,
         certificate_store: CertificateStore,
         certificate_deliver_timeout: Duration,
     ) -> Self {

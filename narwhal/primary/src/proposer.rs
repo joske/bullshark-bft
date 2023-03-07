@@ -1,24 +1,25 @@
 // Copyright(C) Facebook, Inc. and its affiliates.
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
-use crate::{metrics::PrimaryMetrics, NetworkModel};
+use crate::NetworkModel;
 use config::{Committee, Epoch, WorkerId};
 use crypto::{PublicKey, Signature};
 use fastcrypto::{hash::Hash as _, signature_service::SignatureService};
-use mysten_metrics::spawn_logged_monitored_task;
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
-use std::{cmp::Ordering, sync::Arc};
 use storage::ProposerStore;
 use tokio::time::{sleep_until, Instant};
 use tokio::{
-    sync::{oneshot, watch},
+    sync::{
+        mpsc::{Receiver, Sender},
+        oneshot, watch,
+    },
     task::JoinHandle,
     time::{sleep, Duration},
 };
 use tracing::{debug, enabled, error, info};
 use types::{
     error::{DagError, DagResult},
-    metered_channel::{Receiver, Sender},
     BatchDigest, Certificate, Header, Round, TimestampMs,
 };
 use types::{now, ConditionalBroadcastReceiver};
@@ -93,9 +94,6 @@ pub struct Proposer {
     /// Committed headers channel on which we get updates on which of
     /// our own headers have been committed.
     rx_committed_own_headers: Receiver<(Round, Vec<Round>)>,
-
-    /// Metrics handler
-    metrics: Arc<PrimaryMetrics>,
 }
 
 impl Proposer {
@@ -118,40 +116,35 @@ impl Proposer {
         tx_headers: Sender<Header>,
         tx_narwhal_round_updates: watch::Sender<Round>,
         rx_committed_own_headers: Receiver<(Round, Vec<Round>)>,
-        metrics: Arc<PrimaryMetrics>,
     ) -> JoinHandle<()> {
         let genesis = Certificate::genesis(&committee);
-        spawn_logged_monitored_task!(
-            async move {
-                Self {
-                    name,
-                    committee,
-                    signature_service,
-                    header_num_of_batches_threshold,
-                    max_header_num_of_batches,
-                    max_header_delay,
-                    min_header_delay,
-                    header_resend_timeout,
-                    network_model,
-                    rx_shutdown,
-                    rx_parents,
-                    rx_our_digests,
-                    tx_headers,
-                    tx_narwhal_round_updates,
-                    proposer_store,
-                    round: 0,
-                    last_parents: genesis,
-                    last_leader: None,
-                    digests: Vec::with_capacity(2 * max_header_num_of_batches),
-                    proposed_headers: BTreeMap::new(),
-                    rx_committed_own_headers,
-                    metrics,
-                }
-                .run()
-                .await;
-            },
-            "ProposerTask"
-        )
+        tokio::spawn(async move {
+            Self {
+                name,
+                committee,
+                signature_service,
+                header_num_of_batches_threshold,
+                max_header_num_of_batches,
+                max_header_delay,
+                min_header_delay,
+                header_resend_timeout,
+                network_model,
+                rx_shutdown,
+                rx_parents,
+                rx_our_digests,
+                tx_headers,
+                tx_narwhal_round_updates,
+                proposer_store,
+                round: 0,
+                last_parents: genesis,
+                last_leader: None,
+                digests: Vec::with_capacity(2 * max_header_num_of_batches),
+                proposed_headers: BTreeMap::new(),
+                rx_committed_own_headers,
+            }
+            .run()
+            .await;
+        })
     }
 
     /// make_header creates a new Header, persists it to database
@@ -226,7 +219,7 @@ impl Proposer {
         )
         .await;
 
-        let leader_and_support = if this_round % 2 == 0 {
+        let _leader_and_support = if this_round % 2 == 0 {
             let leader_name = self.committee.leader(this_round);
             if self.name == leader_name {
                 "even_round_is_leader"
@@ -241,11 +234,9 @@ impl Proposer {
                 "odd_round_no_support"
             }
         };
-        self.metrics
-            .headers_proposed
-            .with_label_values(&[leader_and_support])
-            .inc();
-        self.metrics.header_parents.observe(parents.len() as f64);
+
+        // TODO(metrics): Increment `headers_proposed` by 1
+        // TODO(metrics): Observe `parents.len() as f64` as `header_parents`
 
         if enabled!(tracing::Level::DEBUG) {
             let mut msg = format!("Created header {header:?} with parent certificates:\n");
@@ -266,9 +257,7 @@ impl Proposer {
                 Duration::from_millis(header.created_at - created_at_timestamp).as_secs_f64();
             total_inclusion_secs += batch_inclusion_secs;
 
-            self.metrics
-                .proposer_batch_latency
-                .observe(batch_inclusion_secs);
+            // TODO(metrics): Observe `batch_inclusion_secs` as `proposer_batch_latency`
         }
 
         // NOTE: This log entry is used to compute performance.
@@ -443,15 +432,15 @@ impl Proposer {
                 // Advance to the next round.
                 self.round += 1;
                 let _ = self.tx_narwhal_round_updates.send(self.round);
-                self.metrics.current_round.set(self.round as i64);
+                // TODO(metrics): Set `current_round` to `self.round as i64`
                 debug!("Dag moved to round {}", self.round);
 
                 // Make a new header.
                 match self.make_header().await {
                     Err(e @ DagError::ShuttingDown) => debug!("{e}"),
                     Err(e) => panic!("Unexpected error: {e}"),
-                    Ok((header, digests)) => {
-                        let reason = if max_delay_timed_out {
+                    Ok((header, _digests)) => {
+                        let _reason = if max_delay_timed_out {
                             "max_timeout"
                         } else if enough_digests {
                             "threshold_size_reached"
@@ -463,10 +452,7 @@ impl Proposer {
                         opt_latest_header = Some(header);
                         header_repeat_timer = Box::pin(sleep(header_resend_timeout));
 
-                        self.metrics
-                            .num_of_batch_digests_in_header
-                            .with_label_values(&[reason])
-                            .observe(digests as f64);
+                        // TODO(metrics): Set `num_of_batch_digests_in_header` to `digests as f64`
                     }
                 }
 
@@ -594,16 +580,13 @@ impl Proposer {
                     // we ignore this check and advance anyway.
                     advance = self.ready();
 
-                    let round_type = if self.round % 2 == 0 {
+                    let _round_type = if self.round % 2 == 0 {
                         "even"
                     } else {
                         "odd"
                     };
 
-                    self.metrics
-                    .proposer_ready_to_advance
-                    .with_label_values(&[&advance.to_string(), round_type])
-                    .inc();
+                    // TODO(metrics): Increment `proposer_ready_to_advance` by 1
                 }
 
                 // Receive digests from our workers.
@@ -637,10 +620,7 @@ impl Proposer {
                 }
             }
 
-            // update metrics
-            self.metrics
-                .num_of_pending_batches_in_proposer
-                .set(self.digests.len() as i64);
+            // TODO(metrics): Set `num_of_pending_batches_in_proposer` to `self.digests.len() as i64`
         }
     }
 }

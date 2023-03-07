@@ -4,11 +4,10 @@
 use super::*;
 
 use crate::consensus_utils::*;
-use crate::{metrics::ConsensusMetrics, Consensus, NUM_SHUTDOWN_RECEIVERS};
+use crate::{Consensus, NUM_SHUTDOWN_RECEIVERS};
 use fastcrypto::hash::Hash;
 #[allow(unused_imports)]
 use fastcrypto::traits::KeyPair;
-use prometheus::Registry;
 #[cfg(test)]
 use std::collections::{BTreeSet, VecDeque};
 use test_utils::CommitteeFixture;
@@ -52,8 +51,7 @@ async fn commit_one() {
     let store = make_consensus_store(&test_utils::temp_dir());
     let cert_store = make_certificate_store(&test_utils::temp_dir());
     let gc_depth = 50;
-    let metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
-    let bullshark = Bullshark::new(committee.clone(), store.clone(), gc_depth, metrics.clone());
+    let bullshark = Bullshark::new(committee.clone(), store.clone(), gc_depth);
 
     let _consensus_handle = Consensus::spawn(
         committee,
@@ -65,7 +63,6 @@ async fn commit_one() {
         tx_consensus_round_updates,
         tx_output,
         bullshark,
-        metrics,
     );
     tokio::spawn(async move { while rx_primary.recv().await.is_some() {} });
 
@@ -117,8 +114,7 @@ async fn dead_node() {
     let store = make_consensus_store(&test_utils::temp_dir());
     let cert_store = make_certificate_store(&test_utils::temp_dir());
     let gc_depth = 50;
-    let metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
-    let bullshark = Bullshark::new(committee.clone(), store.clone(), gc_depth, metrics.clone());
+    let bullshark = Bullshark::new(committee.clone(), store.clone(), gc_depth);
 
     let _consensus_handle = Consensus::spawn(
         committee,
@@ -130,7 +126,6 @@ async fn dead_node() {
         tx_consensus_round_updates,
         tx_output,
         bullshark,
-        metrics,
     );
     tokio::spawn(async move { while rx_primary.recv().await.is_some() {} });
 
@@ -237,8 +232,7 @@ async fn not_enough_support() {
     let store = make_consensus_store(&test_utils::temp_dir());
     let cert_store = make_certificate_store(&test_utils::temp_dir());
     let gc_depth = 50;
-    let metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
-    let bullshark = Bullshark::new(committee.clone(), store.clone(), gc_depth, metrics.clone());
+    let bullshark = Bullshark::new(committee.clone(), store.clone(), gc_depth);
 
     let _consensus_handle = Consensus::spawn(
         committee,
@@ -250,7 +244,6 @@ async fn not_enough_support() {
         tx_consensus_round_updates,
         tx_output,
         bullshark,
-        metrics,
     );
     tokio::spawn(async move { while rx_primary.recv().await.is_some() {} });
 
@@ -327,8 +320,7 @@ async fn missing_leader() {
     let store = make_consensus_store(&test_utils::temp_dir());
     let cert_store = make_certificate_store(&test_utils::temp_dir());
     let gc_depth = 50;
-    let metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
-    let bullshark = Bullshark::new(committee.clone(), store.clone(), gc_depth, metrics.clone());
+    let bullshark = Bullshark::new(committee.clone(), store.clone(), gc_depth);
 
     let _consensus_handle = Consensus::spawn(
         committee,
@@ -340,7 +332,6 @@ async fn missing_leader() {
         tx_consensus_round_updates,
         tx_output,
         bullshark,
-        metrics,
     );
     tokio::spawn(async move { while rx_primary.recv().await.is_some() {} });
 
@@ -398,8 +389,7 @@ async fn committed_round_after_restart() {
 
         let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
         let gc_depth = 50;
-        let metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
-        let bullshark = Bullshark::new(committee.clone(), store.clone(), gc_depth, metrics.clone());
+        let bullshark = Bullshark::new(committee.clone(), store.clone(), gc_depth);
 
         let handle = Consensus::spawn(
             committee.clone(),
@@ -411,7 +401,6 @@ async fn committed_round_after_restart() {
             tx_consensus_round_updates,
             tx_output,
             bullshark,
-            metrics.clone(),
         );
 
         // When `input_round` is 2 * r + 1, r > 1, the previous commit round would be 2 * (r - 1),
@@ -478,8 +467,7 @@ async fn restart_with_new_committee() {
         let store = make_consensus_store(&test_utils::temp_dir());
         let cert_store = make_certificate_store(&test_utils::temp_dir());
         let gc_depth = 50;
-        let metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
-        let bullshark = Bullshark::new(committee.clone(), store.clone(), gc_depth, metrics.clone());
+        let bullshark = Bullshark::new(committee.clone(), store.clone(), gc_depth);
 
         let handle = Consensus::spawn(
             committee.clone(),
@@ -491,7 +479,6 @@ async fn restart_with_new_committee() {
             tx_consensus_round_updates,
             tx_output,
             bullshark,
-            metrics.clone(),
         );
         tokio::spawn(async move { while rx_primary.recv().await.is_some() {} });
 

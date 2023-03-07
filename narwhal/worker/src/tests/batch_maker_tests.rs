@@ -4,7 +4,6 @@
 use super::*;
 
 use crate::NUM_SHUTDOWN_RECEIVERS;
-use prometheus::Registry;
 use store::rocks;
 use store::rocks::MetricConf;
 use store::rocks::ReadWriteOptions;
@@ -30,7 +29,6 @@ async fn make_batch() {
     let (tx_batch_maker, rx_batch_maker) = test_utils::test_channel!(1);
     let (tx_message, mut rx_message) = test_utils::test_channel!(1);
     let (tx_digest, mut rx_digest) = test_utils::test_channel!(1);
-    let node_metrics = WorkerMetrics::new(&Registry::new());
 
     // Spawn a `BatchMaker` instance.
     let id = 0;
@@ -42,7 +40,6 @@ async fn make_batch() {
         tx_shutdown.subscribe(),
         rx_batch_maker,
         tx_message,
-        Arc::new(node_metrics),
         store.clone(),
         tx_digest,
     );
@@ -86,7 +83,6 @@ async fn batch_timeout() {
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_batch_maker, rx_batch_maker) = test_utils::test_channel!(1);
     let (tx_message, mut rx_message) = test_utils::test_channel!(1);
-    let node_metrics = WorkerMetrics::new(&Registry::new());
     let (tx_digest, mut rx_digest) = test_utils::test_channel!(1);
 
     // Spawn a `BatchMaker` instance.
@@ -99,7 +95,6 @@ async fn batch_timeout() {
         tx_shutdown.subscribe(),
         rx_batch_maker,
         tx_message,
-        Arc::new(node_metrics),
         store.clone(),
         tx_digest,
     );

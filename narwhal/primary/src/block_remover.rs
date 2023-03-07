@@ -12,12 +12,10 @@ use network::PrimaryToWorkerRpc;
 use std::{collections::HashMap, sync::Arc};
 use storage::{CertificateStore, PayloadToken};
 use store::{rocks::TypedStoreError, Store};
+use tokio::sync::mpsc;
 
 use tracing::{debug, instrument, warn};
-use types::{
-    metered_channel::Sender, BatchDigest, Certificate, CertificateDigest, Header, HeaderDigest,
-    Round,
-};
+use types::{BatchDigest, Certificate, CertificateDigest, Header, HeaderDigest, Round};
 
 #[cfg(test)]
 #[path = "tests/block_remover_tests.rs"]
@@ -51,7 +49,7 @@ pub struct BlockRemover {
     worker_network: anemo::Network,
 
     /// Outputs all the successfully deleted certificates
-    tx_committed_certificates: Sender<(Round, Vec<Certificate>)>,
+    tx_committed_certificates: mpsc::Sender<(Round, Vec<Certificate>)>,
 }
 
 impl BlockRemover {
@@ -64,7 +62,7 @@ impl BlockRemover {
         payload_store: Store<(BatchDigest, WorkerId), PayloadToken>,
         dag: Option<Arc<Dag>>,
         worker_network: anemo::Network,
-        tx_committed_certificates: Sender<(Round, Vec<Certificate>)>,
+        tx_committed_certificates: mpsc::Sender<(Round, Vec<Certificate>)>,
     ) -> BlockRemover {
         Self {
             name,

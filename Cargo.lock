@@ -1656,6 +1656,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "errno"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f639046355ee4f37944e44f60642c6f3a7efa3cf6b78c78a0d989a8ce6c396a1"
+dependencies = [
+ "errno-dragonfly",
+ "libc",
+ "winapi",
+]
+
+[[package]]
+name = "errno-dragonfly"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa68f1b12764fab894d2755d2518754e71b4fd80ecfb822714a1206c2aab39bf"
+dependencies = [
+ "cc",
+ "libc",
+]
+
+[[package]]
 name = "eyre"
 version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2441,6 +2462,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "io-lifetimes"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7d6c6f8c91b4b9ed43484ad1a938e393caf35960fce7f82a040497207bd8e9e"
+dependencies = [
+ "libc",
+ "windows-sys",
+]
+
+[[package]]
 name = "ipnet"
 version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2555,6 +2586,12 @@ name = "linked-hash-map"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0717cef1bc8b636c6e1c1bbdefc09e6322da8a9321966e8928ef80d20f7f770f"
+
+[[package]]
+name = "linux-raw-sys"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f051f77a7c8e6957c0696eac88f26b0117e54f52d3fc682ab19397a8812846a4"
 
 [[package]]
 name = "lock_api"
@@ -2768,20 +2805,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
 
 [[package]]
-name = "mysten-metrics"
-version = "0.7.0"
-dependencies = [
- "dashmap",
- "once_cell",
- "prometheus",
- "prometheus-closure-metric",
- "scopeguard",
- "tap",
- "tracing",
- "uuid",
-]
-
-[[package]]
 name = "mysten-network"
 version = "0.2.0"
 dependencies = [
@@ -2861,7 +2884,6 @@ dependencies = [
  "futures",
  "indexmap",
  "match_opt",
- "mysten-metrics",
  "mysten-util-mem",
  "narwhal-config",
  "narwhal-crypto",
@@ -2871,7 +2893,6 @@ dependencies = [
  "narwhal-test-utils",
  "narwhal-types",
  "pprof",
- "prometheus",
  "rand",
  "serde",
  "telemetry-subscribers",
@@ -2955,7 +2976,6 @@ dependencies = [
  "match_opt",
  "mockall",
  "multiaddr",
- "mysten-metrics",
  "narwhal-config",
  "narwhal-consensus",
  "narwhal-crypto",
@@ -2965,7 +2985,6 @@ dependencies = [
  "narwhal-storage",
  "narwhal-test-utils",
  "narwhal-types",
- "prometheus",
  "rand",
  "serde",
  "tap",
@@ -2997,11 +3016,9 @@ dependencies = [
  "fastcrypto",
  "futures",
  "multiaddr",
- "mysten-metrics",
  "narwhal-crypto",
  "narwhal-test-utils",
  "narwhal-types",
- "prometheus",
  "rand",
  "serde",
  "thiserror",
@@ -3032,7 +3049,6 @@ dependencies = [
  "futures",
  "itertools",
  "multiaddr",
- "mysten-metrics",
  "mysten-network",
  "narwhal-config",
  "narwhal-consensus",
@@ -3046,7 +3062,6 @@ dependencies = [
  "narwhal-worker",
  "once_cell",
  "pretty_assertions",
- "prometheus",
  "rand",
  "reqwest",
  "roaring",
@@ -3092,7 +3107,6 @@ dependencies = [
  "itertools",
  "mockall",
  "multiaddr",
- "mysten-metrics",
  "mysten-network",
  "narwhal-config",
  "narwhal-consensus",
@@ -3105,7 +3119,6 @@ dependencies = [
  "narwhal-types",
  "narwhal-worker",
  "once_cell",
- "prometheus",
  "proptest",
  "prost",
  "rand",
@@ -3162,7 +3175,6 @@ dependencies = [
  "indexmap",
  "itertools",
  "multiaddr",
- "mysten-metrics",
  "mysten-network",
  "narwhal-config",
  "narwhal-crypto",
@@ -3174,7 +3186,6 @@ dependencies = [
  "narwhal-types",
  "narwhal-worker",
  "once_cell",
- "prometheus",
  "rand",
  "serde",
  "telemetry-subscribers",
@@ -3211,7 +3222,6 @@ dependencies = [
  "narwhal-dag",
  "narwhal-test-utils",
  "once_cell",
- "prometheus",
  "proptest",
  "proptest-derive",
  "prost",
@@ -3250,7 +3260,6 @@ dependencies = [
  "futures",
  "governor",
  "multiaddr",
- "mysten-metrics",
  "mysten-network",
  "narwhal-config",
  "narwhal-consensus",
@@ -3261,7 +3270,6 @@ dependencies = [
  "narwhal-storage",
  "narwhal-test-utils",
  "narwhal-types",
- "prometheus",
  "rand",
  "reqwest",
  "serde",
@@ -3898,15 +3906,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "prometheus-closure-metric"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "prometheus",
- "protobuf",
-]
-
-[[package]]
 name = "proptest"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4241,15 +4240,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "456c603be3e8d448b072f410900c09faf164fbce2d480456f50eea6e25f9c848"
 
 [[package]]
-name = "remove_dir_all"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3acd125665422973a33ac9d3dd2df85edad0f4ae9b00dafb1a05e43a9f5ef8e7"
-dependencies = [
- "winapi",
-]
-
-[[package]]
 name = "reqwest"
 version = "0.11.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4411,6 +4401,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "faf0c4a6ece9950b9abdb62b1cfcf2a68b3b67a10ba445b3bb85be2a293d0632"
 dependencies = [
  "nom",
+]
+
+[[package]]
+name = "rustix"
+version = "0.36.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4fdebc4b395b7fbb9ab11e462e20ed9051e7b16e42d24042c776eca0ac81b03"
+dependencies = [
+ "bitflags",
+ "errno",
+ "io-lifetimes",
+ "libc",
+ "linux-raw-sys",
+ "windows-sys",
 ]
 
 [[package]]
@@ -5087,16 +5091,15 @@ dependencies = [
 
 [[package]]
 name = "tempfile"
-version = "3.3.0"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5cdb1ef4eaeeaddc8fbd371e5017057064af0911902ef36b39801f67cc6d79e4"
+checksum = "af18f7ae1acd354b992402e9ec5864359d693cd8a79dcbef59f76891701c1e95"
 dependencies = [
  "cfg-if",
  "fastrand",
- "libc",
  "redox_syscall",
- "remove_dir_all",
- "winapi",
+ "rustix",
+ "windows-sys",
 ]
 
 [[package]]
@@ -5221,9 +5224,9 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.24.1"
+version = "1.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d9f76183f91ecfb55e1d7d5602bd1d979e38a3a522fe900241cf195624d67ae"
+checksum = "c8e00990ebabbe4c14c08aca901caed183ecd5c09562a12c824bb53d3c3fd3af"
 dependencies = [
  "autocfg",
  "bytes",
@@ -5725,7 +5728,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "422ee0de9031b5b948b97a8fc04e3aa35230001a722ddd27943e0be31564ce4c"
 dependencies = [
  "getrandom",
- "rand",
 ]
 
 [[package]]

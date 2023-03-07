@@ -3,16 +3,14 @@
 
 use self::{configuration::NarwhalConfiguration, validator::NarwhalValidator};
 use crate::{
-    block_synchronizer::handler::Handler,
-    grpc_server::{metrics::EndpointMetrics, proposer::NarwhalProposer},
-    BlockRemover, BlockWaiter,
+    block_synchronizer::handler::Handler, grpc_server::proposer::NarwhalProposer, BlockRemover,
+    BlockWaiter,
 };
 use config::SharedCommittee;
 use consensus::dag::Dag;
 
 use crypto::PublicKey;
 use multiaddr::Multiaddr;
-use mysten_metrics::spawn_logged_monitored_task;
 use std::{sync::Arc, time::Duration};
 use tokio::task::JoinHandle;
 use tokio::time::timeout;
@@ -20,7 +18,6 @@ use tracing::{error, info, warn};
 use types::{ConditionalBroadcastReceiver, ConfigurationServer, ProposerServer, ValidatorServer};
 
 mod configuration;
-pub mod metrics;
 mod proposer;
 mod validator;
 
@@ -35,7 +32,6 @@ pub struct ConsensusAPIGrpc<SynchronizerHandler: Handler + Send + Sync + 'static
     block_synchronizer_handler: Arc<SynchronizerHandler>,
     dag: Option<Arc<Dag>>,
     committee: SharedCommittee,
-    endpoints_metrics: EndpointMetrics,
     rx_shutdown: ConditionalBroadcastReceiver,
 }
 
@@ -51,30 +47,25 @@ impl<SynchronizerHandler: Handler + Send + Sync + 'static> ConsensusAPIGrpc<Sync
         block_synchronizer_handler: Arc<SynchronizerHandler>,
         dag: Option<Arc<Dag>>,
         committee: SharedCommittee,
-        endpoints_metrics: EndpointMetrics,
         rx_shutdown: ConditionalBroadcastReceiver,
     ) -> JoinHandle<()> {
-        spawn_logged_monitored_task!(
-            async move {
-                let _ = Self {
-                    name,
-                    socket_address,
-                    block_waiter,
-                    block_remover,
-                    get_collections_timeout,
-                    remove_collections_timeout,
-                    block_synchronizer_handler,
-                    dag,
-                    committee,
-                    endpoints_metrics,
-                    rx_shutdown,
-                }
-                .run()
-                .await
-                .map_err(|e| error!("{:?}", e));
-            },
-            "ConsensusAPIGrpcTask"
-        )
+        tokio::spawn(async move {
+            let _ = Self {
+                name,
+                socket_address,
+                block_waiter,
+                block_remover,
+                get_collections_timeout,
+                remove_collections_timeout,
+                block_synchronizer_handler,
+                dag,
+                committee,
+                rx_shutdown,
+            }
+            .run()
+            .await
+            .map_err(|e| error!("{:?}", e));
+        })
     }
 
     async fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -100,7 +91,7 @@ impl<SynchronizerHandler: Handler + Send + Sync + 'static> ConsensusAPIGrpc<Sync
 
         let config = mysten_network::config::Config::default();
         let mut server = config
-            .server_builder_with_metrics(self.endpoints_metrics.clone())
+            .server_builder()
             .add_service(ValidatorServer::new(narwhal_validator))
             .add_service(ConfigurationServer::new(narwhal_configuration))
             .add_service(ProposerServer::new(narwhal_proposer))
@@ -111,7 +102,7 @@ impl<SynchronizerHandler: Handler + Send + Sync + 'static> ConsensusAPIGrpc<Sync
 
         let shutdown_handle = server.take_cancel_handle().unwrap();
 
-        let server_handle = spawn_logged_monitored_task!(server.serve());
+        let server_handle = tokio::spawn(server.serve());
 
         // wait to receive a shutdown signal
         let _ = self.rx_shutdown.receiver.recv().await;

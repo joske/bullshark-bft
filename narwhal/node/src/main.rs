@@ -14,7 +14,6 @@ use config::{Committee, Import, Parameters, WorkerCache, WorkerId};
 use crypto::{KeyPair, NetworkKeyPair};
 use eyre::Context;
 use fastcrypto::traits::KeyPair as _;
-use mysten_metrics::RegistryService;
 use narwhal_node as node;
 use narwhal_node::primary_node::PrimaryNode;
 use narwhal_node::worker_node::WorkerNode;
@@ -24,9 +23,7 @@ use node::{
         get_key_pair_from_rng, read_authority_keypair_from_file, read_network_keypair_from_file,
         write_authority_keypair_to_file, write_keypair_to_file, AuthorityKeyPair,
     },
-    metrics::{primary_metrics_registry, start_prometheus_server, worker_metrics_registry},
 };
-use prometheus::Registry;
 use std::sync::Arc;
 use storage::NodeStorage;
 use telemetry_subscribers::TelemetryGuards;
@@ -98,19 +95,19 @@ async fn main() -> Result<(), eyre::Report> {
 
     match matches.subcommand() {
         ("generate_keys", Some(sub_matches)) => {
-            let _guard = setup_telemetry(tracing_level, network_tracing_level, None);
+            let _guard = setup_telemetry(tracing_level, network_tracing_level);
             let key_file = sub_matches.value_of("filename").unwrap();
             let keypair: AuthorityKeyPair = get_key_pair_from_rng(&mut rand::rngs::OsRng);
             write_authority_keypair_to_file(&keypair, key_file).unwrap();
         }
         ("generate_network_keys", Some(sub_matches)) => {
-            let _guard = setup_telemetry(tracing_level, network_tracing_level, None);
+            let _guard = setup_telemetry(tracing_level, network_tracing_level);
             let network_key_file = sub_matches.value_of("filename").unwrap();
             let network_keypair: NetworkKeyPair = get_key_pair_from_rng(&mut rand::rngs::OsRng);
             write_keypair_to_file(&network_keypair, network_key_file).unwrap();
         }
         ("get_pub_key", Some(sub_matches)) => {
-            let _guard = setup_telemetry(tracing_level, network_tracing_level, None);
+            let _guard = setup_telemetry(tracing_level, network_tracing_level);
             let file = sub_matches.value_of("filename").unwrap();
             match read_network_keypair_from_file(file) {
                 Ok(keypair) => {
@@ -138,27 +135,14 @@ async fn main() -> Result<(), eyre::Report> {
             let worker_key_file = sub_matches.value_of("worker-keys").unwrap();
             let worker_keypair = read_network_keypair_from_file(worker_key_file)
                 .expect("Failed to load the node's worker keypair");
-            let registry = match sub_matches.subcommand() {
-                ("primary", _) => primary_metrics_registry(primary_keypair.public().clone()),
-                ("worker", Some(worker_matches)) => {
-                    let id = worker_matches
-                        .value_of("id")
-                        .unwrap()
-                        .parse::<WorkerId>()
-                        .context("The worker id must be a positive integer")?;
 
-                    worker_metrics_registry(id, primary_keypair.public().clone())
-                }
-                _ => unreachable!(),
-            };
+            let _guard = setup_telemetry(tracing_level, network_tracing_level);
 
-            let _guard = setup_telemetry(tracing_level, network_tracing_level, Some(&registry));
             run(
                 sub_matches,
                 primary_keypair,
                 primary_network_keypair,
                 worker_keypair,
-                registry,
             )
             .await?
         }
@@ -167,11 +151,7 @@ async fn main() -> Result<(), eyre::Report> {
     Ok(())
 }
 
-fn setup_telemetry(
-    tracing_level: &str,
-    network_tracing_level: &str,
-    prom_registry: Option<&Registry>,
-) -> TelemetryGuards {
+fn setup_telemetry(tracing_level: &str, network_tracing_level: &str) -> TelemetryGuards {
     let log_filter = format!("{tracing_level},h2={network_tracing_level},tower={network_tracing_level},hyper={network_tracing_level},tonic::transport={network_tracing_level},quinn={network_tracing_level}");
 
     let config = telemetry_subscribers::TelemetryConfig::new()
@@ -179,12 +159,6 @@ fn setup_telemetry(
         .with_env()
         // load special log filter
         .with_log_level(&log_filter);
-
-    let config = if let Some(reg) = prom_registry {
-        config.with_prom_registry(reg)
-    } else {
-        config
-    };
 
     let (guard, _handle) = config.init();
     guard
@@ -196,7 +170,6 @@ async fn run(
     primary_keypair: KeyPair,
     primary_network_keypair: NetworkKeyPair,
     worker_keypair: NetworkKeyPair,
-    registry: Registry,
 ) -> Result<(), eyre::Report> {
     // Only enabled if failpoints feature flag is set
     let _failpoints_scenario: fail::FailScenario<'_>;
@@ -234,8 +207,6 @@ async fn run(
     // The channel returning the result for each transaction's execution.
     let (_tx_transaction_confirmation, _rx_transaction_confirmation) = channel(100);
 
-    let registry_service = RegistryService::new(Registry::new());
-
     // Check whether to run a primary, a worker, or an entire authority.
     let (primary, worker) = match matches.subcommand() {
         // Spawn the primary and consensus core.
@@ -243,7 +214,6 @@ async fn run(
             let primary = PrimaryNode::new(
                 parameters.clone(),
                 !sub_matches.is_present("consensus-disabled"),
-                registry_service,
             );
 
             primary
@@ -268,7 +238,7 @@ async fn run(
                 .parse::<WorkerId>()
                 .context("The worker id must be a positive integer")?;
 
-            let worker = WorkerNode::new(id, parameters.clone(), registry_service);
+            let worker = WorkerNode::new(id, parameters.clone());
 
             worker
                 .start(
@@ -278,7 +248,6 @@ async fn run(
                     worker_cache,
                     &store,
                     TrivialTransactionValidator::default(),
-                    None,
                 )
                 .await?;
 
@@ -293,7 +262,6 @@ async fn run(
         "Starting Prometheus HTTP metrics endpoint at {}",
         prom_address
     );
-    let _metrics_server_handle = start_prometheus_server(prom_address, &registry);
 
     if let Some(primary) = primary {
         primary.wait().await;

@@ -8,11 +8,9 @@ use executor::SerializedTransaction;
 use fastcrypto::traits::KeyPair as _;
 use itertools::Itertools;
 use multiaddr::Multiaddr;
-use mysten_metrics::RegistryService;
+use node::execution_state::SimpleExecutionState;
 use node::primary_node::PrimaryNode;
 use node::worker_node::WorkerNode;
-use node::{execution_state::SimpleExecutionState, metrics::worker_metrics_registry};
-use prometheus::{proto::Metric, Registry};
 use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc, sync::Arc, time::Duration};
 use storage::NodeStorage;
 use telemetry_subscribers::TelemetryGuards;
@@ -28,6 +26,9 @@ use worker::TrivialTransactionValidator;
 #[cfg(test)]
 #[path = "tests/cluster_tests.rs"]
 pub mod cluster_tests;
+
+// Mock metric struct
+pub struct Metric;
 
 pub struct Cluster {
     #[allow(unused)]
@@ -243,19 +244,20 @@ impl Cluster {
     }
 
     async fn authorities_latest_commit_round(&self) -> HashMap<usize, f64> {
-        let mut authorities_latest_commit = HashMap::new();
+        let authorities_latest_commit = HashMap::new();
 
         for authority in self.authorities().await {
             let primary = authority.primary().await;
-            if let Some(metric) = primary.metric("last_committed_round").await {
-                let value = metric.get_gauge().get_value();
+            if let Some(_metric) = primary.metric("last_committed_round").await {
+                unreachable!("Metrics always return `None`");
+                // let value = metric.get_gauge().get_value();
 
-                authorities_latest_commit.insert(primary.id, value);
+                // authorities_latest_commit.insert(primary.id, value);
 
-                info!(
-                    "[Node {}] Metric narwhal_primary_last_committed_round -> {value}",
-                    primary.id
-                );
+                // info!(
+                //     "[Node {}] Metric narwhal_primary_last_committed_round -> {value}",
+                //     primary.id
+                // );
             }
         }
 
@@ -299,13 +301,7 @@ impl PrimaryNodeDetails {
         // used just to initialise the struct value
         let (tx, _) = tokio::sync::broadcast::channel(1);
 
-        let registry_service = RegistryService::new(Registry::new());
-
-        let node = PrimaryNode::new(
-            parameters.clone(),
-            internal_consensus_enabled,
-            registry_service,
-        );
+        let node = PrimaryNode::new(parameters.clone(), internal_consensus_enabled);
 
         Self {
             id,
@@ -324,12 +320,10 @@ impl PrimaryNodeDetails {
 
     /// Returns the metric - if exists - identified by the provided name.
     /// If metric has not been found then None is returned instead.
-    pub async fn metric(&self, name: &str) -> Option<Metric> {
-        let (_registry_id, registry) = self.node.registry().await.unwrap();
-        let metrics = registry.gather();
-
-        let metric = metrics.into_iter().find(|m| m.get_name() == name);
-        metric.map(|m| m.get_metric().first().unwrap().clone())
+    pub async fn metric(&self, _name: &str) -> Option<Metric> {
+        // TODO(metrics): Somehow add this back?
+        // Stub due to removal of mysten-metrics
+        None
     }
 
     async fn start(&mut self, preserve_store: bool) {
@@ -405,7 +399,6 @@ impl PrimaryNodeDetails {
 pub struct WorkerNodeDetails {
     pub id: WorkerId,
     pub transactions_address: Multiaddr,
-    pub registry: Registry,
     name: PublicKey,
     node: WorkerNode,
     committee: SharedCommittee,
@@ -422,13 +415,11 @@ impl WorkerNodeDetails {
         committee: SharedCommittee,
         worker_cache: SharedWorkerCache,
     ) -> Self {
-        let registry_service = RegistryService::new(Registry::new());
-        let node = WorkerNode::new(id, parameters, registry_service);
+        let node = WorkerNode::new(id, parameters);
 
         Self {
             id,
             name,
-            registry: Registry::new(),
             store_path: temp_dir(),
             transactions_address,
             committee,
@@ -446,8 +437,6 @@ impl WorkerNodeDetails {
             );
         }
 
-        let registry = worker_metrics_registry(self.id, self.name.clone());
-
         // Make the data store.
         let store_path = if preserve_store {
             self.store_path.clone()
@@ -464,13 +453,11 @@ impl WorkerNodeDetails {
                 self.worker_cache.clone(),
                 &worker_store,
                 TrivialTransactionValidator::default(),
-                None,
             )
             .await
             .unwrap();
 
         self.store_path = store_path;
-        self.registry = registry;
     }
 
     async fn stop(&self) {

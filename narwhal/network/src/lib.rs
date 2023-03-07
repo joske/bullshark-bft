@@ -14,7 +14,6 @@ pub mod anemo_ext;
 pub mod connectivity;
 pub mod epoch_filter;
 pub mod failpoints;
-pub mod metrics;
 mod p2p;
 mod retry;
 mod traits;

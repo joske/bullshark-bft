@@ -5,7 +5,6 @@ use super::*;
 use crate::NUM_SHUTDOWN_RECEIVERS;
 use fastcrypto::traits::KeyPair;
 use indexmap::IndexMap;
-use prometheus::Registry;
 use test_utils::{fixture_payload, CommitteeFixture};
 use types::PreSubscribedBroadcastSender;
 
@@ -25,8 +24,6 @@ async fn propose_empty() {
     let (tx_headers, mut rx_headers) = test_utils::test_channel!(1);
     let (tx_narwhal_round_updates, _rx_narwhal_round_updates) = watch::channel(0u64);
 
-    let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
-
     // Spawn the proposer.
     let _proposer_handle = Proposer::spawn(
         name,
@@ -45,7 +42,6 @@ async fn propose_empty() {
         /* tx_core */ tx_headers,
         tx_narwhal_round_updates,
         rx_committed_own_headers,
-        metrics,
     );
 
     // Ensure the proposer makes a correct empty header.
@@ -72,8 +68,6 @@ async fn propose_payload_and_repropose_after_n_seconds() {
     let (tx_headers, mut rx_headers) = test_utils::test_channel!(1);
     let (tx_narwhal_round_updates, _rx_narwhal_round_updates) = watch::channel(0u64);
 
-    let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
-
     let max_num_of_batches = 10;
 
     // Spawn the proposer.
@@ -96,7 +90,6 @@ async fn propose_payload_and_repropose_after_n_seconds() {
         /* tx_core */ tx_headers,
         tx_narwhal_round_updates,
         rx_committed_own_headers,
-        metrics,
     );
 
     // Send enough digests for the header payload.
@@ -197,7 +190,6 @@ async fn equivocation_protection() {
     let (tx_headers, mut rx_headers) = test_utils::test_channel!(1);
     let (tx_narwhal_round_updates, _rx_narwhal_round_updates) = watch::channel(0u64);
     let (_tx_committed_own_headers, rx_committed_own_headers) = test_utils::test_channel!(1);
-    let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
 
     // Spawn the proposer.
     let proposer_handle = Proposer::spawn(
@@ -219,7 +211,6 @@ async fn equivocation_protection() {
         /* tx_core */ tx_headers,
         tx_narwhal_round_updates,
         rx_committed_own_headers,
-        metrics,
     );
 
     // Send enough digests for the header payload.
@@ -270,7 +261,6 @@ async fn equivocation_protection() {
     let (tx_headers, mut rx_headers) = test_utils::test_channel!(1);
     let (tx_narwhal_round_updates, _rx_narwhal_round_updates) = watch::channel(0u64);
     let (_tx_committed_own_headers, rx_committed_own_headers) = test_utils::test_channel!(1);
-    let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
 
     let _proposer_handle = Proposer::spawn(
         name.clone(),
@@ -291,7 +281,6 @@ async fn equivocation_protection() {
         /* tx_core */ tx_headers,
         tx_narwhal_round_updates,
         rx_committed_own_headers,
-        metrics,
     );
 
     // Send enough digests for the header payload.

@@ -1,12 +1,10 @@
 // Copyright (c) 2021, Facebook, Inc. and its affiliates
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
-use crate::metrics::PrimaryMetrics;
 use config::{Committee, SharedWorkerCache};
 use crypto::{NetworkPublicKey, PublicKey};
 use futures::{stream::FuturesUnordered, StreamExt};
 use itertools::Itertools;
-use mysten_metrics::{monitored_future, monitored_scope, spawn_logged_monitored_task};
 use network::PrimaryToPrimaryRpc;
 use rand::{rngs::ThreadRng, seq::SliceRandom};
 use std::{
@@ -17,14 +15,16 @@ use std::{
 use storage::CertificateStore;
 use tokio::task::{spawn_blocking, JoinSet};
 use tokio::{
-    sync::{oneshot, watch},
+    sync::{
+        mpsc::{Receiver, Sender},
+        oneshot, watch,
+    },
     task::JoinHandle,
     time::{sleep, timeout, Instant},
 };
 use tracing::{debug, error, instrument, trace, warn};
 use types::{
     error::{DagError, DagResult},
-    metered_channel::{Receiver, Sender},
     Certificate, ConditionalBroadcastReceiver, FetchCertificatesRequest, FetchCertificatesResponse,
     Round,
 };
@@ -96,8 +96,6 @@ struct CertificateFetcherState {
     network: anemo::Network,
     /// Loops fetched certificates back to the core. Certificates are ensured to have all parents.
     tx_certificates_loopback: Sender<CertificateLoopbackMessage>,
-    /// The metrics handler
-    metrics: Arc<PrimaryMetrics>,
 }
 
 impl CertificateFetcher {
@@ -113,34 +111,29 @@ impl CertificateFetcher {
         rx_shutdown: ConditionalBroadcastReceiver,
         rx_certificate_fetcher: Receiver<Certificate>,
         tx_certificates_loopback: Sender<CertificateLoopbackMessage>,
-        metrics: Arc<PrimaryMetrics>,
     ) -> JoinHandle<()> {
         let state = Arc::new(CertificateFetcherState {
             name,
             network,
             tx_certificates_loopback,
-            metrics,
         });
 
-        spawn_logged_monitored_task!(
-            async move {
-                Self {
-                    state,
-                    committee,
-                    worker_cache,
-                    certificate_store,
-                    rx_consensus_round_updates,
-                    gc_depth,
-                    rx_shutdown,
-                    rx_certificate_fetcher,
-                    targets: BTreeMap::new(),
-                    fetch_certificates_task: JoinSet::new(),
-                }
-                .run()
-                .await;
-            },
-            "CertificateFetcherTask"
-        )
+        tokio::spawn(async move {
+            Self {
+                state,
+                committee,
+                worker_cache,
+                certificate_store,
+                rx_consensus_round_updates,
+                gc_depth,
+                rx_shutdown,
+                rx_certificate_fetcher,
+                targets: BTreeMap::new(),
+                fetch_certificates_task: JoinSet::new(),
+            }
+            .run()
+            .await;
+        })
     }
 
     async fn run(&mut self) {
@@ -272,34 +265,32 @@ impl CertificateFetcher {
             self.targets.values().max().unwrap_or(&0),
             gc_round
         );
-        self.fetch_certificates_task
-            .spawn(monitored_future!(async move {
-                let _scope = monitored_scope("CertificatesFetching");
-                state.metrics.certificate_fetcher_inflight_fetch.inc();
+        self.fetch_certificates_task.spawn(async move {
+            // TODO(metrics): Increment `certificate_fetcher_inflight_fetch` by 1
 
-                let now = Instant::now();
-                match run_fetch_task(
-                    state.clone(),
-                    committee,
-                    worker_cache,
-                    gc_round,
-                    written_rounds,
-                )
-                .await
-                {
-                    Ok(_) => {
-                        debug!(
-                            "Finished task to fetch certificates successfully, elapsed = {}s",
-                            now.elapsed().as_secs_f64()
-                        );
-                    }
-                    Err(e) => {
-                        warn!("Error from task to fetch certificates: {e}");
-                    }
-                };
+            let now = Instant::now();
+            match run_fetch_task(
+                state.clone(),
+                committee,
+                worker_cache,
+                gc_round,
+                written_rounds,
+            )
+            .await
+            {
+                Ok(_) => {
+                    debug!(
+                        "Finished task to fetch certificates successfully, elapsed = {}s",
+                        now.elapsed().as_secs_f64()
+                    );
+                }
+                Err(e) => {
+                    warn!("Error from task to fetch certificates: {e}");
+                }
+            };
 
-                state.metrics.certificate_fetcher_inflight_fetch.dec();
-            }));
+            // TODO(metrics): Decrement `certificate_fetcher_inflight_fetch` by 1
+        });
     }
 
     fn gc_round(&self) -> Round {
@@ -337,10 +328,8 @@ async fn run_fetch_task(
         &worker_cahce,
     )
     .await?;
-    state
-        .metrics
-        .certificate_fetcher_num_certificates_processed
-        .add(num_certs_fetched as i64);
+
+    // TODO(metrics): Increment `certificate_fetcher_num_certificates_processed` by `num_certs_fetched as i64`
 
     debug!("Successfully fetched and processed {num_certs_fetched} certificates");
     Ok(())
@@ -374,7 +363,7 @@ async fn fetch_certificates_helper(
         loop {
             if let Some(peer) = peers.pop() {
                 let request = request.clone();
-                fut.push(monitored_future!(async move {
+                fut.push(async move {
                     debug!("Sending out fetch request in parallel to {peer}");
                     let result = network.fetch_certificates(&peer, request).await;
                     if let Ok(resp) = &result {
@@ -384,7 +373,7 @@ async fn fetch_certificates_helper(
                         );
                     }
                     result
-                }));
+                });
             }
             let mut interval = Box::pin(sleep(request_interval));
             tokio::select! {

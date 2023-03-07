@@ -9,12 +9,11 @@ use network::{anemo_ext::NetworkExt, RetryConfig};
 use std::{collections::HashMap, sync::Arc};
 use storage::{CertificateStore, PayloadToken};
 use store::Store;
-use tokio::sync::watch;
+use tokio::sync::{mpsc, watch};
 use tracing::debug;
 use types::{
     ensure,
     error::{DagError, DagResult},
-    metered_channel::Sender,
     BatchDigest, Certificate, CertificateDigest, Header, PrimaryToWorkerClient, Round,
     WorkerSynchronizeMessage,
 };
@@ -34,7 +33,7 @@ pub struct Synchronizer {
     certificate_store: CertificateStore,
     payload_store: Store<(BatchDigest, WorkerId), PayloadToken>,
     /// Send commands to the `CertificateFetcher`.
-    tx_certificate_fetcher: Sender<Certificate>,
+    tx_certificate_fetcher: mpsc::Sender<Certificate>,
     /// Get a signal when the round changes.
     rx_consensus_round_updates: watch::Receiver<Round>,
     /// The genesis and its digests.
@@ -50,7 +49,7 @@ impl Synchronizer {
         worker_cache: SharedWorkerCache,
         certificate_store: CertificateStore,
         payload_store: Store<(BatchDigest, WorkerId), PayloadToken>,
-        tx_certificate_fetcher: Sender<Certificate>,
+        tx_certificate_fetcher: mpsc::Sender<Certificate>,
         rx_consensus_round_updates: watch::Receiver<Round>,
         dag: Option<Arc<Dag>>,
     ) -> Self {

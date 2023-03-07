@@ -7,7 +7,6 @@ use crate::common::create_db_stores;
 use crate::primary;
 use fastcrypto::traits::KeyPair;
 use primary::NUM_SHUTDOWN_RECEIVERS;
-use prometheus::Registry;
 use test_utils::CommitteeFixture;
 use tokio::time::Duration;
 use types::{
@@ -24,7 +23,6 @@ async fn propose_header() {
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let name = primary.public_key();
     let signature_service = SignatureService::new(primary.keypair().copy());
-    let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (_tx_certificates, rx_certificates) = test_utils::test_channel!(3);
@@ -115,7 +113,6 @@ async fn propose_header() {
         rx_headers,
         tx_consensus,
         tx_parents,
-        metrics.clone(),
         network,
     );
 
@@ -137,7 +134,6 @@ async fn propose_header_failure() {
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let name = primary.public_key();
     let signature_service = SignatureService::new(primary.keypair().copy());
-    let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (_tx_certificates, rx_certificates) = test_utils::test_channel!(3);
@@ -211,7 +207,6 @@ async fn propose_header_failure() {
         rx_headers,
         tx_consensus,
         tx_parents,
-        metrics.clone(),
         network,
     );
 
@@ -257,8 +252,6 @@ async fn process_certificates() {
         None,
     ));
 
-    let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
-
     let own_address = network::multiaddr_to_address(&committee.primary(&name).unwrap()).unwrap();
     let network = anemo::Network::bind(own_address)
         .server_name("narwhal")
@@ -282,7 +275,6 @@ async fn process_certificates() {
         rx_headers,
         tx_consensus,
         tx_parents,
-        metrics.clone(),
         network,
     );
 
@@ -321,16 +313,7 @@ async fn process_certificates() {
         assert_eq!(stored, Some(x.clone()));
     }
 
-    let mut m = HashMap::new();
-    m.insert("source", "other");
-    assert_eq!(
-        metrics
-            .certificates_processed
-            .get_metric_with(&m)
-            .unwrap()
-            .get(),
-        3
-    );
+    // TODO(metrics): Make sure that certificates_processed metric is 3
 }
 
 #[tokio::test(flavor = "current_thread", start_paused = true)]
@@ -368,8 +351,6 @@ async fn recover_core() {
         None,
     ));
 
-    let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
-
     let own_address = network::multiaddr_to_address(&committee.primary(&name).unwrap()).unwrap();
     let network = anemo::Network::bind(own_address)
         .server_name("narwhal")
@@ -393,7 +374,6 @@ async fn recover_core() {
         rx_headers,
         tx_consensus,
         tx_parents,
-        metrics.clone(),
         network.clone(),
     );
 
@@ -436,7 +416,6 @@ async fn recover_core() {
         rx_headers,
         tx_consensus,
         tx_parents,
-        metrics.clone(),
         network,
     );
 
@@ -457,16 +436,7 @@ async fn recover_core() {
         assert_eq!(stored, Some(x.clone()));
     }
 
-    let mut m = HashMap::new();
-    m.insert("source", "other");
-    assert_eq!(
-        metrics
-            .certificates_processed
-            .get_metric_with(&m)
-            .unwrap()
-            .get(),
-        3
-    );
+    // TODO(metrics): Assert that certificates_processed metric is 3
 }
 
 #[tokio::test(flavor = "current_thread", start_paused = true)]
@@ -504,8 +474,6 @@ async fn recover_core_partial_certs() {
         None,
     ));
 
-    let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
-
     let own_address = network::multiaddr_to_address(&committee.primary(&name).unwrap()).unwrap();
     let network = anemo::Network::bind(own_address)
         .server_name("narwhal")
@@ -530,7 +498,6 @@ async fn recover_core_partial_certs() {
         rx_headers,
         tx_consensus,
         tx_parents,
-        metrics.clone(),
         network.clone(),
     );
 
@@ -575,7 +542,6 @@ async fn recover_core_partial_certs() {
         rx_headers,
         tx_consensus,
         tx_parents,
-        metrics.clone(),
         network.clone(),
     );
 
@@ -636,8 +602,6 @@ async fn recover_core_expecting_header_of_previous_round() {
         None,
     ));
 
-    let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
-
     let own_address = network::multiaddr_to_address(&committee.primary(&name).unwrap()).unwrap();
     let network = anemo::Network::bind(own_address)
         .server_name("narwhal")
@@ -661,7 +625,6 @@ async fn recover_core_expecting_header_of_previous_round() {
         rx_headers,
         tx_consensus,
         tx_parents,
-        metrics.clone(),
         network.clone(),
     );
 
@@ -717,7 +680,6 @@ async fn recover_core_expecting_header_of_previous_round() {
         rx_headers,
         tx_consensus,
         tx_parents,
-        metrics.clone(),
         network.clone(),
     );
 
@@ -768,8 +730,6 @@ async fn shutdown_core() {
         None,
     ));
 
-    let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
-
     let own_address = network::multiaddr_to_address(&committee.primary(&name).unwrap()).unwrap();
     let network = anemo::Network::bind(own_address)
         .server_name("narwhal")
@@ -794,7 +754,6 @@ async fn shutdown_core() {
         rx_headers,
         tx_consensus,
         tx_parents,
-        metrics.clone(),
         network.clone(),
     );
 

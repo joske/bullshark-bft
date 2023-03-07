@@ -10,7 +10,6 @@
 
 mod batch_maker;
 mod handlers;
-pub mod metrics;
 mod primary_connector;
 mod quorum_waiter;
 mod transactions_server;

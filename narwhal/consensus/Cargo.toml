@@ -22,10 +22,8 @@ fastcrypto = { git = "https://github.com/MystenLabs/fastcrypto", rev = "235211dc
 crypto = { path = "../crypto", package = "narwhal-crypto" }
 storage = { path = "../storage", package = "narwhal-storage" }
 dag = { path = "../dag", package = "narwhal-dag" }
-prometheus = "0.13.3"
 types = { path = "../types", package = "narwhal-types" }
 cfg-if = "1.0.0"
-mysten-metrics = { path = "../../crates/mysten-metrics" }
 mysten-util-mem = { path = "../../crates/mysten-util-mem" }
 store = { path = "../../crates/typed-store", package = "typed-store" }
 

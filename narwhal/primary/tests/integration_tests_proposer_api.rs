@@ -4,7 +4,7 @@
 use arc_swap::ArcSwap;
 use bytes::Bytes;
 use config::{Epoch, Parameters};
-use consensus::{dag::Dag, metrics::ConsensusMetrics};
+use consensus::dag::Dag;
 use crypto::PublicKey;
 use fastcrypto::{
     hash::Hash,
@@ -13,7 +13,6 @@ use fastcrypto::{
 use narwhal_primary as primary;
 use narwhal_primary::NUM_SHUTDOWN_RECEIVERS;
 use primary::{NetworkModel, Primary, CHANNEL_CAPACITY};
-use prometheus::Registry;
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
@@ -96,8 +95,6 @@ async fn test_rounds_errors() {
             .collect::<BTreeMap<_, _>>(),
     };
 
-    let consensus_metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
-
     Primary::spawn(
         name.clone(),
         keypair.copy(),
@@ -118,7 +115,6 @@ async fn test_rounds_errors() {
             Dag::new(
                 &no_name_committee,
                 rx_new_certificates,
-                consensus_metrics,
                 tx_shutdown.subscribe(),
             )
             .1,
@@ -126,7 +122,6 @@ async fn test_rounds_errors() {
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
         tx_feedback,
-        &Registry::new(),
         None,
     );
 
@@ -188,16 +183,7 @@ async fn test_rounds_return_successful_response() {
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
 
     // AND setup the DAG
-    let consensus_metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
-    let dag = Arc::new(
-        Dag::new(
-            &committee,
-            rx_new_certificates,
-            consensus_metrics,
-            tx_shutdown.subscribe(),
-        )
-        .1,
-    );
+    let dag = Arc::new(Dag::new(&committee, rx_new_certificates, tx_shutdown.subscribe()).1);
 
     Primary::spawn(
         name.clone(),
@@ -218,7 +204,6 @@ async fn test_rounds_return_successful_response() {
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
         tx_feedback,
-        &Registry::new(),
         None,
     );
 
@@ -283,20 +268,11 @@ async fn test_node_read_causal_signed_certificates() {
     let mut collection_ids: Vec<CertificateDigest> = Vec::new();
 
     // Make the Dag
-    let consensus_metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
     let (tx_new_certificates, rx_new_certificates) =
         test_utils::test_new_certificates_channel!(CHANNEL_CAPACITY);
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
 
-    let dag = Arc::new(
-        Dag::new(
-            &committee,
-            rx_new_certificates,
-            consensus_metrics,
-            tx_shutdown.subscribe(),
-        )
-        .1,
-    );
+    let dag = Arc::new(Dag::new(&committee, rx_new_certificates, tx_shutdown.subscribe()).1);
 
     // No need to populate genesis in the Dag
     let genesis_certs = Certificate::genesis(&committee);
@@ -379,7 +355,6 @@ async fn test_node_read_causal_signed_certificates() {
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
         tx_feedback,
-        &Registry::new(),
         None,
     );
 
@@ -396,7 +371,6 @@ async fn test_node_read_causal_signed_certificates() {
     };
     let keypair_2 = authority_2.keypair().copy();
     let name_2 = keypair_2.public().clone();
-    let consensus_metrics_2 = Arc::new(ConsensusMetrics::new(&Registry::new()));
 
     // Spawn Primary 2
     Primary::spawn(
@@ -416,18 +390,11 @@ async fn test_node_read_causal_signed_certificates() {
         rx_consensus_round_updates_2,
         /* external_consensus */
         Some(Arc::new(
-            Dag::new(
-                &committee,
-                rx_new_certificates_2,
-                consensus_metrics_2,
-                tx_shutdown.subscribe(),
-            )
-            .1,
+            Dag::new(&committee, rx_new_certificates_2, tx_shutdown.subscribe()).1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown_2,
         tx_feedback_2,
-        &Registry::new(),
         None,
     );
 

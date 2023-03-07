@@ -1,10 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 use crate::primary::NUM_SHUTDOWN_RECEIVERS;
-use crate::{
-    certificate_fetcher::CertificateFetcher, core::Core, metrics::PrimaryMetrics,
-    synchronizer::Synchronizer,
-};
+use crate::{certificate_fetcher::CertificateFetcher, core::Core, synchronizer::Synchronizer};
 use anemo::async_trait;
 use anyhow::Result;
 use config::{Epoch, WorkerId};
@@ -13,7 +10,6 @@ use fastcrypto::{hash::Hash, signature_service::SignatureService, traits::KeyPai
 use indexmap::IndexMap;
 use itertools::Itertools;
 use once_cell::sync::OnceCell;
-use prometheus::Registry;
 use std::{collections::BTreeSet, sync::Arc, time::Duration};
 use storage::CertificateStore;
 use storage::NodeStorage;
@@ -203,7 +199,6 @@ async fn fetch_certificates_basic() {
         .await
         .unwrap();
 
-    let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
     let gc_depth: Round = 50;
 
     // Make a certificate fetcher
@@ -218,7 +213,6 @@ async fn fetch_certificates_basic() {
         tx_shutdown.subscribe(),
         rx_certificate_fetcher,
         tx_certificates_loopback,
-        metrics.clone(),
     );
 
     // Spawn the core.
@@ -238,7 +232,6 @@ async fn fetch_certificates_basic() {
         rx_headers,
         tx_consensus,
         tx_parents,
-        metrics.clone(),
         client_network,
     );
 
