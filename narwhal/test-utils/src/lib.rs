@@ -29,8 +29,6 @@ use std::{
     num::NonZeroUsize,
     ops::RangeInclusive,
 };
-use store::rocks::DBMap;
-use store::rocks::MetricConf;
 use store::rocks::ReadWriteOptions;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tracing::info;
@@ -111,6 +109,22 @@ pub fn random_key() -> KeyPair {
 ////////////////////////////////////////////////////////////////
 /// Headers, Votes, Certificates
 ////////////////////////////////////////////////////////////////
+
+pub fn make_consensus_store(store_path: &std::path::Path) -> Arc<ConsensusStore> {
+    const LAST_COMMITTED_CF: &str = "last_committed";
+    const SEQUENCE_CF: &str = "sequence";
+
+    let rocksdb = rocks::open_cf(store_path, None, &[LAST_COMMITTED_CF, SEQUENCE_CF])
+        .expect("Failed creating database");
+
+    let (last_committed_map, sequence_map) = reopen!(&rocksdb,
+        LAST_COMMITTED_CF;<AuthorityIdentifier, Round>,
+        SEQUENCE_CF;<SequenceNumber, CommittedSubDagShell>
+    );
+
+    Arc::new(ConsensusStore::new(last_committed_map, sequence_map))
+}
+
 pub fn fixture_payload(number_of_batches: u8) -> IndexMap<BatchDigest, (WorkerId, TimestampMs)> {
     let mut payload: IndexMap<BatchDigest, (WorkerId, TimestampMs)> = IndexMap::new();
 
@@ -378,7 +392,6 @@ const BATCHES_CF: &str = "batches";
 pub fn create_batch_store() -> DBMap<BatchDigest, Batch> {
     DBMap::<BatchDigest, Batch>::open(
         temp_dir(),
-        MetricConf::default(),
         None,
         Some(BATCHES_CF),
         &ReadWriteOptions::default(),

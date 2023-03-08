@@ -13,8 +13,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use store::metrics::SamplingInterval;
 use store::reopen;
-use store::rocks::{default_db_options, DBMap};
-use store::rocks::{open_cf, MetricConf, ReadWriteOptions};
+use store::rocks::DBMap;
+use store::rocks::{open_cf, ReadWriteOptions};
+use store::{reopen, Store};
 use types::{
     Batch, BatchDigest, Certificate, CertificateDigest, CommittedSubDagShell, ConsensusCommit,
     Header, HeaderDigest, Round, SequenceNumber, VoteInfo,
@@ -64,8 +65,7 @@ impl NodeStorage {
         metrics_conf.read_sample_interval = SamplingInterval::new(Duration::from_secs(60), 0);
         let rocksdb = open_cf(
             store_path,
-            Some(db_options.options),
-            metrics_conf,
+            None,
             &[
                 Self::LAST_PROPOSED_CF,
                 Self::VOTES_CF,

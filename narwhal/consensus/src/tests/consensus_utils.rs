@@ -3,8 +3,7 @@ use std::num::NonZeroUsize;
 // SPDX-License-Identifier: Apache-2.0
 use config::AuthorityIdentifier;
 use std::sync::Arc;
-use storage::{CertificateStore, CertificateStoreCache, ConsensusStore};
-use store::rocks::MetricConf;
+use storage::CertificateStore;
 use store::{reopen, rocks, rocks::DBMap, rocks::ReadWriteOptions};
 use types::{
     Certificate, CertificateDigest, CommittedSubDagShell, ConsensusCommit, Round, SequenceNumber,
@@ -17,13 +16,8 @@ pub fn make_consensus_store(store_path: &std::path::Path) -> Arc<ConsensusStore>
     const SEQUENCE_CF: &str = "sequence";
     const COMMITTED_SUB_DAG_CF: &str = "committed_sub_dag";
 
-    let rocksdb = rocks::open_cf(
-        store_path,
-        None,
-        MetricConf::default(),
-        &[LAST_COMMITTED_CF, SEQUENCE_CF, COMMITTED_SUB_DAG_CF],
-    )
-    .expect("Failed to create database");
+    let rocksdb = rocks::open_cf(store_path, None, &[LAST_COMMITTED_CF, SEQUENCE_CF])
+        .expect("Failed to create database");
 
     let (last_committed_map, sequence_map, committed_sub_dag_map) = reopen!(&rocksdb,
         LAST_COMMITTED_CF;<AuthorityIdentifier, Round>,
@@ -46,7 +40,6 @@ pub fn make_certificate_store(store_path: &std::path::Path) -> CertificateStore 
     let rocksdb = rocks::open_cf(
         store_path,
         None,
-        MetricConf::default(),
         &[
             CERTIFICATES_CF,
             CERTIFICATE_DIGEST_BY_ROUND_CF,
