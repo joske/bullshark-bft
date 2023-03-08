@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 use super::*;
@@ -37,13 +39,7 @@ async fn test_reopen_macro() {
     const FIRST_CF: &str = "First_CF";
     const SECOND_CF: &str = "Second_CF";
 
-    let rocks = open_cf(
-        temp_dir(),
-        None,
-        MetricConf::default(),
-        &[FIRST_CF, SECOND_CF],
-    )
-    .unwrap();
+    let rocks = open_cf(temp_dir(), None, &[FIRST_CF, SECOND_CF]).unwrap();
 
     let (db_map_1, db_map_2) = reopen!(&rocks, FIRST_CF;<i32, String>, SECOND_CF;<i32, String>);
 
@@ -424,14 +420,8 @@ async fn test_insert_batch_across_different_db(#[values(true, false)] is_transac
 
 #[tokio::test]
 async fn test_delete_batch() {
-    let db = DBMap::<i32, String>::open(
-        temp_dir(),
-        MetricConf::default(),
-        None,
-        None,
-        &ReadWriteOptions::default(),
-    )
-    .expect("Failed to open storage");
+    let db = DBMap::<i32, String>::open(temp_dir(), None, None, &ReadWriteOptions::default())
+        .expect("Failed to open storage");
 
     let keys_vals = (1..100).map(|i| (i, i.to_string()));
     let insert_batch = db
@@ -454,14 +444,8 @@ async fn test_delete_batch() {
 
 #[tokio::test]
 async fn test_delete_range() {
-    let db: DBMap<i32, String> = DBMap::open(
-        temp_dir(),
-        MetricConf::default(),
-        None,
-        None,
-        &ReadWriteOptions::default(),
-    )
-    .expect("Failed to open storage");
+    let db: DBMap<i32, String> = DBMap::open(temp_dir(), None, None, &ReadWriteOptions::default())
+        .expect("Failed to open storage");
 
     // Note that the last element is (100, "100".to_owned()) here
     let keys_vals = (0..101).map(|i| (i, i.to_string()));
@@ -491,7 +475,6 @@ async fn test_delete_range() {
 async fn test_clear() {
     let db = DBMap::<i32, String>::open(
         temp_dir(),
-        MetricConf::default(),
         None,
         Some("table"),
         &ReadWriteOptions::default(),
@@ -526,7 +509,6 @@ async fn test_clear() {
 async fn test_is_empty() {
     let db = DBMap::<i32, String>::open(
         temp_dir(),
-        MetricConf::default(),
         None,
         Some("table"),
         &ReadWriteOptions::default(),
@@ -608,8 +590,7 @@ async fn test_transactional() {
     let key = "key";
     let path = temp_dir();
     let opt = rocksdb::Options::default();
-    let rocksdb =
-        open_cf_opts_transactional(path, None, MetricConf::default(), &[("cf", &opt)]).unwrap();
+    let rocksdb = open_cf_opts_transactional(path, None, &[("cf", &opt)]).unwrap();
     let db = DBMap::<String, String>::reopen(&rocksdb, None, &ReadWriteOptions::default())
         .expect("Failed to re-open storage");
 
@@ -634,8 +615,7 @@ async fn test_transaction_snapshot() {
     let key = "key".to_string();
     let path = temp_dir();
     let opt = rocksdb::Options::default();
-    let rocksdb =
-        open_cf_opts_transactional(path, None, MetricConf::default(), &[("cf", &opt)]).unwrap();
+    let rocksdb = open_cf_opts_transactional(path, None, &[("cf", &opt)]).unwrap();
     let db = DBMap::<String, String>::reopen(&rocksdb, None, &ReadWriteOptions::default())
         .expect("Failed to re-open storage");
 
@@ -728,8 +708,7 @@ async fn test_retry_transaction() {
     let key = "key".to_string();
     let path = temp_dir();
     let opt = rocksdb::Options::default();
-    let rocksdb =
-        open_cf_opts_transactional(path, None, MetricConf::default(), &[("cf", &opt)]).unwrap();
+    let rocksdb = open_cf_opts_transactional(path, None, &[("cf", &opt)]).unwrap();
     let db = DBMap::<String, String>::reopen(&rocksdb, None, &ReadWriteOptions::default())
         .expect("Failed to re-open storage");
 
@@ -791,8 +770,7 @@ async fn test_transaction_read_your_write() {
     let key2 = "key2";
     let path = temp_dir();
     let opt = rocksdb::Options::default();
-    let rocksdb =
-        open_cf_opts_transactional(path, None, MetricConf::default(), &[("cf", &opt)]).unwrap();
+    let rocksdb = open_cf_opts_transactional(path, None, &[("cf", &opt)]).unwrap();
     let db = DBMap::<String, String>::reopen(&rocksdb, None, &ReadWriteOptions::default())
         .expect("Failed to re-open storage");
     db.insert(&key1.to_string(), &"1".to_string()).unwrap();
@@ -839,7 +817,6 @@ async fn open_as_secondary_test() {
     // Init a DB
     let primary_db = DBMap::<i32, String>::open(
         primary_path.clone(),
-        MetricConf::default(),
         None,
         Some("table"),
         &ReadWriteOptions::default(),
@@ -853,14 +830,8 @@ async fn open_as_secondary_test() {
         .expect("Failed to multi-insert");
 
     let opt = rocksdb::Options::default();
-    let secondary_store = open_cf_opts_secondary(
-        primary_path,
-        None,
-        None,
-        MetricConf::default(),
-        &[("table", &opt)],
-    )
-    .unwrap();
+    let secondary_store =
+        open_cf_opts_secondary(primary_path, None, None, &[("table", &opt)]).unwrap();
     let secondary_db = DBMap::<i32, String>::reopen(
         &secondary_store,
         Some("table"),
@@ -894,23 +865,12 @@ fn open_map<P: AsRef<Path>, K, V>(
 ) -> DBMap<K, V> {
     if is_transactional {
         let cf = opt_cf.unwrap_or(rocksdb::DEFAULT_COLUMN_FAMILY_NAME);
-        open_cf_opts_transactional(
-            path,
-            None,
-            MetricConf::default(),
-            &[(cf, &default_db_options().options)],
-        )
-        .map(|db| DBMap::new(db, &ReadWriteOptions::default(), cf))
-        .expect("failed to open rocksdb")
+        open_cf_opts_transactional(path, None, &[(cf, &default_db_options().options)])
+            .map(|db| DBMap::new(db, &ReadWriteOptions::default(), cf))
+            .expect("failed to open rocksdb")
     } else {
-        DBMap::<K, V>::open(
-            path,
-            MetricConf::default(),
-            None,
-            opt_cf,
-            &ReadWriteOptions::default(),
-        )
-        .expect("failed to open rocksdb")
+        DBMap::<K, V>::open(path, None, opt_cf, &ReadWriteOptions::default())
+            .expect("failed to open rocksdb")
     }
 }
 
@@ -918,9 +878,8 @@ fn open_rocksdb<P: AsRef<Path>>(path: P, opt_cfs: &[&str], is_transactional: boo
     if is_transactional {
         let options = default_db_options().options;
         let cfs: Vec<_> = opt_cfs.iter().map(|name| (*name, &options)).collect();
-        open_cf_opts_transactional(path, None, MetricConf::default(), &cfs)
-            .expect("failed to open rocksdb")
+        open_cf_opts_transactional(path, None, &cfs).expect("failed to open rocksdb")
     } else {
-        open_cf(path, None, MetricConf::default(), opt_cfs).expect("failed to open rocksdb")
+        open_cf(path, None, opt_cfs).expect("failed to open rocksdb")
     }
 }

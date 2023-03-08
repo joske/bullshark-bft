@@ -6,7 +6,7 @@ use config::WorkerId;
 use crypto::PublicKey;
 use std::sync::Arc;
 use store::rocks::DBMap;
-use store::rocks::{open_cf, MetricConf, ReadWriteOptions};
+use store::rocks::{open_cf, ReadWriteOptions};
 use store::{reopen, Store};
 use types::{
     Batch, BatchDigest, Certificate, CertificateDigest, CommittedSubDagShell, ConsensusStore,
@@ -46,7 +46,6 @@ impl NodeStorage {
         let rocksdb = open_cf(
             store_path,
             None,
-            MetricConf::with_db_name("consensus_epoch"),
             &[
                 Self::LAST_PROPOSED_CF,
                 Self::VOTES_CF,

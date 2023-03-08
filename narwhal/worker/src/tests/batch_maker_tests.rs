@@ -5,7 +5,6 @@ use super::*;
 
 use crate::NUM_SHUTDOWN_RECEIVERS;
 use store::rocks;
-use store::rocks::MetricConf;
 use store::rocks::ReadWriteOptions;
 use test_utils::{temp_dir, transaction};
 use types::PreSubscribedBroadcastSender;
@@ -13,7 +12,6 @@ use types::PreSubscribedBroadcastSender;
 fn create_batches_store() -> Store<BatchDigest, Batch> {
     let db = rocks::DBMap::<BatchDigest, Batch>::open(
         temp_dir(),
-        MetricConf::default(),
         None,
         Some("batches"),
         &ReadWriteOptions::default(),

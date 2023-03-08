@@ -14,7 +14,6 @@ async fn create_store() {
     // Create new store.
     let db = rocks::DBMap::<usize, String>::open(
         temp_dir(),
-        rocks::MetricConf::default(),
         None,
         None,
         &rocks::ReadWriteOptions::default(),
@@ -28,7 +27,6 @@ async fn read_async_write_value() {
     // Create new store.
     let db = rocks::DBMap::<Vec<u8>, Vec<u8>>::open(
         temp_dir(),
-        rocks::MetricConf::default(),
         None,
         None,
         &rocks::ReadWriteOptions::default(),
@@ -54,7 +52,6 @@ async fn read_sync_write_value() {
     // Create new store.
     let db = rocks::DBMap::<Vec<u8>, Vec<u8>>::open(
         temp_dir(),
-        rocks::MetricConf::default(),
         None,
         None,
         &rocks::ReadWriteOptions::default(),
@@ -80,7 +77,6 @@ async fn read_raw_write_value() {
     // Create new store.
     let db = rocks::DBMap::<Vec<u8>, String>::open(
         temp_dir(),
-        rocks::MetricConf::default(),
         None,
         None,
         &rocks::ReadWriteOptions::default(),
@@ -106,7 +102,6 @@ async fn read_unknown_key() {
     // Create new store.
     let db = rocks::DBMap::<Vec<u8>, Vec<u8>>::open(
         temp_dir(),
-        rocks::MetricConf::default(),
         None,
         None,
         &rocks::ReadWriteOptions::default(),
@@ -126,7 +121,6 @@ async fn read_notify() {
     // Create new store.
     let db = rocks::DBMap::<Vec<u8>, Vec<u8>>::open(
         temp_dir(),
-        rocks::MetricConf::default(),
         None,
         None,
         &rocks::ReadWriteOptions::default(),
@@ -160,7 +154,6 @@ async fn remove_all_successfully() {
     // GIVEN Create new store.
     let db = rocks::DBMap::<Vec<u8>, Vec<u8>>::open(
         temp_dir(),
-        rocks::MetricConf::default(),
         None,
         None,
         &rocks::ReadWriteOptions::default(),
@@ -199,7 +192,6 @@ async fn write_and_read_all_successfully() {
     // GIVEN Create new store.
     let db = rocks::DBMap::<Vec<u8>, Vec<u8>>::open(
         temp_dir(),
-        rocks::MetricConf::default(),
         None,
         None,
         &rocks::ReadWriteOptions::default(),
@@ -238,7 +230,6 @@ async fn iter_successfully() {
     // GIVEN Create new store.
     let db = rocks::DBMap::<Vec<u8>, Vec<u8>>::open(
         temp_dir(),
-        rocks::MetricConf::default(),
         None,
         None,
         &rocks::ReadWriteOptions::default(),
@@ -271,7 +262,6 @@ async fn iter_and_filter_successfully() {
     // GIVEN Create new store.
     let db = rocks::DBMap::<Vec<u8>, Vec<u8>>::open(
         temp_dir(),
-        rocks::MetricConf::default(),
         None,
         None,
         &rocks::ReadWriteOptions::default(),

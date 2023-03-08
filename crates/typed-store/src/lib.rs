@@ -23,12 +23,10 @@ use tokio::sync::{
 
 pub mod traits;
 pub use traits::Map;
-pub mod metrics;
 pub mod rocks;
 use crate::rocks::RocksDB;
 pub mod sally;
 pub mod test_db;
-pub use metrics::DBMetrics;
 
 #[cfg(test)]
 #[path = "tests/store_tests.rs"]
