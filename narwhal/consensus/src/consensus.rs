@@ -9,7 +9,6 @@ use config::Committee;
 use crypto::PublicKey;
 use fastcrypto::hash::Hash;
 use metrics::gauge;
-use snarkos_metrics::counter;
 use std::{
     cmp::{max, Ordering},
     collections::{BTreeMap, HashMap},
@@ -153,9 +152,9 @@ impl ConsensusState {
         self.last_committed_round = max(self.last_committed_round, certificate.round());
 
         // TODO(metrics): Set last_committed_round to `self.last_committed_round as i64`
-        counter!(
+        gauge!(
             snarkos_metrics::consensus::LAST_COMMITTED_ROUND,
-            self.last_committed_round
+            self.last_committed_round as f64
         );
 
         let elapsed = certificate.metadata.created_at.elapsed().as_secs_f64();
