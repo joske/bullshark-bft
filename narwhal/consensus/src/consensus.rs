@@ -8,7 +8,6 @@ use crate::{ConsensusError, SequenceNumber};
 use config::Committee;
 use crypto::PublicKey;
 use fastcrypto::hash::Hash;
-use snarkos_metrics::{gauge, histogram};
 use std::{
     cmp::{max, Ordering},
     collections::{BTreeMap, HashMap},
@@ -24,6 +23,9 @@ use types::{
     Certificate, CertificateDigest, CommittedSubDag, ConditionalBroadcastReceiver, ConsensusStore,
     Round, StoreResult, Timestamp,
 };
+
+#[cfg(feature = "metrics")]
+use snarkos_metrics::{gauge, histogram};
 
 #[cfg(test)]
 #[path = "tests/consensus_tests.rs"]
@@ -151,6 +153,7 @@ impl ConsensusState {
             .or_insert_with(|| certificate.round());
         self.last_committed_round = max(self.last_committed_round, certificate.round());
 
+        #[cfg(feature = "metrics")]
         gauge!(
             snarkos_metrics::consensus::LAST_COMMITTED_ROUND,
             self.last_committed_round as f64
@@ -158,6 +161,7 @@ impl ConsensusState {
 
         let elapsed = certificate.metadata.created_at.elapsed().as_secs_f64();
 
+        #[cfg(feature = "metrics")]
         histogram!(
             snarkos_metrics::consensus::CERTIFICATE_COMMIT_LATENCY,
             certificate.metadata.created_at.elapsed().as_secs_f64(),

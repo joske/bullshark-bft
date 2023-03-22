@@ -2,12 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anemo::PeerId;
-use snarkos_metrics::gauge;
 use std::collections::HashMap;
 use tokio::task::JoinHandle;
 
+#[cfg(feature = "metrics")]
+use snarkos_metrics::gauge;
+
 pub struct ConnectionMonitor {
     network: anemo::NetworkRef,
+
+    // Only used with metrics, but not worth the effort to make it conditional.
+    #[allow(dead_code)]
     peer_id_types: HashMap<PeerId, String>,
 }
 
@@ -51,7 +56,10 @@ impl ConnectionMonitor {
 
         // now report the connected peers
         let mut peer_count: usize = connected_peers.len();
+        #[cfg(feature = "metrics")]
         gauge!(snarkos_metrics::network::NETWORK_PEERS, peer_count as f64);
+
+        #[cfg(feature = "metrics")]
         for peer_id in connected_peers {
             self.handle_peer_connect(peer_id);
         }
@@ -59,19 +67,28 @@ impl ConnectionMonitor {
         while let Ok(event) = subscriber.recv().await {
             match event {
                 anemo::types::PeerEvent::NewPeer(peer_id) => {
+                    _ = peer_id;
                     peer_count += 1;
-                    gauge!(snarkos_metrics::network::NETWORK_PEERS, peer_count as f64);
-                    self.handle_peer_connect(peer_id);
+                    #[cfg(feature = "metrics")]
+                    {
+                        gauge!(snarkos_metrics::network::NETWORK_PEERS, peer_count as f64);
+                        self.handle_peer_connect(peer_id);
+                    }
                 }
                 anemo::types::PeerEvent::LostPeer(peer_id, _) => {
+                    _ = peer_id;
                     peer_count = peer_count.saturating_sub(1);
-                    gauge!(snarkos_metrics::network::NETWORK_PEERS, peer_count as f64);
-                    self.handle_peer_disconnect(peer_id);
+                    #[cfg(feature = "metrics")]
+                    {
+                        gauge!(snarkos_metrics::network::NETWORK_PEERS, peer_count as f64);
+                        self.handle_peer_disconnect(peer_id);
+                    }
                 }
             }
         }
     }
 
+    #[cfg(feature = "metrics")]
     fn handle_peer_connect(&self, peer_id: PeerId) {
         use snarkos_metrics::network::labels::PEER_ID;
 
@@ -80,6 +97,7 @@ impl ConnectionMonitor {
         }
     }
 
+    #[cfg(feature = "metrics")]
     fn handle_peer_disconnect(&self, peer_id: PeerId) {
         use snarkos_metrics::network::labels::PEER_ID;
 
