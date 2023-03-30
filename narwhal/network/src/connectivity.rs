@@ -5,8 +5,15 @@ use anemo::PeerId;
 use std::collections::HashMap;
 use tokio::task::JoinHandle;
 
+#[cfg(feature = "metrics")]
+use snarkos_metrics::gauge;
+
 pub struct ConnectionMonitor {
     network: anemo::NetworkRef,
+
+    // Only used with metrics, but not worth the effort to make it conditional.
+    // TODO(metrics): Make this conditional at some point?
+    #[allow(dead_code)]
     peer_id_types: HashMap<PeerId, String>,
 }
 
@@ -46,9 +53,12 @@ impl ConnectionMonitor {
         }
         */
 
-        // TODO(metrics): Set `network_peers` to `connected_peers.len() as i64`
-
         // now report the connected peers
+        let mut peer_count: usize = connected_peers.len();
+        #[cfg(feature = "metrics")]
+        gauge!(snarkos_metrics::network::NETWORK_PEERS, peer_count as f64);
+
+        #[cfg(feature = "metrics")]
         for peer_id in connected_peers {
             self.handle_peer_connect(peer_id);
         }
@@ -56,28 +66,42 @@ impl ConnectionMonitor {
         while let Ok(event) = subscriber.recv().await {
             match event {
                 anemo::types::PeerEvent::NewPeer(peer_id) => {
-                    self.handle_peer_connect(peer_id);
+                    _ = peer_id;
+                    peer_count += 1;
+                    #[cfg(feature = "metrics")]
+                    {
+                        gauge!(snarkos_metrics::network::NETWORK_PEERS, peer_count as f64);
+                        self.handle_peer_connect(peer_id);
+                    }
                 }
                 anemo::types::PeerEvent::LostPeer(peer_id, _) => {
-                    self.handle_peer_disconnect(peer_id);
+                    _ = peer_id;
+                    peer_count = peer_count.saturating_sub(1);
+                    #[cfg(feature = "metrics")]
+                    {
+                        gauge!(snarkos_metrics::network::NETWORK_PEERS, peer_count as f64);
+                        self.handle_peer_disconnect(peer_id);
+                    }
                 }
             }
         }
     }
 
+    #[cfg(feature = "metrics")]
     fn handle_peer_connect(&self, peer_id: PeerId) {
-        // TODO(metrics): Increment `network_peers` by 1
+        use snarkos_metrics::network::labels::PEER_ID;
 
-        if let Some(_ty) = self.peer_id_types.get(&peer_id) {
-            // TODO(metrics): Set `network_peer_connected` to 1
+        if let Some(ty) = self.peer_id_types.get(&peer_id) {
+            gauge!(snarkos_metrics::network::NETWORK_PEER_CONNECTED, 1.0, PEER_ID => ty.to_string());
         }
     }
 
+    #[cfg(feature = "metrics")]
     fn handle_peer_disconnect(&self, peer_id: PeerId) {
-        // TODO(metrics): Decrement `network_peers` by 1
+        use snarkos_metrics::network::labels::PEER_ID;
 
-        if let Some(_ty) = self.peer_id_types.get(&peer_id) {
-            // TODO(metrics): Set `network_peer_connected` to 0
+        if let Some(ty) = self.peer_id_types.get(&peer_id) {
+            gauge!(snarkos_metrics::network::NETWORK_PEER_CONNECTED, 0.0, PEER_ID => ty.to_string());
         }
     }
 }

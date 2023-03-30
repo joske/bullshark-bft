@@ -24,6 +24,9 @@ use types::{
 };
 use types::{now, ConditionalBroadcastReceiver};
 
+#[cfg(feature = "metrics")]
+use snarkos_metrics::gauge;
+
 /// Messages sent to the proposer about our own batch digests
 #[derive(Debug)]
 pub struct OurDigestMessage {
@@ -432,7 +435,10 @@ impl Proposer {
                 // Advance to the next round.
                 self.round += 1;
                 let _ = self.tx_narwhal_round_updates.send(self.round);
-                // TODO(metrics): Set `current_round` to `self.round as i64`
+
+                #[cfg(feature = "metrics")]
+                gauge!(snarkos_metrics::primary::CURRENT_ROUND, self.round as f64);
+
                 debug!("Dag moved to round {}", self.round);
 
                 // Make a new header.

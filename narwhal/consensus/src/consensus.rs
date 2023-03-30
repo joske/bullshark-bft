@@ -24,6 +24,9 @@ use types::{
     Round, StoreResult, Timestamp,
 };
 
+#[cfg(feature = "metrics")]
+use snarkos_metrics::{gauge, histogram};
+
 #[cfg(test)]
 #[path = "tests/consensus_tests.rs"]
 pub mod consensus_tests;
@@ -150,11 +153,21 @@ impl ConsensusState {
             .or_insert_with(|| certificate.round());
         self.last_committed_round = max(self.last_committed_round, certificate.round());
 
-        // TODO(metrics): Set last_committed_round to `self.last_committed_round as i64`
+        #[cfg(feature = "metrics")]
+        gauge!(
+            snarkos_metrics::consensus::LAST_COMMITTED_ROUND,
+            self.last_committed_round as f64
+        );
 
         let elapsed = certificate.metadata.created_at.elapsed().as_secs_f64();
 
-        // TODO(metrics): Set certificate_commit_latency to `certificate.metadata.created_at.elapsed().as_secs_f64()`
+        #[cfg(feature = "metrics")]
+        histogram!(
+            snarkos_metrics::consensus::CERTIFICATE_COMMIT_LATENCY,
+            certificate.metadata.created_at.elapsed().as_secs_f64(),
+            "certificate_round" => certificate.round().to_string(),
+            "certificate_epoch" => certificate.epoch().to_string(),
+        );
 
         // NOTE: This log entry is used to compute performance.
         tracing::debug!(
