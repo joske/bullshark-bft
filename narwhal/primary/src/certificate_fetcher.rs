@@ -86,6 +86,7 @@ pub(crate) struct CertificateFetcher {
     targets: BTreeMap<PublicKey, Round>,
     /// Keeps the handle to the (at most one) inflight fetch certificates task.
     fetch_certificates_task: JoinSet<()>,
+    genesis_certs: Vec<Certificate>,
 }
 
 /// Thread-safe internal state of CertificateFetcher shared with its fetch task.
@@ -111,6 +112,7 @@ impl CertificateFetcher {
         rx_shutdown: ConditionalBroadcastReceiver,
         rx_certificate_fetcher: Receiver<Certificate>,
         tx_certificates_loopback: Sender<CertificateLoopbackMessage>,
+        genesis_certs: Vec<Certificate>,
     ) -> JoinHandle<()> {
         let state = Arc::new(CertificateFetcherState {
             name,
@@ -130,6 +132,7 @@ impl CertificateFetcher {
                 rx_certificate_fetcher,
                 targets: BTreeMap::new(),
                 fetch_certificates_task: JoinSet::new(),
+                genesis_certs,
             }
             .run()
             .await;
@@ -259,6 +262,7 @@ impl CertificateFetcher {
         let state = self.state.clone();
         let committee = self.committee.clone();
         let worker_cache = self.worker_cache.clone();
+        let genesis_certs = self.genesis_certs.clone();
 
         debug!(
             "Starting task to fetch missing certificates: max target {}, gc round {:?}",
@@ -275,6 +279,7 @@ impl CertificateFetcher {
                 worker_cache,
                 gc_round,
                 written_rounds,
+                genesis_certs,
             )
             .await
             {
@@ -309,6 +314,7 @@ async fn run_fetch_task(
     worker_cahce: SharedWorkerCache,
     gc_round: Round,
     written_rounds: BTreeMap<PublicKey, BTreeSet<Round>>,
+    genesis_certs: Vec<Certificate>,
 ) -> DagResult<()> {
     // Send request to fetch certificates.
     let request = FetchCertificatesRequest::default()
@@ -326,6 +332,7 @@ async fn run_fetch_task(
         &state.tx_certificates_loopback,
         &committee,
         &worker_cahce,
+        genesis_certs,
     )
     .await?;
 
@@ -420,6 +427,7 @@ async fn process_certificates_helper(
     tx_certificates_loopback: &Sender<CertificateLoopbackMessage>,
     committee: &Committee,
     worker_cache: &SharedWorkerCache,
+    genesis_certs: Vec<Certificate>,
 ) -> DagResult<()> {
     trace!("Start sending fetched certificates to processing");
     if response.certificates.len() > MAX_CERTIFICATES_TO_FETCH {
@@ -440,10 +448,11 @@ async fn process_certificates_helper(
             let committee = committee.clone();
             let worker_cache = worker_cache.clone();
             // Use threads dedicated to computation heavy work.
+            let genesis_certs = genesis_certs.clone();
             spawn_blocking(move || {
                 for c in &certs {
                     let worker_cache = worker_cache.clone();
-                    c.verify(&committee, worker_cache)?;
+                    c.verify(&committee, worker_cache, &genesis_certs)?;
                 }
                 Ok::<Vec<Certificate>, DagError>(certs)
             })

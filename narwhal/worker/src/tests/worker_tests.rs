@@ -20,8 +20,9 @@ use store::rocks::ReadWriteOptions;
 use test_utils::{batch, temp_dir, test_network, transaction, CommitteeFixture};
 use tokio::sync::watch;
 use types::{
-    MockWorkerToPrimary, MockWorkerToWorker, PreSubscribedBroadcastSender, TransactionProto,
-    TransactionsClient, WorkerBatchMessage, WorkerToPrimaryServer, WorkerToWorkerClient,
+    Certificate, MockWorkerToPrimary, MockWorkerToWorker, PreSubscribedBroadcastSender,
+    TransactionProto, TransactionsClient, WorkerBatchMessage, WorkerToPrimaryServer,
+    WorkerToWorkerClient,
 };
 
 // A test validator that rejects every transaction / batch
@@ -251,7 +252,7 @@ async fn get_network_peers_from_admin_server() {
     let worker_cache = fixture.shared_worker_cache();
     let authority_1 = fixture.authorities().next().unwrap();
     let name_1 = authority_1.public_key();
-    let signer_1 = authority_1.keypair().copy();
+    let signer_1 = authority_1.keypair().clone();
 
     let worker_id = 0;
     let worker_1_keypair = authority_1.worker(worker_id).keypair().copy();
@@ -264,6 +265,9 @@ async fn get_network_peers_from_admin_server() {
     let (tx_feedback, rx_feedback) = test_utils::test_channel!(CHANNEL_CAPACITY);
     let (_tx_consensus_round_updates, rx_consensus_round_updates) = watch::channel(0);
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
+
+    let keypair = authority_1.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     // Spawn Primary 1
     Primary::spawn(
@@ -283,12 +287,19 @@ async fn get_network_peers_from_admin_server() {
         rx_consensus_round_updates,
         /* dag */
         Some(Arc::new(
-            Dag::new(&committee, rx_new_certificates, tx_shutdown.subscribe()).1,
+            Dag::new(
+                &committee,
+                rx_new_certificates,
+                tx_shutdown.subscribe(),
+                genesis_certs.clone(),
+            )
+            .1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
         tx_feedback,
         None,
+        genesis_certs.clone(),
     );
 
     // Wait for tasks to start
@@ -360,7 +371,7 @@ async fn get_network_peers_from_admin_server() {
 
     let authority_2 = fixture.authorities().nth(1).unwrap();
     let name_2 = authority_2.public_key();
-    let signer_2 = authority_2.keypair().copy();
+    let signer_2 = authority_2.keypair().clone();
 
     let worker_2_keypair = authority_2.worker(worker_id).keypair().copy();
 
@@ -394,12 +405,19 @@ async fn get_network_peers_from_admin_server() {
         rx_consensus_round_updates,
         /* dag */
         Some(Arc::new(
-            Dag::new(&committee, rx_new_certificates_2, tx_shutdown.subscribe()).1,
+            Dag::new(
+                &committee,
+                rx_new_certificates_2,
+                tx_shutdown.subscribe(),
+                genesis_certs.clone(),
+            )
+            .1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown_2,
         tx_feedback_2,
         None,
+        genesis_certs.clone(),
     );
 
     // Wait for tasks to start

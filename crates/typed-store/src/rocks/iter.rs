@@ -66,6 +66,11 @@ impl<'a, K: Serialize, V> Iter<'a, K, V> {
         Ok(self)
     }
 
+    pub fn skip_to_bytes<T: AsRef<[u8]>>(mut self, key: T) -> Result<Self, TypedStoreError> {
+        self.db_iter.seek(key);
+        Ok(self)
+    }
+
     /// Moves the iterator the element given or
     /// the one prior to it if it does not exist. If there is
     /// no element prior to it, it returns an empty iterator.

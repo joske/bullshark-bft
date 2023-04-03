@@ -61,8 +61,7 @@ async fn test_successful_headers_synchronization() {
             .header_builder(&committee)
             .with_payload_batch(batch_1.clone(), worker_id_0, 0)
             .with_payload_batch(batch_2.clone(), worker_id_1, 0)
-            .build(author.keypair())
-            .unwrap();
+            .build(author.keypair().private());
 
         let certificate = fixture.certificate(&header);
 
@@ -77,6 +76,9 @@ async fn test_successful_headers_synchronization() {
         .start(anemo::Router::new())
         .unwrap();
 
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
+
     // AND create the synchronizer
     let _synchronizer_handle = BlockSynchronizer::spawn(
         name.clone(),
@@ -88,6 +90,7 @@ async fn test_successful_headers_synchronization() {
         payload_store.clone(),
         certificate_store.clone(),
         Parameters::default(),
+        genesis_certs,
     );
 
     // AND the channel to respond to
@@ -202,8 +205,7 @@ async fn test_successful_payload_synchronization() {
             .header_builder(&committee)
             .with_payload_batch(batch_1.clone(), worker_id_0, 0)
             .with_payload_batch(batch_2.clone(), worker_id_1, 0)
-            .build(author.keypair())
-            .unwrap();
+            .build(author.keypair().private());
 
         let certificate = fixture.certificate(&header);
 
@@ -217,6 +219,8 @@ async fn test_successful_payload_synchronization() {
         .private_key(network_key)
         .start(anemo::Router::new())
         .unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     // AND create the synchronizer
     let _synchronizer_handle = BlockSynchronizer::spawn(
@@ -229,6 +233,7 @@ async fn test_successful_payload_synchronization() {
         payload_store.clone(),
         certificate_store.clone(),
         Parameters::default(),
+        genesis_certs,
     );
 
     // AND the channel to respond to
@@ -373,8 +378,7 @@ async fn test_timeout_while_waiting_for_certificates() {
             let header = author
                 .header_builder(&committee)
                 .with_payload_batch(fixture_batch_with_transactions(10), 0, 0)
-                .build(author.keypair())
-                .unwrap();
+                .build(author.keypair().private());
 
             fixture.certificate(&header).digest()
         })
@@ -387,6 +391,9 @@ async fn test_timeout_while_waiting_for_certificates() {
         .private_key(network_key)
         .start(anemo::Router::new())
         .unwrap();
+
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     // AND create the synchronizer
     let params = Parameters {
@@ -406,6 +413,7 @@ async fn test_timeout_while_waiting_for_certificates() {
         payload_store.clone(),
         certificate_store.clone(),
         params.clone(),
+        genesis_certs,
     );
 
     // AND the channel to respond to
@@ -481,6 +489,8 @@ async fn test_reply_with_certificates_already_in_storage() {
         .private_key(network_key)
         .start(anemo::Router::new())
         .unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     let synchronizer = BlockSynchronizer {
         name,
@@ -495,6 +505,7 @@ async fn test_reply_with_certificates_already_in_storage() {
         certificates_synchronize_timeout: Default::default(),
         payload_synchronize_timeout: Default::default(),
         payload_availability_timeout: Default::default(),
+        genesis_certs: genesis_certs.clone(),
     };
 
     let mut certificates: HashMap<CertificateDigest, Certificate> = HashMap::new();
@@ -508,8 +519,7 @@ async fn test_reply_with_certificates_already_in_storage() {
         let header = author
             .header_builder(&committee)
             .with_payload_batch(batch.clone(), 0, 0)
-            .build(author.keypair())
-            .unwrap();
+            .build(author.keypair().private());
 
         let certificate = fixture.certificate(&header);
 
@@ -581,6 +591,10 @@ async fn test_reply_with_payload_already_in_storage() {
         .private_key(network_key)
         .start(anemo::Router::new())
         .unwrap();
+
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
+
     let synchronizer = BlockSynchronizer {
         name,
         committee: committee.clone(),
@@ -594,6 +608,7 @@ async fn test_reply_with_payload_already_in_storage() {
         certificates_synchronize_timeout: Default::default(),
         payload_synchronize_timeout: Default::default(),
         payload_availability_timeout: Default::default(),
+        genesis_certs,
     };
 
     let mut certificates_map: HashMap<CertificateDigest, Certificate> = HashMap::new();
@@ -607,8 +622,7 @@ async fn test_reply_with_payload_already_in_storage() {
         let header = author
             .header_builder(&committee)
             .with_payload_batch(batch.clone(), 0, 0)
-            .build(author.keypair())
-            .unwrap();
+            .build(author.keypair().private());
 
         let certificate = fixture.certificate(&header);
 
@@ -685,6 +699,10 @@ async fn test_reply_with_payload_already_in_storage_for_own_certificates() {
         .private_key(network_key)
         .start(anemo::Router::new())
         .unwrap();
+
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
+
     let synchronizer = BlockSynchronizer {
         name: name.clone(),
         committee: committee.clone(),
@@ -698,6 +716,7 @@ async fn test_reply_with_payload_already_in_storage_for_own_certificates() {
         certificates_synchronize_timeout: Default::default(),
         payload_synchronize_timeout: Default::default(),
         payload_availability_timeout: Default::default(),
+        genesis_certs,
     };
 
     let mut certificates_map: HashMap<CertificateDigest, Certificate> = HashMap::new();
@@ -710,8 +729,7 @@ async fn test_reply_with_payload_already_in_storage_for_own_certificates() {
         let header = primary
             .header_builder(&committee)
             .with_payload_batch(batch.clone(), 0, 0)
-            .build(primary.keypair())
-            .unwrap();
+            .build(primary.keypair().private());
 
         let certificate = fixture.certificate(&header);
 

@@ -39,9 +39,11 @@ async fn test_consensus_recovery_with_bullshark() {
     let fixture = CommitteeFixture::builder().build();
     let committee = fixture.committee();
 
+    let primary = fixture.authorities().nth(1).unwrap();
+    let keypair = primary.keypair().clone();
     // AND make certificates for rounds 1 to 5 (inclusive)
     let keys: Vec<_> = fixture.authorities().map(|a| a.public_key()).collect();
-    let genesis = Certificate::genesis(&committee)
+    let genesis = Certificate::genesis(&committee, keypair.private())
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();

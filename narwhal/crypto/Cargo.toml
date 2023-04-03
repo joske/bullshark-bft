@@ -19,6 +19,10 @@ zeroize = "1.5.7"
 merlin = "3.0.0"
 once_cell = "1.16"
 readonly = "0.2.2"
+base64ct = "1.6"
+
+[dependencies.snarkvm-console]
+version = "0.9.14"
 
 [features]
 default = []

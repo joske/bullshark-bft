@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use config::{Committee, Stake};
-use crypto::{PublicKey, Signature};
-use fastcrypto::traits::EncodeDecodeBase64;
+use crypto::{EncodeDecodeBase64, PublicKey, Signature};
 use std::collections::HashSet;
 use types::{
     ensure,

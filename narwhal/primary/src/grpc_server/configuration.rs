@@ -3,7 +3,6 @@
 
 use config::{SharedCommittee, Stake};
 use crypto::PublicKey;
-use fastcrypto::traits::ToFromBytes;
 use multiaddr::Multiaddr;
 use std::collections::BTreeMap;
 use tonic::{Request, Response, Status};

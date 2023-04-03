@@ -1,7 +1,7 @@
 // Copyright (c) 2021, Facebook, Inc. and its affiliates
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
-use config::{Committee, SharedCommittee, SharedWorkerCache, WorkerId};
+use config::{SharedCommittee, SharedWorkerCache, WorkerId};
 use consensus::dag::Dag;
 use crypto::PublicKey;
 use fastcrypto::hash::Hash as _;
@@ -45,15 +45,18 @@ pub struct Synchronizer {
 impl Synchronizer {
     pub fn new(
         name: PublicKey,
-        committee: SharedCommittee,
+        _committee: SharedCommittee,
         worker_cache: SharedWorkerCache,
         certificate_store: CertificateStore,
         payload_store: Store<(BatchDigest, WorkerId), PayloadToken>,
         tx_certificate_fetcher: mpsc::Sender<Certificate>,
         rx_consensus_round_updates: watch::Receiver<Round>,
         dag: Option<Arc<Dag>>,
+        genesis_certs: Vec<Certificate>,
     ) -> Self {
-        let genesis = Self::make_genesis(&committee.load());
+        // let genesis = Self::make_genesis(&committee.load());
+        let genesis = genesis_certs.into_iter().map(|x| (x.digest(), x)).collect();
+
         Self {
             name,
             worker_cache,
@@ -66,12 +69,12 @@ impl Synchronizer {
         }
     }
 
-    fn make_genesis(committee: &Committee) -> HashMap<CertificateDigest, Certificate> {
-        Certificate::genesis(committee)
-            .into_iter()
-            .map(|x| (x.digest(), x))
-            .collect()
-    }
+    //  fn make_genesis(committee: &Committee) -> HashMap<CertificateDigest, Certificate> {
+    //      Certificate::genesis(committee)
+    //          .into_iter()
+    //          .map(|x| (x.digest(), x))
+    //          .collect()
+    //  }
 
     /// Synchronizes batches in the given header with other nodes (through our workers).
     /// Blocks until either synchronization is complete, or the current consensus rounds advances

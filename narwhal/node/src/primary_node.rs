@@ -7,7 +7,6 @@ use consensus::dag::Dag;
 use consensus::Consensus;
 use crypto::{KeyPair, NetworkKeyPair, PublicKey};
 use executor::{get_restored_consensus_output, ExecutionState, Executor, SubscriberResult};
-use fastcrypto::traits::{KeyPair as _, VerifyingKey};
 use primary::{NetworkModel, Primary, NUM_SHUTDOWN_RECEIVERS};
 use std::sync::Arc;
 use std::time::Instant;
@@ -163,12 +162,16 @@ impl PrimaryNodeInner {
         let mut handles = Vec::new();
         let (tx_executor_network, rx_executor_network) = oneshot::channel();
         let (tx_consensus_round_updates, rx_consensus_round_updates) = watch::channel(0u64);
+
+        let genesis_certs = Certificate::genesis(&(**committee.load()).clone(), keypair.private());
+
         let (dag, network_model) = if !internal_consensus {
             debug!("Consensus is disabled: the primary will run w/o Bullshark");
             let (handle, dag) = Dag::new(
                 &committee.load(),
                 rx_new_certificates,
                 tx_shutdown.subscribe(),
+                genesis_certs.clone(),
             );
 
             handles.push(handle);
@@ -216,6 +219,7 @@ impl PrimaryNodeInner {
             tx_shutdown,
             tx_committed_certificates,
             Some(tx_executor_network),
+            genesis_certs,
         );
         handles.extend(primary_handles);
 
@@ -237,7 +241,6 @@ impl PrimaryNodeInner {
         tx_consensus_round_updates: watch::Sender<Round>,
     ) -> SubscriberResult<Vec<JoinHandle<()>>>
     where
-        PublicKey: VerifyingKey,
         State: ExecutionState + Send + Sync + 'static,
     {
         let (tx_sequence, rx_sequence) = mpsc::channel(Self::CHANNEL_CAPACITY);

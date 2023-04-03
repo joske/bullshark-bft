@@ -8,21 +8,23 @@ use crate::{
 };
 use bytes::Bytes;
 use config::{Committee, Epoch, SharedWorkerCache, Stake, WorkerId, WorkerInfo};
-use crypto::{AggregateSignature, PublicKey, Signature};
+use crypto::{
+    AggregateSignature, EncodeDecodeBase64, PrivateKey, PublicKey, Signature, SignatureService,
+};
 use dag::node_dag::Affiliated;
 use derive_builder::Builder;
-use fastcrypto::{
-    hash::{Digest, Hash, HashFunction},
-    signature_service::SignatureService,
-    traits::{AggregateAuthenticator, EncodeDecodeBase64, Signer, VerifyingKey},
-    Verifier,
-};
+use fastcrypto::hash::{Digest, Hash, HashFunction};
 use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
 use proptest_derive::Arbitrary;
+use rand::{
+    rngs::{StdRng, ThreadRng},
+    thread_rng, SeedableRng,
+};
 use roaring::RoaringBitmap;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+use snarkvm_console::prelude::ToBytes;
 use std::time::{Duration, SystemTime};
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
@@ -140,7 +142,7 @@ impl Hash<{ crypto::DIGEST_LENGTH }> for Batch {
     }
 }
 
-#[derive(Builder, Clone, Default, Deserialize, Serialize)]
+#[derive(Builder, Clone, Deserialize, Serialize)]
 #[builder(pattern = "owned", build_fn(skip))]
 pub struct Header {
     pub author: PublicKey,
@@ -155,12 +157,51 @@ pub struct Header {
     pub signature: Signature,
 }
 
+impl Default for Header {
+    fn default() -> Self {
+        let h = UnsignedHeader {
+            author: PublicKey::default(),
+            round: 0,
+            epoch: 0,
+            created_at: 0,
+            payload: IndexMap::new(),
+            parents: BTreeSet::new(),
+            digest: OnceCell::default(),
+        };
+        let digest = Hash::digest(&h);
+        h.digest.set(digest).unwrap();
+        let signer = PrivateKey::default();
+        let mut rng = StdRng::seed_from_u64(42);
+        let signature = signer
+            .sign_bytes(Digest::from(digest).as_ref(), &mut rng)
+            .unwrap();
+        Header {
+            author: h.author,
+            round: h.round,
+            epoch: h.epoch,
+            created_at: h.created_at,
+            payload: h.payload,
+            parents: h.parents,
+            digest: h.digest,
+            signature,
+        }
+    }
+}
+
+struct UnsignedHeader {
+    author: PublicKey,
+    round: Round,
+    epoch: Epoch,
+    created_at: TimestampMs,
+    payload: IndexMap<BatchDigest, (WorkerId, TimestampMs)>,
+    parents: BTreeSet<CertificateDigest>,
+    digest: OnceCell<HeaderDigest>,
+}
+
 impl HeaderBuilder {
-    pub fn build<F>(self, signer: &F) -> Result<Header, fastcrypto::error::FastCryptoError>
-    where
-        F: Signer<Signature>,
-    {
-        let h = Header {
+    // TODO(nkls): seems like this can be deleted, it's only used in the generate_format example?
+    pub fn build(self, signer: &PrivateKey) -> Header {
+        let h = UnsignedHeader {
             author: self.author.unwrap(),
             round: self.round.unwrap(),
             epoch: self.epoch.unwrap(),
@@ -168,16 +209,22 @@ impl HeaderBuilder {
             payload: self.payload.unwrap(),
             parents: self.parents.unwrap(),
             digest: OnceCell::default(),
-            signature: Signature::default(),
         };
-        h.digest.set(Hash::digest(&h)).unwrap();
-
-        Ok(Header {
-            signature: signer
-                .try_sign(Digest::from(Hash::digest(&h)).as_ref())
-                .map_err(|_| fastcrypto::error::FastCryptoError::GeneralError)?,
-            ..h
-        })
+        let digest = Hash::digest(&h);
+        h.digest.set(digest).unwrap();
+        let signature = signer
+            .sign_bytes(Digest::from(digest).as_ref(), &mut ThreadRng::default())
+            .unwrap();
+        Header {
+            author: h.author,
+            round: h.round,
+            epoch: h.epoch,
+            created_at: h.created_at,
+            payload: h.payload,
+            parents: h.parents,
+            digest: h.digest,
+            signature,
+        }
     }
 
     // helper method to set directly values to the payload
@@ -205,24 +252,32 @@ impl Header {
         epoch: Epoch,
         payload: IndexMap<BatchDigest, (WorkerId, TimestampMs)>,
         parents: BTreeSet<CertificateDigest>,
-        signature_service: &SignatureService<Signature, { crypto::DIGEST_LENGTH }>,
+        signature_service: &SignatureService,
     ) -> Self {
-        let header = Self {
+        let unsigned_header = UnsignedHeader {
             author,
             round,
             epoch,
             created_at: now(),
             payload,
             parents,
+            // TODO(nkls): maybe the once_cell isn't necessary anymore?
             digest: OnceCell::default(),
-            signature: Signature::default(),
         };
-        let digest = Hash::digest(&header);
-        header.digest.set(digest).unwrap();
+        let digest = Hash::digest(&unsigned_header);
+        unsigned_header.digest.set(digest).unwrap();
+
         let signature = signature_service.request_signature(digest.into()).await;
+
         Self {
+            author: unsigned_header.author,
+            round: unsigned_header.round,
+            epoch: unsigned_header.epoch,
+            created_at: unsigned_header.created_at,
+            payload: unsigned_header.payload,
+            parents: unsigned_header.parents,
+            digest: unsigned_header.digest,
             signature,
-            ..header
         }
     }
 
@@ -263,9 +318,12 @@ impl Header {
 
         // Check the signature.
         let digest: Digest<{ crypto::DIGEST_LENGTH }> = Digest::from(self.digest());
-        self.author
-            .verify(digest.as_ref(), &self.signature)
-            .map_err(|_| DagError::InvalidSignature)
+
+        if !self.signature.verify_bytes(&self.author, digest.as_ref()) {
+            return Err(DagError::InvalidSignature);
+        }
+
+        Ok(())
     }
 }
 
@@ -296,12 +354,37 @@ impl fmt::Display for HeaderDigest {
     }
 }
 
+impl Hash<{ crypto::DIGEST_LENGTH }> for UnsignedHeader {
+    type TypedDigest = HeaderDigest;
+
+    fn digest(&self) -> HeaderDigest {
+        let mut hasher = crypto::DefaultHashFunction::new();
+        // SAFETY: this conversion can't fail, the result is just a side-effect of the `ToBytes`
+        // trait design in snarkVM.
+        hasher.update(&self.author.to_bytes_le().unwrap());
+        hasher.update(self.round.to_le_bytes());
+        hasher.update(self.epoch.to_le_bytes());
+        hasher.update(self.created_at.to_le_bytes());
+        for (x, (y, z)) in self.payload.iter() {
+            hasher.update(Digest::from(*x));
+            hasher.update(y.to_le_bytes());
+            hasher.update(z.to_le_bytes());
+        }
+        for x in self.parents.iter() {
+            hasher.update(Digest::from(*x))
+        }
+        HeaderDigest(hasher.finalize().into())
+    }
+}
+
 impl Hash<{ crypto::DIGEST_LENGTH }> for Header {
     type TypedDigest = HeaderDigest;
 
     fn digest(&self) -> HeaderDigest {
         let mut hasher = crypto::DefaultHashFunction::new();
-        hasher.update(&self.author);
+        // SAFETY: this conversion can't fail, the result is just a side-effect of the `ToBytes`
+        // trait design in snarkVM.
+        hasher.update(&self.author.to_bytes_le().unwrap());
         hasher.update(self.round.to_le_bytes());
         hasher.update(self.epoch.to_le_bytes());
         hasher.update(self.created_at.to_le_bytes());
@@ -353,46 +436,71 @@ pub struct Vote {
     pub epoch: Epoch,
     pub origin: PublicKey,
     pub author: PublicKey,
-    pub signature: <PublicKey as VerifyingKey>::Sig,
+    pub signature: Signature,
+}
+
+pub struct UnsignedVote {
+    pub digest: HeaderDigest,
+    pub round: Round,
+    pub epoch: Epoch,
+    pub origin: PublicKey,
+    pub author: PublicKey,
 }
 
 impl Vote {
     pub async fn new(
         header: &Header,
         author: &PublicKey,
-        signature_service: &SignatureService<Signature, { crypto::DIGEST_LENGTH }>,
+        signature_service: &SignatureService,
     ) -> Self {
-        let vote = Self {
+        let unsigned_vote = UnsignedVote {
             digest: header.digest(),
             round: header.round,
             epoch: header.epoch,
             origin: header.author.clone(),
             author: author.clone(),
-            signature: Signature::default(),
         };
         let signature = signature_service
-            .request_signature(vote.digest().into())
+            .request_signature(unsigned_vote.digest().into())
             .await;
-        Self { signature, ..vote }
+
+        Self {
+            digest: unsigned_vote.digest,
+            round: unsigned_vote.round,
+            epoch: unsigned_vote.epoch,
+            origin: unsigned_vote.origin,
+            author: unsigned_vote.author,
+            signature,
+        }
     }
 
-    pub fn new_with_signer<S>(header: &Header, author: &PublicKey, signer: &S) -> Self
-    where
-        S: Signer<Signature>,
-    {
-        let vote = Self {
+    pub fn new_with_signer(header: &Header, author: &PublicKey, signer: &PrivateKey) -> Self {
+        let unsigned_vote = UnsignedVote {
             digest: header.digest(),
             round: header.round,
             epoch: header.epoch,
             origin: header.author.clone(),
             author: author.clone(),
-            signature: Signature::default(),
         };
 
-        let vote_digest: Digest<{ crypto::DIGEST_LENGTH }> = vote.digest().into();
-        let signature = signer.sign(vote_digest.as_ref());
+        let mut rng = thread_rng();
 
-        Self { signature, ..vote }
+        let vote_digest: Digest<{ crypto::DIGEST_LENGTH }> = unsigned_vote.digest().into();
+
+        // Note: fastcrypto also uses infallible signing in their impl of the signature
+        // service.
+        let signature = signer
+            .sign_bytes(vote_digest.as_ref(), &mut rng)
+            .expect("signing failed");
+
+        Self {
+            digest: unsigned_vote.digest,
+            round: unsigned_vote.round,
+            epoch: unsigned_vote.round,
+            origin: unsigned_vote.origin,
+            author: unsigned_vote.author,
+            signature,
+        }
     }
 
     pub fn verify(&self, committee: &Committee) -> DagResult<()> {
@@ -413,9 +521,15 @@ impl Vote {
 
         // Check the signature.
         let vote_digest: Digest<{ crypto::DIGEST_LENGTH }> = self.digest().into();
-        self.author
-            .verify(vote_digest.as_ref(), &self.signature)
-            .map_err(|_| DagError::InvalidSignature)
+
+        if !self
+            .signature
+            .verify_bytes(&self.author, vote_digest.as_ref())
+        {
+            return Err(DagError::InvalidSignature);
+        }
+
+        Ok(())
     }
 }
 #[derive(
@@ -445,6 +559,22 @@ impl fmt::Display for VoteDigest {
     }
 }
 
+impl Hash<{ crypto::DIGEST_LENGTH }> for UnsignedVote {
+    type TypedDigest = VoteDigest;
+
+    fn digest(&self) -> VoteDigest {
+        let mut hasher = crypto::DefaultHashFunction::default();
+        hasher.update(Digest::from(self.digest));
+        hasher.update(self.round.to_le_bytes());
+        hasher.update(self.epoch.to_le_bytes());
+        // SAFETY: this conversion can't fail, the result is just a side-effect of the `ToBytes`
+        // trait design in snarkVM.
+        hasher.update(&self.origin.to_bytes_le().unwrap());
+        // TODO(nkls): why is the author not hashed here?
+        VoteDigest(hasher.finalize().into())
+    }
+}
+
 impl Hash<{ crypto::DIGEST_LENGTH }> for Vote {
     type TypedDigest = VoteDigest;
 
@@ -453,7 +583,9 @@ impl Hash<{ crypto::DIGEST_LENGTH }> for Vote {
         hasher.update(Digest::from(self.digest));
         hasher.update(self.round.to_le_bytes());
         hasher.update(self.epoch.to_le_bytes());
-        hasher.update(&self.origin);
+        // SAFETY: this conversion can't fail, the result is just a side-effect of the `ToBytes`
+        // trait design in snarkVM.
+        hasher.update(&self.origin.to_bytes_le().unwrap());
         VoteDigest(hasher.finalize().into())
     }
 }
@@ -489,17 +621,52 @@ pub struct Certificate {
 }
 
 impl Certificate {
-    pub fn genesis(committee: &Committee) -> Vec<Self> {
+    pub fn genesis(committee: &Committee, signer: &PrivateKey) -> Vec<Self> {
         committee
             .authorities
             .keys()
-            .map(|name| Self {
-                header: Header {
+            .map(|name| {
+                let unsigned_header = UnsignedHeader {
                     author: name.clone(),
+                    round: Default::default(),
                     epoch: committee.epoch(),
-                    ..Header::default()
-                },
-                ..Self::default()
+                    created_at: Default::default(),
+                    payload: Default::default(),
+                    parents: Default::default(),
+                    // TODO(nkls): maybe the once_cell isn't necessary anymore?
+                    digest: Default::default(),
+                };
+                let digest = Hash::digest(&unsigned_header);
+                unsigned_header.digest.set(digest).unwrap();
+
+                let mut rng = thread_rng();
+
+                let header_digest: Digest<{ crypto::DIGEST_LENGTH }> =
+                    unsigned_header.digest().into();
+
+                // Note: fastcrypto also uses infallible signing in their impl of the signature
+                // service.
+                let signature = signer
+                    .sign_bytes(header_digest.as_ref(), &mut rng)
+                    .expect("signing failed");
+
+                let header = Header {
+                    author: unsigned_header.author,
+                    round: unsigned_header.round,
+                    epoch: unsigned_header.epoch,
+                    created_at: unsigned_header.created_at,
+                    payload: unsigned_header.payload,
+                    parents: unsigned_header.parents,
+                    digest: unsigned_header.digest,
+                    signature,
+                };
+
+                Self {
+                    header,
+                    aggregated_signature: Default::default(),
+                    signed_authorities: Default::default(),
+                    metadata: Default::default(),
+                }
             })
             .collect()
     }
@@ -512,6 +679,7 @@ impl Certificate {
         Self::new_unsafe(committee, header, votes, true)
     }
 
+    // TODO(nkls): fix for tests.
     pub fn new_unsigned(
         committee: &Committee,
         header: Header,
@@ -580,10 +748,9 @@ impl Certificate {
         let aggregated_signature = if sigs.is_empty() {
             AggregateSignature::default()
         } else {
-            AggregateSignature::aggregate::<Signature, Vec<&Signature>>(
-                sigs.iter().map(|(_, sig)| sig).collect(),
-            )
-            .map_err(|_| DagError::InvalidSignature)?
+            // TODO(nkls): do these signatures need to be verified? They weren't in the original
+            // code.
+            AggregateSignature(sigs.into_iter().map(|(_author, sig)| sig).collect())
         };
 
         Ok(Certificate {
@@ -625,7 +792,12 @@ impl Certificate {
 
     /// Verifies the validaity of the certificate.
     /// TODO: Output a different type, similar to Sui VerifiedCertificate.
-    pub fn verify(&self, committee: &Committee, worker_cache: SharedWorkerCache) -> DagResult<()> {
+    pub fn verify(
+        &self,
+        committee: &Committee,
+        worker_cache: SharedWorkerCache,
+        genesis_certs: &[Certificate],
+    ) -> DagResult<()> {
         // Ensure the header is from the correct epoch.
         ensure!(
             self.epoch() == committee.epoch(),
@@ -636,25 +808,34 @@ impl Certificate {
         );
 
         // Genesis certificates are always valid.
-        if self.round() == 0 && Self::genesis(committee).contains(self) {
+        //
+        // Each primary will have signed their own version of the genesis headers in the
+        // certificates but the comparison only checks the header digests which don't include the
+        // signature.
+        //  if self.round() == 0 && Self::genesis(committee).contains(self) {
+        //      return Ok(());
+        //  }
+
+        if self.round() == 0 && genesis_certs.contains(self) {
             return Ok(());
         }
 
         // Check the embedded header.
         self.header.verify(committee, worker_cache)?;
 
-        let (weight, pks) = self.signed_by(committee);
+        let (weight, _pks) = self.signed_by(committee);
 
         ensure!(
             weight >= committee.quorum_threshold(),
             DagError::CertificateRequiresQuorum
         );
 
+        // TODO(nkls): work out how to do this.
         // Verify the signatures
-        let certificate_digest: Digest<{ crypto::DIGEST_LENGTH }> = Digest::from(self.digest());
-        self.aggregated_signature
-            .verify(&pks[..], certificate_digest.as_ref())
-            .map_err(|_| DagError::InvalidSignature)?;
+        //  let certificate_digest: Digest<{ crypto::DIGEST_LENGTH }> = Digest::from(self.digest());
+        //  self.aggregated_signature
+        //      .verify(&pks[..], certificate_digest.as_ref())
+        //      .map_err(|_| DagError::InvalidSignature)?;
 
         Ok(())
     }
@@ -727,7 +908,9 @@ impl Hash<{ crypto::DIGEST_LENGTH }> for Certificate {
         hasher.update(Digest::from(self.header.digest()));
         hasher.update(self.round().to_le_bytes());
         hasher.update(self.epoch().to_le_bytes());
-        hasher.update(&self.origin());
+        // SAFETY: this conversion can't fail, the result is just a side-effect of the `ToBytes`
+        // trait design in snarkVM.
+        hasher.update(&self.origin().to_bytes_le().unwrap());
         CertificateDigest(hasher.finalize().into())
     }
 }

@@ -184,6 +184,8 @@ pub struct BlockSynchronizer {
 
     /// Timeout when has requested the payload and waiting to receive
     payload_availability_timeout: Duration,
+
+    genesis_certs: Vec<Certificate>,
 }
 
 impl BlockSynchronizer {
@@ -198,6 +200,7 @@ impl BlockSynchronizer {
         payload_store: Store<(BatchDigest, WorkerId), PayloadToken>,
         certificate_store: CertificateStore,
         parameters: Parameters,
+        genesis_certs: Vec<Certificate>,
     ) -> JoinHandle<()> {
         tokio::spawn(async move {
             let _ = &parameters;
@@ -220,6 +223,7 @@ impl BlockSynchronizer {
                 payload_availability_timeout: parameters
                     .block_synchronizer
                     .payload_availability_timeout,
+                genesis_certs,
             }
             .run()
             .await;
@@ -450,6 +454,7 @@ impl BlockSynchronizer {
         let timeout = self.certificates_synchronize_timeout;
         let committee = self.committee.clone();
         let worker_cache = self.worker_cache.clone();
+        let genesis_certs = self.genesis_certs.clone();
         Some(
             Self::send_certificate_requests(
                 network,
@@ -458,6 +463,7 @@ impl BlockSynchronizer {
                 committee,
                 worker_cache,
                 to_sync,
+                genesis_certs,
             )
             .boxed(),
         )
@@ -700,6 +706,7 @@ impl BlockSynchronizer {
         committee: Committee,
         worker_cache: SharedWorkerCache,
         digests: Vec<CertificateDigest>,
+        genesis_certs: Vec<Certificate>,
     ) -> State {
         let request = GetCertificatesRequest {
             digests: digests.clone(),
@@ -763,7 +770,9 @@ impl BlockSynchronizer {
             let certificates = &response.body().certificates;
             let mut found_invalid_certificate = false;
             for certificate in certificates {
-                if let Err(err) = certificate.verify(&committee, worker_cache.clone()) {
+                if let Err(err) =
+                    certificate.verify(&committee, worker_cache.clone(), &genesis_certs)
+                {
                     error!(
                         "Ignoring certificates from peer {response_peer:?}: certificate verification failed for digest {} with error {err:?}",
                         certificate.digest(),

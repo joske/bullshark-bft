@@ -6,8 +6,8 @@ use crate::{
     utils,
 };
 use config::{Committee, Stake};
+use crypto::EncodeDecodeBase64;
 use crypto::PublicKey;
-use fastcrypto::traits::EncodeDecodeBase64;
 use std::{collections::BTreeSet, sync::Arc};
 use tokio::time::Instant;
 use tracing::{debug, trace};

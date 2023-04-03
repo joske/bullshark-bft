@@ -5,8 +5,8 @@ use crate::{certificate_fetcher::CertificateFetcher, core::Core, synchronizer::S
 use anemo::async_trait;
 use anyhow::Result;
 use config::{Epoch, WorkerId};
-use crypto::{PublicKey, Signature};
-use fastcrypto::{hash::Hash, signature_service::SignatureService, traits::KeyPair};
+use crypto::{PublicKey, Signature, SignatureService};
+use fastcrypto::{hash::Hash, traits::KeyPair};
 use indexmap::IndexMap;
 use itertools::Itertools;
 use once_cell::sync::OnceCell;
@@ -133,14 +133,17 @@ struct BadHeader {
     pub metadata: Metadata,
 }
 
-#[tokio::test(flavor = "current_thread", start_paused = true)]
+#[tokio::test]
+/// Test that the certificate fetcher fetches certificates from the primary. It takes some time to run.
 async fn fetch_certificates_basic() {
     let fixture = CommitteeFixture::builder().randomize_ports(true).build();
     let worker_cache = fixture.shared_worker_cache();
     let primary = fixture.authorities().next().unwrap();
     let name = primary.public_key();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
     let fake_primary = fixture.authorities().nth(1).unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&fixture.committee(), keypair.private());
 
     // kept empty
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
@@ -180,6 +183,7 @@ async fn fetch_certificates_basic() {
         tx_certificate_fetcher,
         rx_consensus_round_updates.clone(),
         None,
+        genesis_certs.clone(),
     ));
 
     let fake_primary_addr = network::multiaddr_to_address(fake_primary.address()).unwrap();
@@ -213,6 +217,7 @@ async fn fetch_certificates_basic() {
         tx_shutdown.subscribe(),
         rx_certificate_fetcher,
         tx_certificates_loopback,
+        genesis_certs.clone(),
     );
 
     // Spawn the core.
@@ -236,7 +241,7 @@ async fn fetch_certificates_basic() {
     );
 
     // Generate headers and certificates in successive rounds
-    let genesis_certs: Vec<_> = Certificate::genesis(&fixture.committee());
+    let genesis_certs: Vec<_> = Certificate::genesis(&fixture.committee(), keypair.private());
     for cert in genesis_certs.iter() {
         certificate_store
             .write(cert.clone())

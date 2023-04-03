@@ -3,12 +3,9 @@ use clap::{clap_derive::ValueEnum, Parser};
 // SPDX-License-Identifier: Apache-2.0
 use config::{Authority, Committee, Epoch, WorkerIndex, WorkerInfo};
 use crypto::{KeyPair, NetworkKeyPair};
-use fastcrypto::{
-    hash::Hash,
-    traits::{KeyPair as _, Signer},
-};
+use fastcrypto::{hash::Hash, traits::KeyPair as _};
 use multiaddr::Multiaddr;
-use rand::{prelude::StdRng, SeedableRng};
+use rand::{prelude::StdRng, thread_rng, SeedableRng};
 use serde_reflection::{Registry, Result, Samples, Tracer, TracerConfig};
 use std::{fs::File, io::Write};
 use types::{
@@ -28,21 +25,17 @@ fn get_registry() -> Result<Registry> {
     // Trace the corresponding header
     let mut rng = StdRng::from_seed([0; 32]);
     let (keys, network_keys): (Vec<_>, Vec<_>) = (0..4)
-        .map(|_| {
-            (
-                KeyPair::generate(&mut rng),
-                NetworkKeyPair::generate(&mut rng),
-            )
-        })
+        .map(|_| (KeyPair::new(&mut rng), NetworkKeyPair::generate(&mut rng)))
         .unzip();
 
-    let kp = keys[0].copy();
+    let kp = keys[0].as_ref().unwrap().clone();
+    let private = kp.private();
     let pk = kp.public().clone();
 
     tracer.trace_value(&mut samples, &pk)?;
 
     let msg = b"Hello world!";
-    let signature = kp.try_sign(msg).unwrap();
+    let signature = private.sign_bytes(msg, &mut thread_rng()).unwrap();
     tracer.trace_value(&mut samples, &signature)?;
 
     let committee = Committee {
@@ -52,7 +45,7 @@ fn get_registry() -> Result<Registry> {
             .zip(network_keys.iter())
             .enumerate()
             .map(|(i, (kp, network_key))| {
-                let id = kp.public();
+                let id = kp.as_ref().unwrap().public();
                 let primary_address: Multiaddr =
                     format!("/ip4/127.0.0.1/udp/{}", 100 + i).parse().unwrap();
                 (
@@ -67,10 +60,11 @@ fn get_registry() -> Result<Registry> {
             .collect(),
     };
 
-    let certificates: Vec<Certificate> = Certificate::genesis(&committee);
+    let certificates: Vec<Certificate> = Certificate::genesis(&committee, private);
 
     // The values have to be "complete" in a data-centric sense, but not "correct" cryptographically.
     let header_builder = HeaderBuilder::default();
+    let private = kp.private();
     let header = header_builder
         .author(kp.public().clone())
         .epoch(0)
@@ -82,12 +76,13 @@ fn get_registry() -> Result<Registry> {
                 .collect(),
         )
         .parents(certificates.iter().map(|x| x.digest()).collect())
-        .build(&kp)
-        .unwrap();
+        .build(private);
 
     let worker_pk = network_keys[0].public().clone();
     let certificate = Certificate::new_unsigned(&committee, header.clone(), vec![]).unwrap();
-    let signature = keys[0].sign(certificate.digest().as_ref());
+    let signature = private
+        .sign_bytes(certificate.digest().as_ref(), &mut thread_rng())
+        .unwrap();
     let certificate =
         Certificate::new_unsigned(&committee, header.clone(), vec![(pk.clone(), signature)])
             .unwrap();

@@ -10,8 +10,7 @@
 #![allow(clippy::mutable_key_type)]
 
 use arc_swap::ArcSwap;
-use crypto::{NetworkPublicKey, PublicKey};
-use fastcrypto::traits::EncodeDecodeBase64;
+use crypto::{EncodeDecodeBase64, NetworkPublicKey, PublicKey};
 use multiaddr::Multiaddr;
 use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};

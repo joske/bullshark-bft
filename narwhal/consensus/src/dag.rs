@@ -102,12 +102,13 @@ enum DagCommand {
 
 impl InnerDag {
     fn new(
-        committee: &Committee,
+        _committee: &Committee,
         rx_primary: mpsc::Receiver<Certificate>,
         rx_commands: Receiver<DagCommand>,
         dag: NodeDag<Certificate>,
         vertices: RwLock<BTreeMap<(PublicKey, Round), CertificateDigest>>,
         rx_shutdown: ConditionalBroadcastReceiver,
+        genesis_certs: Vec<Certificate>,
     ) -> Self {
         let mut idg = InnerDag {
             rx_primary,
@@ -116,8 +117,8 @@ impl InnerDag {
             vertices,
             rx_shutdown,
         };
-        let genesis = Certificate::genesis(committee);
-        for cert in genesis.into_iter() {
+        // let genesis = Certificate::genesis(committee);
+        for cert in genesis_certs.into_iter() {
             idg.insert(cert)
                 .expect("Insertion of the certificates produced by genesis should be leaves!");
         }
@@ -336,6 +337,7 @@ impl Dag {
         committee: &Committee,
         rx_primary: mpsc::Receiver<Certificate>,
         rx_shutdown: ConditionalBroadcastReceiver,
+        genesis_certs: Vec<Certificate>,
     ) -> (JoinHandle<()>, Self) {
         let (tx_commands, rx_commands) = tokio::sync::mpsc::channel(DEFAULT_CHANNEL_SIZE);
         let mut idg = InnerDag::new(
@@ -345,6 +347,7 @@ impl Dag {
             /* dag */ NodeDag::new(),
             /* vertices */ RwLock::new(BTreeMap::new()),
             rx_shutdown,
+            genesis_certs,
         );
 
         let handle = tokio::spawn(async move { idg.run().await });

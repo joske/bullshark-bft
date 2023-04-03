@@ -58,8 +58,7 @@ mod test {
             .epoch(0)
             .parents([CertificateDigest::default()].iter().cloned().collect())
             .with_payload_batch(fixture_batch_with_transactions(10), 0, 0)
-            .build(primary.keypair())
-            .unwrap();
+            .build(primary.keypair().private());
         header
     }
 

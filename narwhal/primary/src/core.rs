@@ -10,8 +10,8 @@ use crate::{
 
 use anyhow::Result;
 use config::{Committee, Epoch};
-use crypto::{NetworkPublicKey, PublicKey, Signature};
-use fastcrypto::{hash::Hash as _, signature_service::SignatureService};
+use crypto::{NetworkPublicKey, PublicKey, SignatureService};
+use fastcrypto::hash::Hash as _;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use network::{anemo_ext::NetworkExt, CancelOnDropHandler, ReliableNetwork};
@@ -50,7 +50,7 @@ pub struct Core {
     /// Handles synchronization with other nodes and our workers.
     synchronizer: Arc<Synchronizer>,
     /// Service to sign headers.
-    signature_service: SignatureService<Signature, { crypto::DIGEST_LENGTH }>,
+    signature_service: SignatureService,
     /// Get a signal when the consensus round changes
     rx_consensus_round_updates: watch::Receiver<Round>,
     /// Get a signal when the narwhal round changes
@@ -106,7 +106,7 @@ impl Core {
         header_store: Store<HeaderDigest, Header>,
         certificate_store: CertificateStore,
         synchronizer: Arc<Synchronizer>,
-        signature_service: SignatureService<Signature, { crypto::DIGEST_LENGTH }>,
+        signature_service: SignatureService,
         rx_consensus_round_updates: watch::Receiver<Round>,
         rx_narwhal_round_updates: watch::Receiver<Round>,
         gc_depth: Round,
@@ -297,7 +297,7 @@ impl Core {
         committee: Committee,
         header_store: Store<HeaderDigest, Header>,
         certificate_store: CertificateStore,
-        signature_service: SignatureService<Signature, { crypto::DIGEST_LENGTH }>,
+        signature_service: SignatureService,
         network: anemo::Network,
         header: Header,
         mut cancel: oneshot::Receiver<()>,
