@@ -94,7 +94,7 @@ use tracing::metadata::LevelFilter;
 use tracing::Level;
 use tracing_appender::non_blocking::{NonBlocking, WorkerGuard};
 use tracing_subscriber::{
-    fmt, layer::SubscriberExt, reload, util::SubscriberInitExt, EnvFilter, Layer, Registry,
+    fmt, layer::SubscriberExt, reload, EnvFilter, Layer, Registry,
 };
 
 use crossterm::tty::IsTty;
