@@ -48,6 +48,7 @@
 //!     Ok(())
 //! }
 //! ```
+
 use crate::{
     rocks::{
         default_db_options, keys::Keys, values::Values, DBBatch, DBMap, DBOptions,
@@ -57,8 +58,9 @@ use crate::{
     traits::{AsyncMap, Map},
 };
 
-use crate::rocks::iter::Iter as RocksDBIter;
+use crate::rocks::safe_iter::{SafeIter as RocksDBIter, SafeRevIter};
 use crate::rocks::DBMapTableConfigMap;
+use crate::test_db::{TestDBIter, TestDBRevIter};
 use async_trait::async_trait;
 use collectable::TryExtend;
 use rocksdb::Options;

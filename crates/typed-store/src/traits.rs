@@ -166,8 +166,6 @@ pub struct TableSummary {
     pub num_keys: u64,
     pub key_bytes_total: usize,
     pub value_bytes_total: usize,
-    pub key_hist: hdrhistogram::Histogram<u64>,
-    pub value_hist: hdrhistogram::Histogram<u64>,
 }
 
 pub trait TypedStoreDebug {

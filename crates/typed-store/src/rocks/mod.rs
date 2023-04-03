@@ -638,22 +638,16 @@ impl<K, V> DBMap<K, V> {
         let mut num_keys = 0;
         let mut key_bytes_total = 0;
         let mut value_bytes_total = 0;
-        let mut key_hist = hdrhistogram::Histogram::<u64>::new_with_max(100000, 2).unwrap();
-        let mut value_hist = hdrhistogram::Histogram::<u64>::new_with_max(100000, 2).unwrap();
         let iter = self.iterator_cf().map(Result::unwrap);
         for (key, value) in iter {
             num_keys += 1;
             key_bytes_total += key.len();
             value_bytes_total += value.len();
-            key_hist.record(key.len() as u64)?;
-            value_hist.record(value.len() as u64)?;
         }
         Ok(TableSummary {
             num_keys,
             key_bytes_total,
             value_bytes_total,
-            key_hist,
-            value_hist,
         })
     }
 }
@@ -813,7 +807,7 @@ impl DBBatch {
 
     /// Deletes a range of keys between `from` (inclusive) and `to` (non-inclusive)
     pub fn delete_range<K: Serialize, V>(
-        mut self,
+        &mut self,
         db: &DBMap<K, V>,
         from: &K,
         to: &K,
@@ -1224,32 +1218,13 @@ where
     }
 
     fn safe_iter(&'a self) -> Self::SafeIterator {
-        let report_metrics = if self.iter_latency_sample_interval.sample() {
-            let timer = self
-                .db_metrics
-                .op_metrics
-                .rocksdb_iter_latency_seconds
-                .with_label_values(&[&self.cf])
-                .start_timer();
-            Some((timer, RocksDBPerfContext::default()))
-        } else {
-            None
-        };
         let mut db_iter = self
             .rocksdb
             .raw_iterator_cf(&self.cf(), self.opts.readopts());
         db_iter.seek_to_first();
-        if let Some((timer, _perf_ctx)) = report_metrics {
-            timer.stop_and_record();
-            self.db_metrics
-                .read_perf_ctx_metrics
-                .report_metrics(&self.cf);
-        }
         SafeIter::new(
             db_iter,
             self.cf.clone(),
-            &self.db_metrics,
-            &self.iter_bytes_sample_interval,
         )
     }
 
