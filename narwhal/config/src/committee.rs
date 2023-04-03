@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{CommitteeUpdateError, ConfigError, Epoch, Stake};
+use crypto::traits::EncodeDecodeBase64;
 use crypto::{NetworkPublicKey, PublicKey, PublicKeyBytes};
-use fastcrypto::traits::EncodeDecodeBase64;
 use mysten_network::Multiaddr;
 use mysten_util_mem::MallocSizeOf;
 use rand::rngs::StdRng;
