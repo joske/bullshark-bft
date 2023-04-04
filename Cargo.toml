@@ -11,7 +11,6 @@ members = [
     "crates/shared-crypto",
     "crates/sui-macros",
     "crates/sui-proc-macros",
-    "crates/sui-macros",
     "narwhal/config",
     "narwhal/consensus",
     "narwhal/crypto",
