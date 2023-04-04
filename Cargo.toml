@@ -2,9 +2,8 @@
 resolver = "2"
 
 members = [
+    "crates/mysten-common",
     "crates/mysten-network",
-    "crates/mysten-util-mem",
-    "crates/mysten-util-mem-derive",
     "crates/telemetry-subscribers",
     "crates/typed-store",
     "crates/typed-store-derive",
@@ -68,7 +67,6 @@ anemo-cli = { git = "https://github.com/mystenlabs/anemo.git", rev = "40e3bf3573
 anemo-tower = { git = "https://github.com/mystenlabs/anemo.git", rev = "40e3bf357313fe5caa924673711af8be4dc4096e"}
 
 mysten-network = { path = "crates/mysten-network" }
-mysten-util-mem = { path = "crates/mysten-util-mem" }
 mysten-common = { path = "crates/mysten-common" }
 telemetry-subscribers = { path = "crates/telemetry-subscribers" }
 typed-store = { path = "crates/typed-store" }

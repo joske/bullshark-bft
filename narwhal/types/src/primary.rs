@@ -22,7 +22,6 @@ use fastcrypto::{
     traits::{AggregateAuthenticator, Signer, VerifyingKey},
 };
 use indexmap::IndexMap;
-use mysten_util_mem::MallocSizeOf;
 use once_cell::sync::OnceCell;
 use proptest_derive::Arbitrary;
 use roaring::RoaringBitmap;
@@ -72,7 +71,7 @@ pub fn now() -> TimestampMs {
 // for NON CRITICAL purposes only. For example should not be used
 // for any processes that are part of our protocol that can affect
 // safety or liveness.
-#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Arbitrary, MallocSizeOf)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Arbitrary)]
 pub struct Metadata {
     // timestamp of when the entity created. This is generated
     // by the node which creates the entity.
@@ -177,7 +176,6 @@ impl BatchV1 {
     Hash,
     PartialOrd,
     Ord,
-    MallocSizeOf,
     Arbitrary,
 )]
 pub struct BatchDigest(pub [u8; crypto::DIGEST_LENGTH]);
@@ -220,7 +218,7 @@ impl Hash<{ crypto::DIGEST_LENGTH }> for BatchV1 {
     }
 }
 
-#[derive(Clone, Deserialize, MallocSizeOf, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[enum_dispatch(HeaderAPI)]
 pub enum Header {
     V1(HeaderV1),
@@ -284,7 +282,7 @@ pub trait HeaderAPI {
     fn clear_parents(&mut self);
 }
 
-#[derive(Builder, Clone, Default, Deserialize, MallocSizeOf, Serialize)]
+#[derive(Builder, Clone, Default, Deserialize, Serialize)]
 #[builder(pattern = "owned", build_fn(skip))]
 pub struct HeaderV1 {
     // Primary that created the header. Must be the same primary that broadcasted the header.
@@ -440,7 +438,6 @@ impl HeaderV1 {
     Hash,
     PartialOrd,
     Ord,
-    MallocSizeOf,
     Arbitrary,
 )]
 pub struct HeaderDigest([u8; crypto::DIGEST_LENGTH]);
@@ -702,7 +699,7 @@ impl PartialEq for Vote {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, MallocSizeOf)]
+#[derive(Clone, Serialize, Deserialize)]
 #[enum_dispatch(CertificateAPI)]
 pub enum Certificate {
     V1(CertificateV1),
@@ -805,7 +802,7 @@ pub trait CertificateAPI {
 }
 
 #[serde_as]
-#[derive(Clone, Serialize, Deserialize, Default, MallocSizeOf)]
+#[derive(Clone, Serialize, Deserialize, Default)]
 pub struct CertificateV1 {
     pub header: Header,
     pub aggregated_signature: AggregateSignatureBytes,
@@ -1030,7 +1027,6 @@ impl CertificateV1 {
     Serialize,
     Deserialize,
     Default,
-    MallocSizeOf,
     PartialEq,
     Eq,
     Hash,

@@ -16,7 +16,6 @@ arc-swap = { version = "1.5.1", features = ["serde"] }
 fastcrypto = { workspace = true }
 crypto = { path = "../crypto", package = "narwhal-crypto" }
 mysten-network.workspace = true
-mysten-util-mem.workspace = true
 rand = "0.8.5"
 
 [dev-dependencies]
