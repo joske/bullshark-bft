@@ -18,7 +18,6 @@ use fastcrypto::{
     Verifier,
 };
 use indexmap::IndexMap;
-use mysten_util_mem::MallocSizeOf;
 use once_cell::sync::OnceCell;
 use proptest_derive::Arbitrary;
 use roaring::RoaringBitmap;
@@ -69,7 +68,7 @@ pub fn now() -> TimestampMs {
 // for NON CRITICAL purposes only. For example should not be used
 // for any processes that are part of our protocol that can affect
 // safety or liveness.
-#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Arbitrary, MallocSizeOf)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, Arbitrary)]
 pub struct Metadata {
     // timestamp of when the entity created. This is generated
     // by the node which creates the entity.
@@ -99,18 +98,7 @@ impl Batch {
 }
 
 #[derive(
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    Default,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    MallocSizeOf,
-    Arbitrary,
+    Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary,
 )]
 pub struct BatchDigest(pub [u8; crypto::DIGEST_LENGTH]);
 
@@ -152,7 +140,7 @@ impl Hash<{ crypto::DIGEST_LENGTH }> for Batch {
     }
 }
 
-#[derive(Builder, Clone, Default, Deserialize, MallocSizeOf, Serialize)]
+#[derive(Builder, Clone, Default, Deserialize, Serialize)]
 #[builder(pattern = "owned", build_fn(skip))]
 pub struct Header {
     pub author: PublicKey,
@@ -282,18 +270,7 @@ impl Header {
 }
 
 #[derive(
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    Default,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    MallocSizeOf,
-    Arbitrary,
+    Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary,
 )]
 pub struct HeaderDigest([u8; crypto::DIGEST_LENGTH]);
 
@@ -502,7 +479,7 @@ impl PartialEq for Vote {
 }
 
 #[serde_as]
-#[derive(Clone, Serialize, Deserialize, Default, MallocSizeOf)]
+#[derive(Clone, Serialize, Deserialize, Default)]
 pub struct Certificate {
     pub header: Header,
     aggregated_signature: AggregateSignature,
@@ -696,18 +673,7 @@ impl Certificate {
 }
 
 #[derive(
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    Default,
-    MallocSizeOf,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    Arbitrary,
+    Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary,
 )]
 
 pub struct CertificateDigest([u8; crypto::DIGEST_LENGTH]);
