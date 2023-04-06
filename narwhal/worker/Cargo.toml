@@ -24,7 +24,7 @@ tracing = "0.1.36"
 itertools = "0.10.5"
 
 config = { path = "../config", package = "narwhal-config" }
-fastcrypto = { git = "https://github.com/MystenLabs/fastcrypto", rev = "235211dc8195590f5353d38135f5ee51a267521e" }
+fastcrypto = { workspace = true }
 crypto = { path = "../crypto", package = "narwhal-crypto" }
 network = { path = "../network", package = "narwhal-network" }
 types = { path = "../types", package = "narwhal-types" }

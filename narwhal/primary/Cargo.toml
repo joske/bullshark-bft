@@ -35,7 +35,7 @@ tap = "1.0.1"
 
 
 consensus = { path = "../consensus", package = "narwhal-consensus" }
-fastcrypto = { git = "https://github.com/MystenLabs/fastcrypto", rev = "235211dc8195590f5353d38135f5ee51a267521e", features = ["copy_key"] }
+fastcrypto = { workspace = true, features = ["copy_key"] }
 crypto = { path = "../crypto", package = "narwhal-crypto" }
 network = { path = "../network", package = "narwhal-network" }
 types = { path = "../types", package = "narwhal-types" }
