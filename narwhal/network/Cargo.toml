@@ -28,8 +28,8 @@ crypto = { path = "../crypto", package = "narwhal-crypto" }
 serde = "1.0.144"
 eyre = "0.6.8"
 
-anemo = { git = "https://github.com/mystenlabs/anemo.git", rev = "0e0ef7054082a6f5a8921688e3d568761bc3be21" }
-anemo-tower = { git = "https://github.com/mystenlabs/anemo.git", rev = "0e0ef7054082a6f5a8921688e3d568761bc3be21" }
+anemo.workspace = true
+anemo-tower.workspace = true
 anyhow = "1.0.65"
 axum.workspace = true
 axum-server = "0.4.2"

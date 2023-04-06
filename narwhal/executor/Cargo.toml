@@ -39,8 +39,8 @@ mockall = "0.11.2"
 
 store = { path = "../../crates/typed-store", package = "typed-store" }
 
-anemo = { git = "https://github.com/mystenlabs/anemo.git", rev = "0e0ef7054082a6f5a8921688e3d568761bc3be21" }
-anemo-tower = { git = "https://github.com/mystenlabs/anemo.git", rev = "0e0ef7054082a6f5a8921688e3d568761bc3be21" }
+anemo.workspace = true
+anemo-tower.workspace = true
 
 [dependencies.metrics]
 workspace = true

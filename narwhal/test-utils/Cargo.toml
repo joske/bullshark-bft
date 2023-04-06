@@ -35,5 +35,5 @@ store = { path = "../../crates/typed-store", package = "typed-store" }
 telemetry-subscribers = { path = "../../crates/telemetry-subscribers", package = "telemetry-subscribers" }
 mysten-network.workspace = true
 
-anemo = { git = "https://github.com/mystenlabs/anemo.git", rev = "0e0ef7054082a6f5a8921688e3d568761bc3be21" }
+anemo.workspace = true
 tower = { version = "0.4.13", features = ["full"] }

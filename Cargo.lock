@@ -108,7 +108,7 @@ dependencies = [
 [[package]]
 name = "anemo"
 version = "0.0.0"
-source = "git+https://github.com/mystenlabs/anemo.git?rev=0e0ef7054082a6f5a8921688e3d568761bc3be21#0e0ef7054082a6f5a8921688e3d568761bc3be21"
+source = "git+https://github.com/mystenlabs/anemo.git?rev=fafd8a33615a1d5f0ea99ae3d0cc993b833fa313#fafd8a33615a1d5f0ea99ae3d0cc993b833fa313"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -121,38 +121,6 @@ dependencies = [
  "matchit 0.5.0",
  "pin-project-lite",
  "pkcs8 0.9.0",
- "quinn",
- "rand",
- "rcgen",
- "ring",
- "rustls",
- "serde",
- "serde_json",
- "tap",
- "tokio",
- "tokio-util",
- "tower",
- "tracing",
- "webpki",
- "x509-parser",
-]
-
-[[package]]
-name = "anemo"
-version = "0.0.0"
-source = "git+https://github.com/mystenlabs/anemo.git?rev=40e3bf357313fe5caa924673711af8be4dc4096e#40e3bf357313fe5caa924673711af8be4dc4096e"
-dependencies = [
- "anyhow",
- "async-trait",
- "bincode",
- "bytes",
- "ed25519",
- "futures",
- "hex",
- "http",
- "matchit 0.5.0",
- "pin-project-lite",
- "pkcs8",
  "quinn",
  "quinn-proto",
  "rand",
@@ -184,9 +152,9 @@ dependencies = [
 [[package]]
 name = "anemo-tower"
 version = "0.0.0"
-source = "git+https://github.com/mystenlabs/anemo.git?rev=0e0ef7054082a6f5a8921688e3d568761bc3be21#0e0ef7054082a6f5a8921688e3d568761bc3be21"
+source = "git+https://github.com/mystenlabs/anemo.git?rev=fafd8a33615a1d5f0ea99ae3d0cc993b833fa313#fafd8a33615a1d5f0ea99ae3d0cc993b833fa313"
 dependencies = [
- "anemo 0.0.0 (git+https://github.com/mystenlabs/anemo.git?rev=0e0ef7054082a6f5a8921688e3d568761bc3be21)",
+ "anemo",
  "bytes",
  "dashmap",
  "futures",
@@ -466,9 +434,9 @@ checksum = "4cbbc9d0964165b47557570cce6c952866c2678457aca742aafc9fb771d30270"
 
 [[package]]
 name = "base16ct"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "349a06037c7bf932dd7e7d1f653678b2038b9ad46a74102f1fc7bd7872678cce"
+checksum = "4c7f02d4ea65f2c1853089ffd8d2787bdbc63de2f0d29dedbcf8ccdfa0ccd4cf"
 
 [[package]]
 name = "base16ct"
@@ -1179,9 +1147,9 @@ dependencies = [
 
 [[package]]
 name = "crypto-bigint"
-version = "0.4.9"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef2b4b23cddf68b89b8f8069890e8c270d54e2d5fe1b143820234805e4cb17ef"
+checksum = "7c2538c4e68e52548bacb3e83ac549f903d44f011ac9d5abb5e132e67d0808f7"
 dependencies = [
  "generic-array",
  "rand_core",
@@ -1391,9 +1359,9 @@ dependencies = [
 
 [[package]]
 name = "der"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc906908ea6458456e5eaa160a9c08543ec3d1e6f71e2235cedd660cb65f9df0"
+checksum = "19c5cb402c5c958281c7c0702edea7b780d03b86b606497ca3a10fcd3fc393ac"
 dependencies = [
  "const-oid",
  "zeroize",
@@ -1556,13 +1524,14 @@ checksum = "68b0cf012f1230e43cd00ebb729c6bb58707ecfa8ad08b52ef3a4ccd2697fc30"
 
 [[package]]
 name = "ecdsa"
-version = "0.15.1"
+version = "0.16.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "644d3b8674a5fc5b929ae435bca85c2323d85ccb013a5509c2ac9ee11a6284ba"
+checksum = "106401dadc137d05cb0d4ab4d42be089746aefdfe8992df4d0edcf351c16ddca"
 dependencies = [
- "der 0.7.1",
- "elliptic-curve 0.13.2",
- "rfc6979 0.4.0",
+ "der 0.7.2",
+ "digest 0.10.6",
+ "elliptic-curve",
+ "rfc6979",
  "signature 2.0.0",
 ]
 
@@ -1572,7 +1541,7 @@ version = "1.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91cff35c70bba8a626e3185d8cd48cc11b5437e1a5bcd15b9b5fa3c64b6dfee7"
 dependencies = [
- "pkcs8",
+ "pkcs8 0.9.0",
  "signature 1.6.4",
  "zeroize",
 ]
@@ -1600,18 +1569,17 @@ checksum = "7fcaabb2fef8c910e7f4c7ce9f67a1283a1715879a7c230ca9d6d1ae31f16d91"
 
 [[package]]
 name = "elliptic-curve"
-version = "0.12.3"
+version = "0.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7bb888ab5300a19b8e5bceef25ac745ad065f3c9f7efc6de1b91958110891d3"
+checksum = "22cdacd4d6ed3f9b98680b679c0e52a823b8a2c7a97358d508fe247f2180c282"
 dependencies = [
- "base16ct 0.1.1",
- "crypto-bigint 0.4.9",
- "der 0.6.1",
+ "base16ct",
+ "crypto-bigint",
  "digest 0.10.6",
  "ff 0.12.1",
  "generic-array",
  "group",
- "pkcs8",
+ "pkcs8 0.10.2",
  "rand_core",
  "sec1",
  "subtle",
@@ -1690,7 +1658,7 @@ dependencies = [
 [[package]]
 name = "fastcrypto"
 version = "0.1.4"
-source = "git+https://github.com/MystenLabs/fastcrypto?rev=c2f79b1807bff7d09517b631191b61f2614c641c#c2f79b1807bff7d09517b631191b61f2614c641c"
+source = "git+https://github.com/MystenLabs/fastcrypto?rev=84fd7c7428c5f59185aecc56a2e0a006e8e07de1#84fd7c7428c5f59185aecc56a2e0a006e8e07de1"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -1720,7 +1688,7 @@ dependencies = [
  "p256",
  "rand",
  "readonly",
- "rfc6979 0.4.0",
+ "rfc6979",
  "rsa",
  "schemars",
  "secp256k1",
@@ -1740,7 +1708,7 @@ dependencies = [
 [[package]]
 name = "fastcrypto-derive"
 version = "0.1.2"
-source = "git+https://github.com/MystenLabs/fastcrypto?rev=c2f79b1807bff7d09517b631191b61f2614c641c#c2f79b1807bff7d09517b631191b61f2614c641c"
+source = "git+https://github.com/MystenLabs/fastcrypto?rev=84fd7c7428c5f59185aecc56a2e0a006e8e07de1#84fd7c7428c5f59185aecc56a2e0a006e8e07de1"
 dependencies = [
  "convert_case 0.6.0",
  "proc-macro2 1.0.56",
@@ -1768,9 +1736,9 @@ dependencies = [
 
 [[package]]
 name = "ff"
-version = "0.12.1"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d013fc25338cc558c5c2cfbad646908fb23591e2404481826742b651c9af7160"
+checksum = "ded41244b729663b1e574f1b4fb731469f69f79c17667b5d776b16cda0479449"
 dependencies = [
  "rand_core",
  "subtle",
@@ -2022,9 +1990,9 @@ dependencies = [
 
 [[package]]
 name = "group"
-version = "0.12.1"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5dfbfb3a6cfbd390d5c9564ab283a0349b9b9fcd46a706c1eb10e0db70bfbac7"
+checksum = "f0f9ef7462f7c099f518d754361858f86d8a07af53ba9af0fe635bbccb151a63"
 dependencies = [
  "ff",
  "rand_core",
@@ -2961,7 +2929,7 @@ dependencies = [
 name = "mysten-network"
 version = "0.2.0"
 dependencies = [
- "anemo 0.0.0 (git+https://github.com/mystenlabs/anemo.git?rev=fafd8a33615a1d5f0ea99ae3d0cc993b833fa313)",
+ "anemo",
  "bcs",
  "bytes",
  "eyre",
@@ -3096,7 +3064,7 @@ dependencies = [
 name = "narwhal-executor"
 version = "0.1.0"
 dependencies = [
- "anemo 0.0.0 (git+https://github.com/mystenlabs/anemo.git?rev=0e0ef7054082a6f5a8921688e3d568761bc3be21)",
+ "anemo",
  "anemo-tower",
  "anyhow",
  "async-trait",
@@ -3137,7 +3105,7 @@ dependencies = [
 name = "narwhal-network"
 version = "0.1.0"
 dependencies = [
- "anemo 0.0.0 (git+https://github.com/mystenlabs/anemo.git?rev=0e0ef7054082a6f5a8921688e3d568761bc3be21)",
+ "anemo",
  "anemo-tower",
  "anyhow",
  "async-trait",
@@ -3170,7 +3138,7 @@ dependencies = [
 name = "narwhal-node"
 version = "0.1.0"
 dependencies = [
- "anemo 0.0.0 (git+https://github.com/mystenlabs/anemo.git?rev=0e0ef7054082a6f5a8921688e3d568761bc3be21)",
+ "anemo",
  "anyhow",
  "arc-swap",
  "async-trait",
@@ -3219,7 +3187,7 @@ dependencies = [
 name = "narwhal-primary"
 version = "0.1.0"
 dependencies = [
- "anemo 0.0.0 (git+https://github.com/mystenlabs/anemo.git?rev=0e0ef7054082a6f5a8921688e3d568761bc3be21)",
+ "anemo",
  "anemo-tower",
  "anyhow",
  "arc-swap",
@@ -3295,7 +3263,7 @@ dependencies = [
 name = "narwhal-test-utils"
 version = "0.1.0"
 dependencies = [
- "anemo 0.0.0 (git+https://github.com/mystenlabs/anemo.git?rev=0e0ef7054082a6f5a8921688e3d568761bc3be21)",
+ "anemo",
  "fastcrypto",
  "fdlimit",
  "indexmap",
@@ -3329,7 +3297,7 @@ dependencies = [
 name = "narwhal-types"
 version = "0.1.0"
 dependencies = [
- "anemo 0.0.0 (git+https://github.com/mystenlabs/anemo.git?rev=fafd8a33615a1d5f0ea99ae3d0cc993b833fa313)",
+ "anemo",
  "anemo-build",
  "async-trait",
  "base64 0.13.1",
@@ -3374,7 +3342,7 @@ dependencies = [
 name = "narwhal-worker"
 version = "0.1.0"
 dependencies = [
- "anemo 0.0.0 (git+https://github.com/mystenlabs/anemo.git?rev=0e0ef7054082a6f5a8921688e3d568761bc3be21)",
+ "anemo",
  "anemo-tower",
  "anyhow",
  "arc-swap",
@@ -3527,6 +3495,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-bigint-dig"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2399c9463abc5f909349d8aa9ba080e0b88b3ce2885389b60b993f39b1a56905"
+dependencies = [
+ "byteorder",
+ "lazy_static",
+ "libm",
+ "num-integer",
+ "num-iter",
+ "num-traits",
+ "rand",
+ "smallvec",
+ "zeroize",
+]
+
+[[package]]
 name = "num-format"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3543,6 +3528,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "225d3389fb3509a24c93f5c29eb6bde2586b98d9f016636dff58d7c6f7569cd9"
 dependencies = [
  "autocfg",
+ "num-traits",
+]
+
+[[package]]
+name = "num-iter"
+version = "0.1.43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d03e6c028c5dc5cac6e2dec0efda81fc887605bb3d884578bb6d6bf7514e252"
+dependencies = [
+ "autocfg",
+ "num-integer",
  "num-traits",
 ]
 
@@ -3837,12 +3833,12 @@ dependencies = [
 
 [[package]]
 name = "pkcs8"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d2820d87d2b008616e5c27212dd9e0e694fb4c6b522de06094106813328cb49"
+checksum = "f950b2377845cebe5cf8b5165cb3cc1a5e0fa5cfa3e1f7f55707d8fd82e0a7b7"
 dependencies = [
- "der 0.7.1",
- "spki 0.7.0",
+ "der 0.7.2",
+ "spki 0.7.1",
 ]
 
 [[package]]
@@ -4453,13 +4449,12 @@ checksum = "8c31b5c4033f8fdde8700e4657be2c497e7288f01515be52168c631e2e4d4086"
 
 [[package]]
 name = "rfc6979"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7743f17af12fa0b03b803ba12cd6a8d9483a587e89c69445e3909655c0b9fabb"
+checksum = "f8dd2a808d456c4a54e300a23e9f5a67e122c3024119acbfd73e3bf664491cb2"
 dependencies = [
- "crypto-bigint 0.4.9",
  "hmac",
- "zeroize",
+ "subtle",
 ]
 
 [[package]]
@@ -4515,6 +4510,27 @@ checksum = "015439787fce1e75d55f279078d33ff14b4af5d93d995e8838ee4631301c8a99"
 dependencies = [
  "libc",
  "librocksdb-sys",
+]
+
+[[package]]
+name = "rsa"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55a77d189da1fee555ad95b7e50e7457d91c0e089ec68ca69ad2989413bbdab4"
+dependencies = [
+ "byteorder",
+ "digest 0.10.6",
+ "num-bigint-dig",
+ "num-integer",
+ "num-iter",
+ "num-traits",
+ "pkcs1",
+ "pkcs8 0.9.0",
+ "rand_core",
+ "sha2 0.10.6",
+ "signature 2.0.0",
+ "subtle",
+ "zeroize",
 ]
 
 [[package]]
@@ -4708,36 +4724,23 @@ dependencies = [
 
 [[package]]
 name = "sec1"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3be24c1842290c45df0a7bf069e0c268a747ad05a192f2fd7dcfdbc1cba40928"
-dependencies = [
- "base16ct 0.1.1",
- "der 0.6.1",
- "generic-array",
- "subtle",
- "zeroize",
-]
-
-[[package]]
-name = "sec1"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48518a2b5775ba8ca5b46596aae011caa431e6ce7e4a67ead66d92f08884220e"
 dependencies = [
- "base16ct 0.2.0",
- "der 0.7.1",
+ "base16ct",
+ "der 0.7.2",
  "generic-array",
- "pkcs8 0.10.1",
+ "pkcs8 0.10.2",
  "subtle",
  "zeroize",
 ]
 
 [[package]]
 name = "secp256k1"
-version = "0.26.0"
+version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4124a35fe33ae14259c490fd70fa199a32b9ce9502f2ee6bc4f81ec06fa65894"
+checksum = "25996b82292a7a57ed3508f052cfff8640d38d32018784acd714758b43da9c8f"
 dependencies = [
  "bitcoin_hashes",
  "rand",
@@ -5045,9 +5048,6 @@ name = "signature"
 version = "1.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74233d3b3b2f6d4b006dc19dee745e73e2a6bfb6f93607cd3b02bd5b00797d7c"
-dependencies = [
- "rand_core",
-]
 
 [[package]]
 name = "signature"
@@ -5130,12 +5130,12 @@ dependencies = [
 
 [[package]]
 name = "spki"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0445c905640145c7ea8c1993555957f65e7c46d0535b91ba501bc9bfc85522f"
+checksum = "37a5be806ab6f127c3da44b7378837ebf01dadca8510a0e572460216b228bd0e"
 dependencies = [
  "base64ct",
- "der 0.7.1",
+ "der 0.7.2",
 ]
 
 [[package]]
