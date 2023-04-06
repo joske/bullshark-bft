@@ -26,6 +26,7 @@ fail = "0.5.1"
 lru = "0.10"
 parking_lot = "0.12.1"
 tap = "1.0.1"
+mysten-common.workspace = true
 
 [dev-dependencies]
 test-utils = { path = "../test-utils", package = "narwhal-test-utils" }

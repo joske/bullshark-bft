@@ -36,15 +36,15 @@ use fastcrypto::{
     traits::{KeyPair as _, ToFromBytes},
 };
 use futures::{stream::FuturesUnordered, StreamExt};
+use multiaddr::{Multiaddr, Protocol};
 use mysten_metrics::spawn_monitored_task;
 use mysten_network::{multiaddr::Protocol, Multiaddr};
+use network::epoch_filter::{AllowedEpoch, EPOCH_HEADER_KEY};
+use network::failpoints::FailpointsMakeCallbackHandler;
 use network::{
     client::NetworkClient,
     epoch_filter::{AllowedEpoch, EPOCH_HEADER_KEY},
 };
-use multiaddr::{Multiaddr, Protocol};
-use network::epoch_filter::{AllowedEpoch, EPOCH_HEADER_KEY};
-use network::failpoints::FailpointsMakeCallbackHandler;
 use std::collections::HashMap;
 use std::{
     cmp::Reverse,

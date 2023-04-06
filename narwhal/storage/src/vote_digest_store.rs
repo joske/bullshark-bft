@@ -23,13 +23,8 @@ impl VoteDigestStore {
     }
 
     pub fn new_for_tests() -> VoteDigestStore {
-        let rocksdb = open_cf(
-            tempfile::tempdir().unwrap(),
-            None,
-            MetricConf::default(),
-            &[NodeStorage::VOTES_CF],
-        )
-        .expect("Cannot open database");
+        let rocksdb = open_cf(tempfile::tempdir().unwrap(), None, &[NodeStorage::VOTES_CF])
+            .expect("Cannot open database");
         let map = reopen!(&rocksdb, NodeStorage::VOTES_CF;<AuthorityIdentifier, VoteInfo>);
         VoteDigestStore::new(map)
     }

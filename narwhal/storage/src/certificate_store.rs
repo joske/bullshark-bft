@@ -3,7 +3,6 @@
 use fastcrypto::hash::Hash;
 use lru::LruCache;
 use parking_lot::Mutex;
-use prometheus::{register_int_counter_with_registry, IntCounter, Registry};
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::sync::Arc;

@@ -9,7 +9,7 @@
 )]
 #![allow(clippy::mutable_key_type)]
 
-use crypto::{NetworkPublicKey, PublicKey, traits::EncodeDecodeBase64};
+use crypto::{traits::EncodeDecodeBase64, NetworkPublicKey, PublicKey};
 use mysten_network::Multiaddr;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{

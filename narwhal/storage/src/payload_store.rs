@@ -32,7 +32,6 @@ impl PayloadStore {
         let rocksdb = open_cf(
             tempfile::tempdir().unwrap(),
             None,
-            MetricConf::default(),
             &[NodeStorage::PAYLOAD_CF],
         )
         .expect("Cannot open database");

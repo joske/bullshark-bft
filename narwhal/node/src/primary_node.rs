@@ -191,11 +191,7 @@ impl PrimaryNodeInner {
             watch::channel(ConsensusRound::new(0, 0));
         let (dag, network_model) = if !internal_consensus {
             debug!("Consensus is disabled: the primary will run w/o Bullshark");
-            let (handle, dag) = Dag::new(
-                &committee,
-                rx_new_certificates,
-                tx_shutdown.subscribe(),
-            );
+            let (handle, dag) = Dag::new(&committee, rx_new_certificates, tx_shutdown.subscribe());
 
             handles.push(handle);
 

@@ -1222,10 +1222,7 @@ where
             .rocksdb
             .raw_iterator_cf(&self.cf(), self.opts.readopts());
         db_iter.seek_to_first();
-        SafeIter::new(
-            db_iter,
-            self.cf.clone(),
-        )
+        SafeIter::new(db_iter, self.cf.clone())
     }
 
     /// Returns an iterator visiting each key-value pair in the map. By proving bounds of the

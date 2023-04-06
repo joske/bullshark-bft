@@ -3,7 +3,7 @@
 
 use crate::NodeStorage;
 use store::rocks::ReadWriteOptions;
-use store::rocks::{open_cf, DBMap, MetricConf};
+use store::rocks::{open_cf, DBMap};
 use store::{reopen, Map, TypedStoreError};
 use sui_macros::fail_point;
 use types::{Header, HeaderDigest};
@@ -24,7 +24,6 @@ impl HeaderStore {
         let rocksdb = open_cf(
             tempfile::tempdir().unwrap(),
             None,
-            MetricConf::default(),
             &[NodeStorage::HEADERS_CF],
         )
         .expect("Cannot open database");

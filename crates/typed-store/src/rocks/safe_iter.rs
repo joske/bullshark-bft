@@ -17,10 +17,7 @@ pub struct SafeIter<'a, K, V> {
 }
 
 impl<'a, K: DeserializeOwned, V: DeserializeOwned> SafeIter<'a, K, V> {
-    pub(super) fn new(
-        db_iter: RocksDBRawIter<'a>,
-        cf: String,
-    ) -> Self {
+    pub(super) fn new(db_iter: RocksDBRawIter<'a>, cf: String) -> Self {
         Self {
             db_iter,
             _phantom: PhantomData,
