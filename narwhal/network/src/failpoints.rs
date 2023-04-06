@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 use anemo_tower::callback::{MakeCallbackHandler, ResponseHandler};
-use sui_macros::fail_point;
+// use sui_macros::fail_point;
 
 #[derive(Clone, Default)]
 pub struct FailpointsMakeCallbackHandler {}
@@ -24,7 +24,8 @@ pub struct FailpointsResponseHandler {}
 
 impl ResponseHandler for FailpointsResponseHandler {
     fn on_response(self, _response: &anemo::Response<bytes::Bytes>) {
-        fail_point!("narwhal-rpc-response");
+        // TODO: Figure out how to make this work
+        // fail_point!("narwhal-rpc-response");
     }
 
     fn on_error<E>(self, _error: &E) {}
