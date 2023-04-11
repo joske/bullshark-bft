@@ -41,7 +41,6 @@ mysten-network.workspace = true
 mysten-common.workspace = true
 
 [dev-dependencies]
-criterion = "0.4.0"
 serde_test = "1.0.147"
 test-utils = { path = "../test-utils", package = "narwhal-test-utils" }
 
