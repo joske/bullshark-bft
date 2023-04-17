@@ -18,12 +18,12 @@ pub struct Iter<'a, K, V> {
 }
 
 impl<'a, K: DeserializeOwned, V: DeserializeOwned> Iter<'a, K, V> {
-    pub(super) fn new(db_iter: RocksDBRawIter<'a>, _cf: String) -> Self {
+    pub(super) fn new(db_iter: RocksDBRawIter<'a>, cf: String) -> Self {
         Self {
             db_iter,
             _phantom: PhantomData,
             direction: Direction::Forward,
-            _cf,
+            _cf: cf,
             is_initialized: false,
         }
     }
@@ -52,7 +52,8 @@ impl<'a, K: DeserializeOwned, V: DeserializeOwned> Iterator for Iter<'a, K, V> {
                 .value()
                 .expect("Valid iterator failed to get value");
             let key = config.deserialize(raw_key).ok();
-            let value = bincode::deserialize(raw_value).ok();
+            let value = bcs::from_bytes(raw_value).ok();
+
             match self.direction {
                 Direction::Forward => self.db_iter.next(),
                 Direction::Reverse => self.db_iter.prev(),

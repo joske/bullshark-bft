@@ -4,14 +4,14 @@ use crate::payload_store::PayloadStore;
 use crate::proposer_store::ProposerKey;
 use crate::vote_digest_store::VoteDigestStore;
 use crate::{
-    CertificateStore, CertificateStoreCache, CertificateStoreCacheMetrics, ConsensusStore,
+    CertificateStore, CertificateStoreCache, ConsensusStore,
     HeaderStore, ProposerStore,
 };
 use config::{AuthorityIdentifier, WorkerId};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use store::reopen;
-use store::rocks::DBMap;
+use store::rocks::{default_db_options, DBMap};
 use store::rocks::{open_cf, ReadWriteOptions};
 use types::{
     Batch, BatchDigest, Certificate, CertificateDigest, CommittedSubDagShell, ConsensusCommit,
@@ -55,11 +55,11 @@ impl NodeStorage {
     /// Open or reopen all the storage of the node.
     pub fn reopen<Path: AsRef<std::path::Path> + Send>(
         store_path: Path,
-        certificate_store_cache_metrics: Option<CertificateStoreCacheMetrics>,
     ) -> Self {
+        let db_options = default_db_options().optimize_db_for_write_throughput(2);
         let rocksdb = open_cf(
             store_path,
-            None,
+            Some(db_options.options),
             &[
                 Self::LAST_PROPOSED_CF,
                 Self::VOTES_CF,
@@ -108,7 +108,6 @@ impl NodeStorage {
 
         let certificate_store_cache = CertificateStoreCache::new(
             NonZeroUsize::new(Self::CERTIFICATE_STORE_CACHE_SIZE).unwrap(),
-            certificate_store_cache_metrics,
         );
         let certificate_store = CertificateStore::<CertificateStoreCache>::new(
             certificate_map,

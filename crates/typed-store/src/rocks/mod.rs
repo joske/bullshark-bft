@@ -35,6 +35,7 @@ use tracing::{debug, info, instrument};
 use self::{iter::Iter, keys::Keys, values::Values};
 use crate::rocks::safe_iter::SafeIter;
 pub use errors::TypedStoreError;
+use sui_macros::{fail_point, nondeterministic};
 
 // Write buffer size per RocksDB instance can be set via the env var below.
 // If the env var is not set, use the default value in MiB.
@@ -81,7 +82,9 @@ mod tests;
 /// use typed_store::reopen;
 /// use typed_store::rocks::*;
 /// use tempfile::tempdir;
+/// use prometheus::Registry;
 /// use std::sync::Arc;
+/// use typed_store::metrics::DBMetrics;
 /// use core::fmt::Error;
 ///
 /// #[tokio::main]
@@ -91,7 +94,7 @@ mod tests;
 ///
 ///
 /// /// Create the rocks database reference for the desired column families
-/// let rocks = open_cf(tempdir().unwrap(), None, &[FIRST_CF, SECOND_CF]).unwrap();
+/// let rocks = open_cf(tempdir().unwrap(), None, MetricConf::default(), &[FIRST_CF, SECOND_CF]).unwrap();
 ///
 /// /// Now simply open all the column families for their expected Key-Value types
 /// let (db_map_1, db_map_2) = reopen!(&rocks, FIRST_CF;<i32, String>, SECOND_CF;<i32, String>);
@@ -178,11 +181,13 @@ macro_rules! retry_transaction_forever {
 #[derive(Debug)]
 pub struct DBWithThreadModeWrapper {
     pub underlying: rocksdb::DBWithThreadMode<MultiThreaded>,
+    pub db_path: PathBuf,
 }
 
 #[derive(Debug)]
 pub struct OptimisticTransactionDBWrapper {
     pub underlying: rocksdb::OptimisticTransactionDB<MultiThreaded>,
+    pub db_path: PathBuf,
 }
 
 /// Thin wrapper to unify interface across different db types
@@ -286,7 +291,11 @@ impl RocksDB {
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
-        delegate_call!(self.put_cf_opt(cf, key, value, writeopts))
+        fail_point!("put-cf-before");
+        let ret = delegate_call!(self.put_cf_opt(cf, key, value, writeopts));
+        fail_point!("put-cf-after");
+        #[allow(clippy::let_and_return)]
+        ret
     }
 
     pub fn key_may_exist_cf<K: AsRef<[u8]>>(
@@ -303,7 +312,8 @@ impl RocksDB {
     }
 
     pub fn write(&self, batch: RocksDBBatch) -> Result<(), TypedStoreError> {
-        match (self, batch) {
+        fail_point!("batch-write-before");
+        let ret = match (self, batch) {
             (RocksDB::DBWithThreadMode(db), RocksDBBatch::Regular(batch)) => {
                 db.underlying.write(batch)?;
                 Ok(())
@@ -428,20 +438,8 @@ impl RocksDB {
         delegate_call!(self.set_options_cf(cf, opts))
     }
 
-    pub fn db_name(&self) -> String {
-        self.default_db_name()
-    }
-
     pub fn live_files(&self) -> Result<Vec<LiveFile>, Error> {
         delegate_call!(self.live_files())
-    }
-
-    fn default_db_name(&self) -> String {
-        self.path()
-            .file_name()
-            .and_then(|f| f.to_str())
-            .unwrap_or("unknown")
-            .to_string()
     }
 }
 
@@ -505,7 +503,7 @@ pub struct DBMap<K, V> {
     _phantom: PhantomData<fn(K) -> V>,
     // the rocksDB ColumnFamily under which the map is stored
     cf: String,
-    opts: ReadWriteOptions,
+    pub opts: ReadWriteOptions,
 }
 
 unsafe impl<K: Send, V: Send> Send for DBMap<K, V> {}
@@ -513,7 +511,7 @@ unsafe impl<K: Send, V: Send> Send for DBMap<K, V> {}
 impl<K, V> DBMap<K, V> {
     pub(crate) fn new(db: Arc<RocksDB>, opts: &ReadWriteOptions, opt_cf: &str) -> Self {
         DBMap {
-            rocksdb: db,
+            rocksdb: db.clone(),
             opts: opts.clone(),
             _phantom: PhantomData,
             cf: opt_cf.to_string(),
@@ -542,13 +540,15 @@ impl<K, V> DBMap<K, V> {
     ///
     /// ```
     ///    use typed_store::rocks::*;
+    ///    use typed_store::metrics::DBMetrics;
     ///    use tempfile::tempdir;
+    ///    use prometheus::Registry;
     ///    use std::sync::Arc;
     ///    use core::fmt::Error;
     ///    #[tokio::main]
     ///    async fn main() -> Result<(), Error> {
     ///    /// Open the DB with all needed column families first.
-    ///    let rocks = open_cf(tempdir().unwrap(), None, &["First_CF", "Second_CF"]).unwrap();
+    ///    let rocks = open_cf(tempdir().unwrap(), None, MetricConf::default(), &["First_CF", "Second_CF"]).unwrap();
     ///    /// Attach the column families to specific maps.
     ///    let db_cf_1 = DBMap::<u32,u32>::reopen(&rocks, Some("First_CF"), &ReadWriteOptions::default()).expect("Failed to open storage");
     ///    let db_cf_2 = DBMap::<u32,u32>::reopen(&rocks, Some("Second_CF"), &ReadWriteOptions::default()).expect("Failed to open storage");
@@ -638,16 +638,22 @@ impl<K, V> DBMap<K, V> {
         let mut num_keys = 0;
         let mut key_bytes_total = 0;
         let mut value_bytes_total = 0;
+        let mut key_hist = hdrhistogram::Histogram::<u64>::new_with_max(100000, 2).unwrap();
+        let mut value_hist = hdrhistogram::Histogram::<u64>::new_with_max(100000, 2).unwrap();
         let iter = self.iterator_cf().map(Result::unwrap);
         for (key, value) in iter {
             num_keys += 1;
             key_bytes_total += key.len();
             value_bytes_total += value.len();
+            key_hist.record(key.len() as u64)?;
+            value_hist.record(value.len() as u64)?;
         }
         Ok(TableSummary {
             num_keys,
             key_bytes_total,
             value_bytes_total,
+            key_hist,
+            value_hist,
         })
     }
 }
@@ -665,12 +671,14 @@ impl<K, V> DBMap<K, V> {
 /// use typed_store::rocks::*;
 /// use tempfile::tempdir;
 /// use typed_store::Map;
+/// use typed_store::metrics::DBMetrics;
+/// use prometheus::Registry;
 /// use core::fmt::Error;
 /// use std::sync::Arc;
 ///
 /// #[tokio::main]
 /// async fn main() -> Result<(), Error> {
-/// let rocks = open_cf(tempfile::tempdir().unwrap(), None, &["First_CF", "Second_CF"]).unwrap();
+/// let rocks = open_cf(tempfile::tempdir().unwrap(), None, MetricConf::default(), &["First_CF", "Second_CF"]).unwrap();
 ///
 /// let db_cf_1 = DBMap::reopen(&rocks, Some("First_CF"), &ReadWriteOptions::default())
 ///     .expect("Failed to open storage");
@@ -721,64 +729,6 @@ impl DBBatch {
     #[instrument(level = "trace", skip_all, err)]
     pub fn write(self) -> Result<(), TypedStoreError> {
         self.rocksdb.write(self.batch)?;
-        Ok(())
-    }
-
-    /// Deletes a set of keys given as an iterator
-    pub fn delete_batch_non_consuming<J: Borrow<K>, K: Serialize, V>(
-        &mut self,
-        db: &DBMap<K, V>,
-        purged_vals: impl IntoIterator<Item = J>,
-    ) -> Result<(), TypedStoreError> {
-        if !Arc::ptr_eq(&db.rocksdb, &self.rocksdb) {
-            return Err(TypedStoreError::CrossDBBatch);
-        }
-
-        purged_vals
-            .into_iter()
-            .try_for_each::<_, Result<_, TypedStoreError>>(|k| {
-                let k_buf = be_fix_int_ser(k.borrow())?;
-                self.batch.delete_cf(&db.cf(), k_buf);
-
-                Ok(())
-            })?;
-        Ok(())
-    }
-    /// Deletes a range of keys between `from` (inclusive) and `to` (non-inclusive)
-    pub fn delete_range_non_consuming<K: Serialize, V>(
-        &mut self,
-        db: &DBMap<K, V>,
-        from: &K,
-        to: &K,
-    ) -> Result<(), TypedStoreError> {
-        if !Arc::ptr_eq(&db.rocksdb, &self.rocksdb) {
-            return Err(TypedStoreError::CrossDBBatch);
-        }
-
-        let from_buf = be_fix_int_ser(from)?;
-        let to_buf = be_fix_int_ser(to)?;
-
-        self.batch.delete_range_cf(&db.cf(), from_buf, to_buf)
-    }
-
-    /// inserts a range of (key, value) pairs given as an iterator
-    pub fn insert_batch_non_consuming<J: Borrow<K>, K: Serialize, U: Borrow<V>, V: Serialize>(
-        &mut self,
-        db: &DBMap<K, V>,
-        new_vals: impl IntoIterator<Item = (J, U)>,
-    ) -> Result<(), TypedStoreError> {
-        if !Arc::ptr_eq(&db.rocksdb, &self.rocksdb) {
-            return Err(TypedStoreError::CrossDBBatch);
-        }
-
-        new_vals
-            .into_iter()
-            .try_for_each::<_, Result<_, TypedStoreError>>(|(k, v)| {
-                let k_buf = be_fix_int_ser(k.borrow())?;
-                let v_buf = bincode::serialize(v.borrow())?;
-                self.batch.put_cf(&db.cf(), k_buf, v_buf);
-                Ok(())
-            })?;
         Ok(())
     }
 }
@@ -1047,6 +997,7 @@ impl<'a> DBTransaction<'a> {
     }
 
     pub fn commit(self) -> Result<(), TypedStoreError> {
+        fail_point!("transaction-commit");
         self.transaction.commit().map_err(|e| match e.kind() {
             // empirically, this is what you get when there is a write conflict. it is not
             // documented whether this is the only time you can get this error.
@@ -1183,9 +1134,9 @@ where
     #[instrument(level = "trace", skip_all, err)]
     fn insert(&self, key: &K, value: &V) -> Result<(), TypedStoreError> {
         let key_buf = be_fix_int_ser(key)?;
-        let value_buf = bincode::serialize(value)?;
+        let value_buf = bcs::to_bytes(value)?;
         self.rocksdb
-            .put_cf(&self.cf(), key_buf, value_buf, &self.opts.writeopts())?;
+            .put_cf(&self.cf(), &key_buf, &value_buf, &self.opts.writeopts())?;
         Ok(())
     }
 
@@ -1210,10 +1161,9 @@ where
     }
 
     fn iter(&'a self) -> Self::Iterator {
-        let mut db_iter = self
+        let db_iter = self
             .rocksdb
             .raw_iterator_cf(&self.cf(), self.opts.readopts());
-        db_iter.seek_to_first();
         Iter::new(db_iter, self.cf.clone())
     }
 
@@ -1242,10 +1192,7 @@ where
             readopts.set_iterate_upper_bound(key_buf);
         }
         let db_iter = self.rocksdb.raw_iterator_cf(&self.cf(), readopts);
-        Iter::new(
-            db_iter,
-            self.cf.clone(),
-        )
+        Iter::new(db_iter, self.cf.clone())
     }
 
     fn keys(&'a self) -> Self::Keys {
@@ -1285,6 +1232,19 @@ where
         let results = self
             .rocksdb
             .multi_get_cf(keys_bytes?, &self.opts.readopts());
+        Ok(results.into_iter().collect::<Result<_, _>>()?)
+    }
+
+    /// Returns a vector of values corresponding to the keys provided.
+    #[instrument(level = "trace", skip_all, err)]
+    fn multi_get<J>(
+        &self,
+        keys: impl IntoIterator<Item = J>,
+    ) -> Result<Vec<Option<V>>, TypedStoreError>
+    where
+        J: Borrow<K>,
+    {
+        let results = self.multi_get_raw_bytes(keys)?;
         let values_parsed: Result<Vec<_>, TypedStoreError> = results
             .into_iter()
             .map(|value_byte| match value_byte {
@@ -1575,21 +1535,32 @@ pub fn open_cf_opts<P: AsRef<Path>>(
     opt_cfs: &[(&str, &rocksdb::Options)],
 ) -> Result<Arc<RocksDB>, TypedStoreError> {
     let path = path.as_ref();
-    let options = prepare_db_options(db_options);
-    let rocksdb = {
-        rocksdb::DBWithThreadMode::<MultiThreaded>::open_cf_descriptors(
-            &options,
-            path,
-            opt_cfs
-                .iter()
-                .map(|(name, opts)| ColumnFamilyDescriptor::new(*name, (*opts).clone())),
-        )?
-    };
-    Ok(Arc::new(RocksDB::DBWithThreadMode(
-        DBWithThreadModeWrapper {
-            underlying: rocksdb,
-        },
-    )))
+    // In the simulator, we intercept the wall clock in the test thread only. This causes problems
+    // because rocksdb uses the simulated clock when creating its background threads, but then
+    // those threads see the real wall clock (because they are not the test thread), which causes
+    // rocksdb to panic. The `nondeterministic` macro evaluates expressions in new threads, which
+    // resolves the issue.
+    //
+    // This is a no-op in non-simulator builds.
+
+    let cfs = populate_missing_cfs(opt_cfs, path)?;
+    nondeterministic!({
+        let options = prepare_db_options(db_options);
+        let rocksdb = {
+            rocksdb::DBWithThreadMode::<MultiThreaded>::open_cf_descriptors(
+                &options,
+                path,
+                cfs.into_iter()
+                    .map(|(name, opts)| ColumnFamilyDescriptor::new(name, opts)),
+            )?
+        };
+        Ok(Arc::new(RocksDB::DBWithThreadMode(
+            DBWithThreadModeWrapper {
+                underlying: rocksdb,
+                db_path: PathBuf::from(path),
+            },
+        )))
+    })
 }
 
 /// Opens a database with options, and a number of column families with individual options that are created if they do not exist.
@@ -1602,19 +1573,21 @@ pub fn open_cf_opts_transactional<P: AsRef<Path>>(
     let path = path.as_ref();
     let cfs = populate_missing_cfs(opt_cfs, path)?;
     // See comment above for explanation of why nondeterministic is necessary here.
-    let options = prepare_db_options(db_options);
-    let rocksdb = rocksdb::OptimisticTransactionDB::<MultiThreaded>::open_cf_descriptors(
-        &options,
-        path,
-        opt_cfs
-            .iter()
-            .map(|(name, opts)| ColumnFamilyDescriptor::new(*name, (*opts).clone())),
-    )?;
-    Ok(Arc::new(RocksDB::OptimisticTransactionDB(
-        OptimisticTransactionDBWrapper {
-            underlying: rocksdb,
-        },
-    )))
+    nondeterministic!({
+        let options = prepare_db_options(db_options);
+        let rocksdb = rocksdb::OptimisticTransactionDB::<MultiThreaded>::open_cf_descriptors(
+            &options,
+            path,
+            cfs.into_iter()
+                .map(|(name, opts)| ColumnFamilyDescriptor::new(name, opts)),
+        )?;
+        Ok(Arc::new(RocksDB::OptimisticTransactionDB(
+            OptimisticTransactionDBWrapper {
+                underlying: rocksdb,
+                db_path: PathBuf::from(path),
+            },
+        )))
+    })
 }
 
 /// Opens a database with options, and a number of column families with individual options that are created if they do not exist.
@@ -1627,51 +1600,56 @@ pub fn open_cf_opts_secondary<P: AsRef<Path>>(
     let primary_path = primary_path.as_ref();
     let secondary_path = secondary_path.as_ref().map(|p| p.as_ref());
     // See comment above for explanation of why nondeterministic is necessary here.
-    // Customize database options
-    let mut options = db_options.unwrap_or_else(|| default_db_options().options);
+    nondeterministic!({
+        // Customize database options
+        let mut options = db_options.unwrap_or_else(|| default_db_options().options);
 
-    fdlimit::raise_fd_limit();
-    // This is a requirement by RocksDB when opening as secondary
-    options.set_max_open_files(-1);
+        fdlimit::raise_fd_limit();
+        // This is a requirement by RocksDB when opening as secondary
+        options.set_max_open_files(-1);
 
-    let mut opt_cfs: std::collections::HashMap<_, _> = opt_cfs.iter().cloned().collect();
-    let cfs = rocksdb::DBWithThreadMode::<MultiThreaded>::list_cf(&options, primary_path)
-        .ok()
-        .unwrap_or_default();
+        let mut opt_cfs: std::collections::HashMap<_, _> = opt_cfs.iter().cloned().collect();
+        let cfs = rocksdb::DBWithThreadMode::<MultiThreaded>::list_cf(&options, primary_path)
+            .ok()
+            .unwrap_or_default();
 
-    let default_db_options = default_db_options();
-    // Add CFs not explicitly listed
-    for cf_key in cfs.iter() {
-        if !opt_cfs.contains_key(&cf_key[..]) {
-            opt_cfs.insert(cf_key, &default_db_options.options);
+        let default_db_options = default_db_options();
+        // Add CFs not explicitly listed
+        for cf_key in cfs.iter() {
+            if !opt_cfs.contains_key(&cf_key[..]) {
+                opt_cfs.insert(cf_key, &default_db_options.options);
+            }
         }
-    }
 
-    let primary_path = primary_path.to_path_buf();
-    let secondary_path = secondary_path.map(|q| q.to_path_buf()).unwrap_or_else(|| {
-        let mut s = primary_path.clone();
-        s.pop();
-        s.push("SECONDARY");
-        s.as_path().to_path_buf()
-    });
+        let primary_path = primary_path.to_path_buf();
+        let secondary_path = secondary_path.map(|q| q.to_path_buf()).unwrap_or_else(|| {
+            let mut s = primary_path.clone();
+            s.pop();
+            s.push("SECONDARY");
+            s.as_path().to_path_buf()
+        });
 
-    let rocksdb = {
-        options.create_if_missing(true);
-        options.create_missing_column_families(true);
-        rocksdb::DBWithThreadMode::<MultiThreaded>::open_cf_descriptors_as_secondary(
-            &options,
-            &primary_path,
-            &secondary_path,
-            opt_cfs
-                .iter()
-                .map(|(name, opts)| ColumnFamilyDescriptor::new(*name, (*opts).clone())),
-        )?
-    };
-    Ok(Arc::new(RocksDB::DBWithThreadMode(
-        DBWithThreadModeWrapper {
-            underlying: rocksdb,
-        },
-    )))
+        let rocksdb = {
+            options.create_if_missing(true);
+            options.create_missing_column_families(true);
+            let db = rocksdb::DBWithThreadMode::<MultiThreaded>::open_cf_descriptors_as_secondary(
+                &options,
+                &primary_path,
+                &secondary_path,
+                opt_cfs
+                    .iter()
+                    .map(|(name, opts)| ColumnFamilyDescriptor::new(*name, (*opts).clone())),
+            )?;
+            db.try_catch_up_with_primary()?;
+            db
+        };
+        Ok(Arc::new(RocksDB::DBWithThreadMode(
+            DBWithThreadModeWrapper {
+                underlying: rocksdb,
+                db_path: secondary_path,
+            },
+        )))
+    })
 }
 
 pub fn list_tables(path: std::path::PathBuf) -> eyre::Result<Vec<String>> {

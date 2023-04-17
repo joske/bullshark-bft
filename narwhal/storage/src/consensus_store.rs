@@ -4,7 +4,7 @@
 use crate::{NodeStorage, StoreResult};
 use config::AuthorityIdentifier;
 use std::collections::HashMap;
-use store::rocks::{open_cf, DBMap, MetricConf, ReadWriteOptions};
+use store::rocks::{open_cf, DBMap, ReadWriteOptions};
 use store::{reopen, Map, TypedStoreError};
 use types::{
     CommittedSubDag, CommittedSubDagShell, ConsensusCommit, ConsensusCommitV2, Round,
@@ -40,7 +40,6 @@ impl ConsensusStore {
         let rocksdb = open_cf(
             tempfile::tempdir().unwrap(),
             None,
-            MetricConf::default(),
             &[
                 NodeStorage::LAST_COMMITTED_CF,
                 NodeStorage::SUB_DAG_INDEX_CF,

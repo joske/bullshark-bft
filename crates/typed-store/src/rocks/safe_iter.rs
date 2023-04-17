@@ -13,7 +13,7 @@ pub struct SafeIter<'a, K, V> {
     db_iter: RocksDBRawIter<'a>,
     _phantom: PhantomData<(K, V)>,
     direction: Direction,
-    _cf: String,
+    cf: String,
 }
 
 impl<'a, K: DeserializeOwned, V: DeserializeOwned> SafeIter<'a, K, V> {
@@ -22,7 +22,7 @@ impl<'a, K: DeserializeOwned, V: DeserializeOwned> SafeIter<'a, K, V> {
             db_iter,
             _phantom: PhantomData,
             direction: Direction::Forward,
-            _cf: cf,
+            cf,
         }
     }
 }

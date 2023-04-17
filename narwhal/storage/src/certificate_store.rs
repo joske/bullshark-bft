@@ -19,31 +19,6 @@ use store::{
 };
 use types::{Certificate, CertificateDigest, Round};
 
-#[derive(Clone)]
-pub struct CertificateStoreCacheMetrics {
-    hit: IntCounter,
-    miss: IntCounter,
-}
-
-impl CertificateStoreCacheMetrics {
-    pub fn new(registry: &Registry) -> Self {
-        Self {
-            hit: register_int_counter_with_registry!(
-                "certificate_store_cache_hit",
-                "The number of hits in the cache",
-                registry
-            )
-            .unwrap(),
-            miss: register_int_counter_with_registry!(
-                "certificate_store_cache_miss",
-                "The number of miss in the cache",
-                registry
-            )
-            .unwrap(),
-        }
-    }
-}
-
 /// A cache trait to be used as temporary in-memory store when accessing the underlying
 /// certificate_store. Using the cache allows to skip rocksdb access giving us benefits
 /// both on less disk access (when value not in db's cache) and also avoiding any additional
@@ -69,25 +44,16 @@ pub trait Cache {
 #[derive(Clone)]
 pub struct CertificateStoreCache {
     cache: Arc<Mutex<LruCache<CertificateDigest, Certificate>>>,
-    metrics: Option<CertificateStoreCacheMetrics>,
 }
 
 impl CertificateStoreCache {
-    pub fn new(size: NonZeroUsize, metrics: Option<CertificateStoreCacheMetrics>) -> Self {
+    pub fn new(size: NonZeroUsize) -> Self {
         Self {
             cache: Arc::new(Mutex::new(LruCache::new(size))),
-            metrics,
         }
     }
 
     fn report_result(&self, is_hit: bool) {
-        if let Some(metrics) = self.metrics.as_ref() {
-            if is_hit {
-                metrics.hit.inc()
-            } else {
-                metrics.miss.inc()
-            }
-        }
     }
 }
 
@@ -686,7 +652,7 @@ mod test {
         let (certificate_map, certificate_id_by_round_map, certificate_id_by_origin_map) =
             create_db_maps(path);
 
-        let store_cache = CertificateStoreCache::new(NonZeroUsize::new(100).unwrap(), None);
+        let store_cache = CertificateStoreCache::new(NonZeroUsize::new(100).unwrap());
 
         CertificateStore::new(
             certificate_map,
@@ -1119,7 +1085,7 @@ mod test {
     #[test]
     fn test_cache() {
         // cache should hold up to 5 elements
-        let cache = CertificateStoreCache::new(NonZeroUsize::new(5).unwrap(), None);
+        let cache = CertificateStoreCache::new(NonZeroUsize::new(5).unwrap());
 
         let certificates = certificates(5);
 
@@ -1138,7 +1104,7 @@ mod test {
         }
 
         // now the same should happen when we use a write_all & read_all
-        let cache = CertificateStoreCache::new(NonZeroUsize::new(5).unwrap(), None);
+        let cache = CertificateStoreCache::new(NonZeroUsize::new(5).unwrap());
 
         cache.write_all(certificates.clone());
 

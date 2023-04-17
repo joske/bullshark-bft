@@ -6,7 +6,7 @@ use config::WorkerId;
 use mysten_common::sync::notify_read::NotifyRead;
 use std::sync::Arc;
 use store::reopen;
-use store::rocks::{open_cf, MetricConf, ReadWriteOptions};
+use store::rocks::{open_cf, ReadWriteOptions};
 use store::{rocks::DBMap, Map, TypedStoreError};
 use sui_macros::fail_point;
 use types::BatchDigest;

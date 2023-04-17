@@ -43,12 +43,11 @@
 //!     insert_key_vals(&table).await;
 //!     // switch to rocksdb backend
 //!     let primary_path = tempfile::tempdir().expect("Failed to open db path").into_path();
-//!     table = ExampleTable::init(SallyDBOptions::RocksDB((primary_path, RocksDBAccessType::Primary, None, None)));
+//!     table = ExampleTable::init(SallyDBOptions::RocksDB((primary_path, MetricConf::default(), RocksDBAccessType::Primary, None, None)));
 //!     insert_key_vals(&table).await;
 //!     Ok(())
 //! }
 //! ```
-
 use crate::{
     rocks::{
         default_db_options, keys::Keys, values::Values, DBBatch, DBMap, DBOptions,

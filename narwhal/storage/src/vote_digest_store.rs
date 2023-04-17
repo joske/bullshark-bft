@@ -4,7 +4,7 @@
 use crate::NodeStorage;
 use config::AuthorityIdentifier;
 use store::reopen;
-use store::rocks::{open_cf, MetricConf, ReadWriteOptions};
+use store::rocks::{open_cf, ReadWriteOptions};
 use store::{rocks::DBMap, Map, TypedStoreError};
 use sui_macros::fail_point;
 use types::{Vote, VoteAPI, VoteInfo};
