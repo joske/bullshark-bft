@@ -14,6 +14,7 @@ pub struct Iter<'a, K, V> {
     _phantom: PhantomData<(K, V)>,
     direction: Direction,
     _cf: String,
+    is_initialized: bool,
 }
 
 impl<'a, K: DeserializeOwned, V: DeserializeOwned> Iter<'a, K, V> {
@@ -23,6 +24,7 @@ impl<'a, K: DeserializeOwned, V: DeserializeOwned> Iter<'a, K, V> {
             _phantom: PhantomData,
             direction: Direction::Forward,
             _cf,
+            is_initialized: false,
         }
     }
 }

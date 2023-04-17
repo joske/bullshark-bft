@@ -13,6 +13,3 @@ proc-macro = true
 quote = "1"
 syn = { version = "2", features = ["full", "fold", "extra-traits"] }
 proc-macro2 = "1"
-
-[target.'cfg(msim)'.dependencies]
-msim-macros = { git = "https://github.com/MystenLabs/mysten-sim.git", rev = "e9011f96b84615b63cd8b5835e606a2fc218a1bd", package = "msim-macros" }

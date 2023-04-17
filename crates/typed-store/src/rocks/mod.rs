@@ -1232,17 +1232,6 @@ where
         lower_bound: Option<K>,
         upper_bound: Option<K>,
     ) -> Self::Iterator {
-        let report_metrics = if self.iter_latency_sample_interval.sample() {
-            let timer = self
-                .db_metrics
-                .op_metrics
-                .rocksdb_iter_latency_seconds
-                .with_label_values(&[&self.cf])
-                .start_timer();
-            Some((timer, RocksDBPerfContext::default()))
-        } else {
-            None
-        };
         let mut readopts = ReadOptions::default();
         if let Some(lower_bound) = lower_bound {
             let key_buf = be_fix_int_ser(&lower_bound).unwrap();
@@ -1253,17 +1242,9 @@ where
             readopts.set_iterate_upper_bound(key_buf);
         }
         let db_iter = self.rocksdb.raw_iterator_cf(&self.cf(), readopts);
-        if let Some((timer, _perf_ctx)) = report_metrics {
-            timer.stop_and_record();
-            self.db_metrics
-                .read_perf_ctx_metrics
-                .report_metrics(&self.cf);
-        }
         Iter::new(
             db_iter,
             self.cf.clone(),
-            &self.db_metrics,
-            &self.iter_bytes_sample_interval,
         )
     }
 
@@ -1594,7 +1575,7 @@ pub fn open_cf_opts<P: AsRef<Path>>(
     opt_cfs: &[(&str, &rocksdb::Options)],
 ) -> Result<Arc<RocksDB>, TypedStoreError> {
     let path = path.as_ref();
-    let options = prepare_db_options(&path, db_options, opt_cfs);
+    let options = prepare_db_options(db_options);
     let rocksdb = {
         rocksdb::DBWithThreadMode::<MultiThreaded>::open_cf_descriptors(
             &options,
@@ -1621,7 +1602,7 @@ pub fn open_cf_opts_transactional<P: AsRef<Path>>(
     let path = path.as_ref();
     let cfs = populate_missing_cfs(opt_cfs, path)?;
     // See comment above for explanation of why nondeterministic is necessary here.
-    let options = prepare_db_options(&path, db_options, opt_cfs);
+    let options = prepare_db_options(db_options);
     let rocksdb = rocksdb::OptimisticTransactionDB::<MultiThreaded>::open_cf_descriptors(
         &options,
         path,
