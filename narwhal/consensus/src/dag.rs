@@ -13,7 +13,7 @@ use std::{
 use thiserror::Error;
 use tokio::{
     sync::{
-        mpsc::{self, Receiver, Sender},
+        mpsc::{Receiver, Sender, self},
         oneshot,
     },
     task::JoinHandle,
@@ -103,7 +103,7 @@ impl InnerDag {
         rx_primary: mpsc::Receiver<Certificate>,
         rx_commands: Receiver<DagCommand>,
         dag: NodeDag<Certificate>,
-        vertices: RwLock<BTreeMap<(PublicKey, Round), CertificateDigest>>,
+        vertices: RwLock<BTreeMap<(AuthorityIdentifier, Round), CertificateDigest>>,
         rx_shutdown: ConditionalBroadcastReceiver,
     ) -> Self {
         let mut idg = InnerDag {
@@ -194,8 +194,6 @@ impl InnerDag {
             self.dag.try_insert(certificate)?;
             vertices.insert((origin, round), digest);
         }
-
-        self.update_metrics();
 
         Ok(())
     }
@@ -320,14 +318,6 @@ impl InnerDag {
             }
         }
         Ok(())
-    }
-
-    /// Updates the dag-related metrics
-    fn update_metrics(&self) {
-        let _vertices = self.vertices.read().unwrap();
-
-        // TODO(metrics): Set external_consensus_dag_vertices_elements to `vertices.len() as i64`
-        // TODO(metrics): Set external_consensus_dag_size to `self.dag.size() as i64`
     }
 }
 

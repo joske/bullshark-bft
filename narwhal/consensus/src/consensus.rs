@@ -4,24 +4,22 @@
 
 #![allow(clippy::mutable_key_type)]
 
-use crate::{ConsensusError, SequenceNumber};
-use config::Committee;
-use crypto::PublicKey;
+use crate::utils::gc_round;
+use crate::{ConsensusError, Outcome, SequenceNumber};
+use config::{AuthorityIdentifier, Committee};
 use fastcrypto::hash::Hash;
+use tokio::sync::mpsc;
 use std::{
     cmp::{max, Ordering},
     collections::{BTreeMap, BTreeSet, HashMap},
     sync::Arc,
 };
-use storage::CertificateStore;
-use tokio::{
-    sync::{mpsc, watch},
-    task::JoinHandle,
-};
+use storage::{CertificateStore, ConsensusStore};
+use tokio::{sync::watch, task::JoinHandle};
 use tracing::{debug, info, instrument};
 use types::{
-    Certificate, CertificateDigest, CommittedSubDag, ConditionalBroadcastReceiver, ConsensusStore,
-    Round, StoreResult, Timestamp,
+    Certificate, CertificateAPI, CertificateDigest, CommittedSubDag,
+    ConditionalBroadcastReceiver, ConsensusCommit, HeaderAPI, Round, Timestamp,
 };
 
 #[cfg(feature = "metrics")]
@@ -52,28 +50,33 @@ pub struct ConsensusState {
 
 #[allow(clippy::new_without_default)]
 impl ConsensusState {
-    pub fn new() -> Self {
+    pub fn new(gc_depth: Round) -> Self {
         Self {
             last_round: ConsensusRound::default(),
             gc_depth,
             last_committed: Default::default(),
+            last_committed_sub_dag: None,
             dag: Default::default(),
         }
     }
 
     pub fn new_from_store(
-        recover_last_committed: HashMap<PublicKey, Round>,
-        latest_sub_dag_index: SequenceNumber,
+        last_committed_round: Round,
+        gc_depth: Round,
+        recovered_last_committed: HashMap<AuthorityIdentifier, Round>,
+        latest_sub_dag: Option<ConsensusCommit>,
         cert_store: CertificateStore,
     ) -> Self {
-        let last_committed_round = *recover_last_committed
-            .iter()
-            .max_by(|a, b| a.1.cmp(b.1))
-            .map(|(_k, v)| v)
-            .unwrap_or_else(|| &0);
-        let dag = Self::construct_dag_from_cert_store(cert_store, &recover_last_committed);
+        let last_round = ConsensusRound::new_with_gc_depth(last_committed_round, gc_depth);
 
-        // TODO(metrics): Increment recovered_consensus_state by 1.
+        let dag = Self::construct_dag_from_cert_store(
+            &cert_store,
+            &recovered_last_committed,
+            last_round.gc_round,
+        )
+        .expect("error when recovering DAG from store");
+
+        // TODO(metrics): Increment `recovered_consensus_state` metric
 
         let last_committed_sub_dag = if let Some(latest_sub_dag) = latest_sub_dag.as_ref() {
             let certificates = latest_sub_dag
@@ -201,12 +204,12 @@ impl ConsensusState {
             self.last_committed_round as f64
         );
 
-        let elapsed = certificate.metadata.created_at.elapsed().as_secs_f64();
+        let elapsed = certificate.metadata().created_at.elapsed().as_secs_f64();
 
         #[cfg(feature = "metrics")]
         histogram!(
             snarkos_metrics::consensus::CERTIFICATE_COMMIT_LATENCY,
-            certificate.metadata.created_at.elapsed().as_secs_f64(),
+            certificate.metadata().created_at.elapsed().as_secs_f64(),
             "certificate_round" => certificate.round().to_string(),
             "certificate_epoch" => certificate.epoch().to_string(),
         );
@@ -316,8 +319,8 @@ pub struct Consensus<ConsensusProtocol> {
     rx_new_certificates: mpsc::Receiver<Certificate>,
     /// Outputs the sequence of ordered certificates to the primary (for cleanup and feedback).
     tx_committed_certificates: mpsc::Sender<(Round, Vec<Certificate>)>,
-    /// Outputs the highest committed round in the consensus. Controls GC round downstream.
-    tx_consensus_round_updates: watch::Sender<Round>,
+    /// Outputs the highest committed round & corresponding gc_round in the consensus.
+    tx_consensus_round_updates: watch::Sender<ConsensusRound>,
     /// Outputs the sequence of ordered certificates to the application layer.
     tx_sequence: mpsc::Sender<CommittedSubDag>,
 
@@ -341,7 +344,7 @@ where
         rx_shutdown: ConditionalBroadcastReceiver,
         rx_new_certificates: mpsc::Receiver<Certificate>,
         tx_committed_certificates: mpsc::Sender<(Round, Vec<Certificate>)>,
-        tx_consensus_round_updates: watch::Sender<Round>,
+        tx_consensus_round_updates: watch::Sender<ConsensusRound>,
         tx_sequence: mpsc::Sender<CommittedSubDag>,
         protocol: Protocol,
     ) -> JoinHandle<()> {
@@ -364,6 +367,8 @@ where
         }
 
         let state = ConsensusState::new_from_store(
+            last_committed_round,
+            gc_depth,
             recovered_last_committed,
             latest_sub_dag,
             cert_store,
@@ -438,7 +443,7 @@ where
                                 tracing::debug!("Committed {}", certificate.header());
                             }
 
-                            commited_certificates.push(certificate.clone());
+                            committed_certificates.push(certificate.clone());
                         }
 
                         // NOTE: The size of the sub-dag can be arbitrarily large (depending on the network condition
@@ -479,7 +484,7 @@ mod tests {
 
     #[test]
     fn test_gc() {
-        let mut state = ConsensusState::new();
+        let mut state = ConsensusState::new(5);
         // nothing in DAG yet
         assert_eq!(state.dag.len(), 0);
         // create 2 keypairs
@@ -519,19 +524,19 @@ mod tests {
 
         // commit cert3_kp1
         // this also removes everything of _kp1 until round 3
-        state.update(&cert3_kp1, 5);
+        state.update(&cert3_kp1);
         // nothing is purged yet as the _kp2 certs are still there
         assert_eq!(state.dag.len(), 5);
         // commit cert3_kp2
         // this also removes everything of _kp2 until round 3
-        state.update(&cert3_kp2, 5);
+        state.update(&cert3_kp2);
         assert_eq!(state.dag.len(), 2);
         // now everything up to round 3 is committed, so only round 4 and 5 are there
     }
 
     #[test]
     fn test_gc_at_depth_2() {
-        let mut state = ConsensusState::new();
+        let mut state = ConsensusState::new(2);
         assert_eq!(state.dag.len(), 0);
         let kp1 = BLS12381KeyPair::generate(&mut thread_rng());
         let pub_key1 = kp1.public();
@@ -550,11 +555,11 @@ mod tests {
         }
         assert_eq!(state.dag.len(), 20);
         // 18 & 19 are round 10
-        state.update(certs.get(18).unwrap(), 2);
+        state.update(certs.get(18).unwrap());
         // all of _kp1 up to round 10 are gone, last committed round = 10
         // GC depth = 2, so rounds 1-7 are gone completely (r + 2 < 10) -> 13 left
         assert_eq!(state.dag.len(), 13);
-        state.update(certs.get(19).unwrap(), 2);
+        state.update(certs.get(19).unwrap());
         // after this, also all of _kp2 up to round 10 are gone
         // still 10 rounds in DAG
         assert_eq!(state.dag.len(), 10);
@@ -562,7 +567,7 @@ mod tests {
 
     #[test]
     fn test_gc_at_depth_20() {
-        let mut state = ConsensusState::new();
+        let mut state = ConsensusState::new(20);
         assert_eq!(state.dag.len(), 0);
         let kp1 = BLS12381KeyPair::generate(&mut thread_rng());
         let pub_key1 = kp1.public();
@@ -581,11 +586,11 @@ mod tests {
         }
         assert_eq!(state.dag.len(), 20);
         // 18 & 19 are round 10
-        state.update(certs.get(18).unwrap(), 20);
+        state.update(certs.get(18).unwrap());
         // all of _kp1 up to round 10 are gone, and at GC depth 20, none of _kp2 are gone, so still 20 rounds in DAG
         assert_eq!(state.dag.len(), 20);
         // after this, also all of _kp2 up to round 10 are gone
-        state.update(certs.get(19).unwrap(), 20);
+        state.update(certs.get(19).unwrap());
         assert_eq!(state.dag.len(), 10);
         // still 10 rounds in DAG
     }

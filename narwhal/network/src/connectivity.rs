@@ -69,7 +69,7 @@ impl ConnectionMonitor {
         // we report first all the known peers as disconnected - so we can see
         // their labels in the metrics reporting tool
         let mut known_peers = Vec::new();
-        for (peer_id, ty) in &self.peer_id_types {
+        for (peer_id, _ty) in &self.peer_id_types {
             known_peers.push(*peer_id);
             // TODO(metrics): Set `network_peer_connected` to 0.
         }
@@ -158,12 +158,13 @@ impl ConnectionMonitor {
             gauge!(snarkos_metrics::network::NETWORK_PEERS, peer_count as f64);
         }
 
-        if let PeerEvent::LostPeer(_, reason) = peer_event {
-            self.connection_metrics
-                .network_peer_disconnects
-                .with_label_values(&[&peer_id_str, &format!("{reason:?}")])
-                .inc();
-        }
+        // TODO(metrics):
+        // if let PeerEvent::LostPeer(_, reason) = peer_event {
+        //     self.connection_metrics
+        //         .network_peer_disconnects
+        //         .with_label_values(&[&peer_id_str, &format!("{reason:?}")])
+        //         .inc();
+        // }
     }
 
     // TODO: Replace this with ClosureMetric
@@ -253,7 +254,6 @@ mod tests {
     use crate::connectivity::{ConnectionMonitor, ConnectionStatus};
     use anemo::{Network, Request, Response};
     use bytes::Bytes;
-    use prometheus::Registry;
     use std::collections::HashMap;
     use std::convert::Infallible;
     use std::time::Duration;
@@ -266,8 +266,6 @@ mod tests {
         let network_1 = build_network().unwrap();
         let network_2 = build_network().unwrap();
         let network_3 = build_network().unwrap();
-
-        let registry = Registry::new();
 
         // AND we connect to peer 2
         let peer_2 = network_1.connect(network_2.local_addr()).await.unwrap();

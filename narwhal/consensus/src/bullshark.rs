@@ -5,10 +5,10 @@ use crate::{
     consensus::{ConsensusProtocol, ConsensusState, Dag},
     utils, ConsensusError, Outcome,
 };
-use config::{Committee, Stake};
-use crypto::PublicKey;
-use fastcrypto::traits::EncodeDecodeBase64;
-use std::{collections::BTreeSet, sync::Arc};
+use config::{AuthorityIdentifier, Committee, Stake};
+use fastcrypto::hash::Hash;
+use std::sync::Arc;
+use storage::ConsensusStore;
 use tokio::time::Instant;
 use tracing::{debug, error_span};
 use types::{
@@ -245,13 +245,14 @@ impl ConsensusProtocol for Bullshark {
 
 impl Bullshark {
     /// Create a new Bullshark consensus instance.
-    pub fn new(committee: Committee, store: Arc<ConsensusStore>, gc_depth: Round) -> Self {
+    pub fn new(committee: Committee, store: Arc<ConsensusStore>, num_sub_dags_per_schedule: u64) -> Self {
         Self {
             committee,
             store,
             last_successful_leader_election_timestamp: Instant::now(),
             last_leader_election: LastRound::default(),
             max_inserted_certificate_round: 0,
+            num_sub_dags_per_schedule,
         }
     }
 
