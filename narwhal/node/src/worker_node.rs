@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{try_join_all, FuturesUnordered, NodeError};
-use arc_swap::ArcSwap;
-use config::{Parameters, SharedCommittee, SharedWorkerCache, WorkerId};
+use anemo::PeerId;
+use arc_swap::{ArcSwap, ArcSwapOption};
+use config::{Committee, Parameters, WorkerCache, WorkerId};
 use crypto::{NetworkKeyPair, PublicKey};
+use fastcrypto::traits::KeyPair;
+use network::client::NetworkClient;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
@@ -53,6 +56,8 @@ impl WorkerNodeInner {
         if self.is_running().await {
             return Err(NodeError::NodeAlreadyRunning);
         }
+
+        self.own_peer_id = Some(PeerId(network_keypair.public().0.to_bytes()));
 
         let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
 
@@ -231,6 +236,8 @@ impl WorkerNodes {
         if !worker_ids_running.is_empty() {
             return Err(NodeError::WorkerNodesAlreadyRunning(worker_ids_running));
         }
+
+        self.client.store(Some(Arc::new(client.clone())));
 
         // now clear the previous handles - we want to do that proactively
         // as it's not guaranteed that shutdown has been called

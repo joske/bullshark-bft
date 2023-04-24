@@ -9,8 +9,7 @@ use crate::{
 use config::{AuthorityIdentifier, Committee};
 use consensus::dag::Dag;
 
-use crypto::PublicKey;
-use multiaddr::Multiaddr;
+use mysten_network::Multiaddr;
 use std::{sync::Arc, time::Duration};
 use tokio::task::JoinHandle;
 use tokio::time::timeout;
@@ -31,7 +30,7 @@ pub struct ConsensusAPIGrpc<SynchronizerHandler: Handler + Send + Sync + 'static
     remove_collections_timeout: Duration,
     block_synchronizer_handler: Arc<SynchronizerHandler>,
     dag: Option<Arc<Dag>>,
-    committee: SharedCommittee,
+    committee: Committee,
     rx_shutdown: ConditionalBroadcastReceiver,
 }
 
@@ -46,12 +45,12 @@ impl<SynchronizerHandler: Handler + Send + Sync + 'static> ConsensusAPIGrpc<Sync
         remove_collections_timeout: Duration,
         block_synchronizer_handler: Arc<SynchronizerHandler>,
         dag: Option<Arc<Dag>>,
-        committee: SharedCommittee,
+        committee: Committee,
         rx_shutdown: ConditionalBroadcastReceiver,
     ) -> JoinHandle<()> {
         tokio::spawn(async move {
             let _ = Self {
-                name,
+                authority_id,
                 socket_address,
                 block_waiter,
                 block_remover,

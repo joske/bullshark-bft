@@ -29,6 +29,7 @@ use std::{
     num::NonZeroUsize,
     ops::RangeInclusive,
 };
+use store::rocks::DBMap;
 use store::rocks::ReadWriteOptions;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tracing::info;
@@ -70,7 +71,10 @@ pub fn ensure_test_environment() {
 #[macro_export]
 macro_rules! test_channel {
     ($e:expr) => {
-        tokio::sync::mpsc::channel($e);
+        types::metered_channel::channel(
+            $e,
+            &prometheus::IntGauge::new("TEST_COUNTER", "test counter").unwrap(),
+        );
     };
 }
 
@@ -87,14 +91,28 @@ macro_rules! test_channel {
 #[macro_export]
 macro_rules! test_committed_certificates_channel {
     ($e:expr) => {
-        tokio::sync::mpsc::channel($e);
+        types::metered_channel::channel(
+            $e,
+            &prometheus::IntGauge::new(
+                primary::PrimaryChannelMetrics::NAME_COMMITTED_CERTS,
+                primary::PrimaryChannelMetrics::DESC_COMMITTED_CERTS,
+            )
+            .unwrap(),
+        );
     };
 }
 
 #[macro_export]
 macro_rules! test_new_certificates_channel {
     ($e:expr) => {
-        tokio::sync::mpsc::channel($e);
+        types::metered_channel::channel(
+            $e,
+            &prometheus::IntGauge::new(
+                primary::PrimaryChannelMetrics::NAME_NEW_CERTS,
+                primary::PrimaryChannelMetrics::DESC_NEW_CERTS,
+            )
+            .unwrap(),
+        );
     };
 }
 
@@ -109,22 +127,6 @@ pub fn random_key() -> KeyPair {
 ////////////////////////////////////////////////////////////////
 /// Headers, Votes, Certificates
 ////////////////////////////////////////////////////////////////
-
-pub fn make_consensus_store(store_path: &std::path::Path) -> Arc<ConsensusStore> {
-    const LAST_COMMITTED_CF: &str = "last_committed";
-    const SEQUENCE_CF: &str = "sequence";
-
-    let rocksdb = rocks::open_cf(store_path, None, &[LAST_COMMITTED_CF, SEQUENCE_CF])
-        .expect("Failed creating database");
-
-    let (last_committed_map, sequence_map) = reopen!(&rocksdb,
-        LAST_COMMITTED_CF;<AuthorityIdentifier, Round>,
-        SEQUENCE_CF;<SequenceNumber, CommittedSubDagShell>
-    );
-
-    Arc::new(ConsensusStore::new(last_committed_map, sequence_map))
-}
-
 pub fn fixture_payload(number_of_batches: u8) -> IndexMap<BatchDigest, (WorkerId, TimestampMs)> {
     let mut payload: IndexMap<BatchDigest, (WorkerId, TimestampMs)> = IndexMap::new();
 

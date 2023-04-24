@@ -16,6 +16,7 @@ use std::{
     time::Duration,
 };
 use storage::CertificateStore;
+use tokio::sync::mpsc::Receiver;
 use tokio::task::{spawn_blocking, JoinSet};
 use tokio::{
     sync::watch,
@@ -28,7 +29,6 @@ use types::{
     Certificate, CertificateAPI, ConditionalBroadcastReceiver, FetchCertificatesRequest,
     FetchCertificatesResponse, HeaderAPI, Round,
 };
-use tokio::sync::mpsc::Receiver;
 
 #[cfg(test)]
 #[path = "tests/certificate_fetcher_tests.rs"]
@@ -104,22 +104,20 @@ impl CertificateFetcher {
             synchronizer,
         });
 
-        tokio::spawn(
-            async move {
-                Self {
-                    state,
-                    committee,
-                    certificate_store,
-                    rx_consensus_round_updates,
-                    rx_shutdown,
-                    rx_certificate_fetcher,
-                    targets: BTreeMap::new(),
-                    fetch_certificates_task: JoinSet::new(),
-                }
-                .run()
-                .await;
+        tokio::spawn(async move {
+            Self {
+                state,
+                committee,
+                certificate_store,
+                rx_consensus_round_updates,
+                rx_shutdown,
+                rx_certificate_fetcher,
+                targets: BTreeMap::new(),
+                fetch_certificates_task: JoinSet::new(),
             }
-        )
+            .run()
+            .await;
+        })
     }
 
     async fn run(&mut self) {
@@ -260,25 +258,24 @@ impl CertificateFetcher {
             self.targets.values().max().unwrap_or(&0),
             gc_round
         );
-        self.fetch_certificates_task
-            .spawn(async move {
-                // TODO(metrics): Increment `certificate_fetcher_inflight_fetch`
+        self.fetch_certificates_task.spawn(async move {
+            // TODO(metrics): Increment `certificate_fetcher_inflight_fetch`
 
-                let now = Instant::now();
-                match run_fetch_task(state.clone(), committee, gc_round, written_rounds).await {
-                    Ok(_) => {
-                        debug!(
-                            "Finished task to fetch certificates successfully, elapsed = {}s",
-                            now.elapsed().as_secs_f64()
-                        );
-                    }
-                    Err(e) => {
-                        warn!("Error from task to fetch certificates: {e}");
-                    }
-                };
+            let now = Instant::now();
+            match run_fetch_task(state.clone(), committee, gc_round, written_rounds).await {
+                Ok(_) => {
+                    debug!(
+                        "Finished task to fetch certificates successfully, elapsed = {}s",
+                        now.elapsed().as_secs_f64()
+                    );
+                }
+                Err(e) => {
+                    warn!("Error from task to fetch certificates: {e}");
+                }
+            };
 
-                // TODO(metrics): Decrement `certificate_fetcher_inflight_fetch`
-            });
+            // TODO(metrics): Decrement `certificate_fetcher_inflight_fetch`
+        });
     }
 
     fn gc_round(&self) -> Round {

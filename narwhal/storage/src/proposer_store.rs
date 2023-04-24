@@ -25,12 +25,8 @@ impl ProposerStore {
 
     pub fn new_for_tests() -> ProposerStore {
         const LAST_PROPOSED_CF: &str = "last_proposed";
-        let rocksdb = open_cf(
-            tempfile::tempdir().unwrap(),
-            None,
-            &[LAST_PROPOSED_CF],
-        )
-        .expect("Cannot open database");
+        let rocksdb = open_cf(tempfile::tempdir().unwrap(), None, &[LAST_PROPOSED_CF])
+            .expect("Cannot open database");
         let last_proposed_map = reopen!(&rocksdb, LAST_PROPOSED_CF;<ProposerKey, Header>);
         ProposerStore::new(last_proposed_map)
     }

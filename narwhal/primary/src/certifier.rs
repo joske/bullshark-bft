@@ -1,28 +1,26 @@
 // Copyright (c) 2021, Facebook, Inc. and its affiliates
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
-use crate::{aggregators::VotesAggregator, metrics::PrimaryMetrics, synchronizer::Synchronizer};
+use crate::{aggregators::VotesAggregator, synchronizer::Synchronizer};
 
 use config::{AuthorityIdentifier, Committee};
 use crypto::{NetworkPublicKey, Signature};
 use fastcrypto::signature_service::SignatureService;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use mysten_metrics::{monitored_future, spawn_logged_monitored_task};
 use network::anemo_ext::NetworkExt;
 use std::sync::Arc;
 use std::time::Duration;
 use storage::{CertificateStore, HeaderStore};
 use sui_macros::fail_point_async;
 use tokio::{
-    sync::oneshot,
+    sync::{mpsc, oneshot},
     task::{JoinHandle, JoinSet},
 };
 use tracing::{debug, enabled, error, info, instrument, warn};
 use types::{
     ensure,
     error::{DagError, DagResult},
-    metered_channel::Receiver,
     Certificate, CertificateDigest, ConditionalBroadcastReceiver, Header, HeaderAPI,
     PrimaryToPrimaryClient, RequestVoteRequest, Vote, VoteAPI,
 };
@@ -52,7 +50,7 @@ pub struct Certifier {
     /// Receiver for shutdown.
     rx_shutdown: ConditionalBroadcastReceiver,
     /// Receives our newly created headers from the `Proposer`.
-    rx_headers: Receiver<Header>,
+    rx_headers: mpsc::Receiver<Header>,
     /// Used to cancel vote requests for a previously-proposed header that is being replaced
     /// before a certificate could be formed.
     cancel_proposed_header: Option<oneshot::Sender<()>>,
@@ -63,8 +61,6 @@ pub struct Certifier {
     propose_header_tasks: JoinSet<DagResult<Certificate>>,
     /// A network sender to send the batches to the other workers.
     network: anemo::Network,
-    /// Metrics handler
-    metrics: Arc<PrimaryMetrics>,
 }
 
 impl Certifier {
@@ -78,31 +74,26 @@ impl Certifier {
         synchronizer: Arc<Synchronizer>,
         signature_service: SignatureService<Signature, { crypto::INTENT_MESSAGE_LENGTH }>,
         rx_shutdown: ConditionalBroadcastReceiver,
-        rx_headers: Receiver<Header>,
-        metrics: Arc<PrimaryMetrics>,
+        rx_headers: mpsc::Receiver<Header>,
         primary_network: anemo::Network,
     ) -> JoinHandle<()> {
-        spawn_logged_monitored_task!(
-            async move {
-                Self {
-                    authority_id,
-                    committee,
-                    header_store,
-                    certificate_store,
-                    synchronizer,
-                    signature_service,
-                    rx_shutdown,
-                    rx_headers,
-                    cancel_proposed_header: None,
-                    propose_header_tasks: JoinSet::new(),
-                    network: primary_network,
-                    metrics,
-                }
-                .run_inner()
-                .await
-            },
-            "CertifierTask"
-        )
+        tokio::spawn(async move {
+            Self {
+                authority_id,
+                committee,
+                header_store,
+                certificate_store,
+                synchronizer,
+                signature_service,
+                rx_shutdown,
+                rx_headers,
+                cancel_proposed_header: None,
+                propose_header_tasks: JoinSet::new(),
+                network: primary_network,
+            }
+            .run_inner()
+            .await
+        })
     }
 
     #[instrument(level = "info", skip_all)]
@@ -246,7 +237,6 @@ impl Certifier {
         header_store: HeaderStore,
         certificate_store: CertificateStore,
         signature_service: SignatureService<Signature, { crypto::INTENT_MESSAGE_LENGTH }>,
-        metrics: Arc<PrimaryMetrics>,
         network: anemo::Network,
         header: Header,
         mut cancel: oneshot::Receiver<()>,
@@ -265,10 +255,11 @@ impl Certifier {
 
         // Process the header.
         header_store.write(&header)?;
-        metrics.proposed_header_round.set(header.round() as i64);
+
+        // TODO(metrics): Set `proposed_header_round` to `header.round() as i64`
 
         // Reset the votes aggregator and sign our own header.
-        let mut votes_aggregator = VotesAggregator::new(metrics.clone());
+        let mut votes_aggregator = VotesAggregator::new();
         let vote = Vote::new(&header, &authority_id, &signature_service).await;
         let mut certificate = votes_aggregator.append(vote, &committee, &header)?;
 
@@ -381,20 +372,18 @@ impl Certifier {
                     let header_store = self.header_store.clone();
                     let certificate_store = self.certificate_store.clone();
                     let signature_service = self.signature_service.clone();
-                    let metrics = self.metrics.clone();
                     let network = self.network.clone();
                     fail_point_async!("narwhal-delay");
-                    self.propose_header_tasks.spawn(monitored_future!(Self::propose_header(
+                    self.propose_header_tasks.spawn(Self::propose_header(
                         name,
                         committee,
                         header_store,
                         certificate_store,
                         signature_service,
-                        metrics,
                         network,
                         header,
                         rx_cancel,
-                    )));
+                    ));
                     Ok(())
                 },
 

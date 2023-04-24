@@ -53,8 +53,7 @@ impl CertificateStoreCache {
         }
     }
 
-    fn report_result(&self, is_hit: bool) {
-    }
+    fn report_result(&self, is_hit: bool) {}
 }
 
 impl Cache for CertificateStoreCache {

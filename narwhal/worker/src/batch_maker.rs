@@ -1,15 +1,13 @@
 // Copyright (c) 2021, Facebook, Inc. and its affiliates
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
-use fastcrypto::hash::Hash;
-use futures::stream::FuturesOrdered;
-use store::Store;
 
 use config::WorkerId;
-use tracing::error;
-
+use fastcrypto::hash::Hash;
+use futures::stream::FuturesUnordered;
 use futures::{Future, StreamExt};
-
+use network::{client::NetworkClient, WorkerToPrimaryClient};
+use store::{rocks::DBMap, Map};
 use tokio::{
     sync::mpsc::{Receiver, Sender},
     task::JoinHandle,
@@ -17,11 +15,9 @@ use tokio::{
 };
 use tracing::{error, warn};
 use types::{
-    error::DagError, now, Batch, BatchDigest, ConditionalBroadcastReceiver, PrimaryResponse,
-    Transaction, TxResponse, WorkerOurBatchMessage,
+    error::DagError, now, Batch, BatchAPI, BatchDigest, ConditionalBroadcastReceiver, Transaction,
+    TxResponse, WorkerOurBatchMessage,
 };
-
-use crate::metrics::WorkerMetrics;
 
 #[cfg(feature = "trace_transaction")]
 use byteorder::{BigEndian, ReadBytesExt};
@@ -48,7 +44,7 @@ pub struct BatchMaker {
     /// Channel to receive transactions from the network.
     rx_batch_maker: Receiver<(Transaction, TxResponse)>,
     /// Output channel to deliver sealed batches to the `QuorumWaiter`.
-    tx_message: Sender<(Batch, Option<tokio::sync::oneshot::Sender<()>>)>,
+    tx_quorum_waiter: Sender<(Batch, tokio::sync::oneshot::Sender<()>)>,
     /// The timestamp of the batch creation.
     /// Average resident time in the batch would be ~ (batch seal time - creation time) / 2
     batch_start_timestamp: Instant,
@@ -66,21 +62,21 @@ impl BatchMaker {
         max_batch_delay: Duration,
         rx_shutdown: ConditionalBroadcastReceiver,
         rx_batch_maker: Receiver<(Transaction, TxResponse)>,
-        tx_message: Sender<(Batch, Option<tokio::sync::oneshot::Sender<()>>)>,
-        store: Store<BatchDigest, Batch>,
-        tx_digest: Sender<(WorkerOurBatchMessage, PrimaryResponse)>,
+        tx_quorum_waiter: Sender<(Batch, tokio::sync::oneshot::Sender<()>)>,
+        client: NetworkClient,
+        store: DBMap<BatchDigest, Batch>,
     ) -> JoinHandle<()> {
         tokio::spawn(async move {
             Self {
                 id,
-                batch_size,
+                batch_size_limit,
                 max_batch_delay,
                 rx_shutdown,
                 rx_batch_maker,
-                tx_message,
+                tx_quorum_waiter,
                 batch_start_timestamp: Instant::now(),
+                client,
                 store,
-                tx_digest,
             }
             .run()
             .await;
@@ -113,8 +109,6 @@ impl BatchMaker {
                             batch_pipeline.push(seal);
                         }
 
-                        // TODO(metrics): Set `parallel_worker_batches` to `batch_pipeline.len() as i64`
-
                         current_batch = Batch::default();
                         current_responses = Vec::new();
                         current_batch_size = 0;
@@ -130,8 +124,6 @@ impl BatchMaker {
                         if let Some(seal) = self.seal(true, current_batch, current_batch_size, current_responses).await {
                             batch_pipeline.push(seal);
                         }
-
-                        // TODO(metrics): Set `parallel_worker_batches` to `batch_pipeline.len() as i64`
 
                         current_batch = Batch::default();
                         current_responses = Vec::new();
@@ -149,7 +141,6 @@ impl BatchMaker {
                 // list, and ensures the main loop in run will always be able to make progress
                 // by lowering it until condition batch_pipeline.len() < MAX_PARALLEL_BATCH is met.
                 _ = batch_pipeline.next(), if !batch_pipeline.is_empty() => {
-                    // TODO(metrics): Set `parallel_worker_batches` to `batch_pipeline.len() as i64`
                 }
 
             }
@@ -164,12 +155,59 @@ impl BatchMaker {
         &self,
         timeout: bool,
         mut batch: Batch,
-        #[allow(unused_variables)] size: usize,
+        size: usize,
         responses: Vec<TxResponse>,
     ) -> Option<impl Future<Output = ()>> {
-        let reason = if timeout { "timeout" } else { "size_reached" };
+        #[cfg(feature = "benchmark")]
+        {
+            let digest = batch.digest();
 
-        // TODO(metrics): Observe `size as f64` as `created_batch_size`
+            // Look for sample txs (they all start with 0) and gather their txs id (the next 8 bytes).
+            let tx_ids: Vec<_> = batch
+                .transactions()
+                .iter()
+                .filter(|tx| tx[0] == 0u8 && tx.len() > 8)
+                .filter_map(|tx| tx[1..9].try_into().ok())
+                .collect();
+
+            for id in tx_ids {
+                // NOTE: This log entry is used to compute performance.
+                tracing::info!(
+                    "Batch {:?} contains sample tx {}",
+                    digest,
+                    u64::from_be_bytes(id)
+                );
+            }
+
+            #[cfg(feature = "trace_transaction")]
+            {
+                // The first 8 bytes of each transaction message is reserved for an identifier
+                // that's useful for debugging and tracking the lifetime of messages between
+                // Narwhal and clients.
+                let tracking_ids: Vec<_> = batch
+                    .transactions()
+                    .iter()
+                    .map(|tx| {
+                        let len = tx.len();
+                        if len >= 8 {
+                            (&tx[0..8]).read_u64::<BigEndian>().unwrap_or_default()
+                        } else {
+                            0
+                        }
+                    })
+                    .collect();
+                tracing::debug!(
+                    "Tracking IDs of transactions in the Batch {:?}: {:?}",
+                    digest,
+                    tracking_ids
+                );
+            }
+
+            // NOTE: This log entry is used to compute performance.
+            tracing::info!("Batch {:?} contains {} B", digest, size);
+        }
+
+        let reason = if timeout { "timeout" } else { "size_reached" };
 
         // Send the batch through the deliver channel for further processing.
         let (notify_done, done_sending) = tokio::sync::oneshot::channel();
@@ -191,11 +229,6 @@ impl BatchMaker {
             batch_creation_duration,
             reason
         );
-
-        // we are deliberately measuring this after the sending to the downstream
-        // channel tx_quorum_waiter as the operation is blocking and affects any further
-        // batch creation.
-        // TODO(metrics): Observe `batch_creation_duration` as `created_batch_latency`
 
         // Clone things to not capture self
         let client = self.client.clone();

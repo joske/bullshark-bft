@@ -4,11 +4,10 @@ use config::WorkerId;
 use executor::SubscriberError;
 use futures::future::try_join_all;
 use futures::stream::FuturesUnordered;
-pub use storage::{CertificateStoreCacheMetrics, NodeStorage};
+pub use storage::NodeStorage;
 use thiserror::Error;
 
 pub mod execution_state;
-pub mod keypair_file;
 pub mod primary_node;
 pub mod worker_node;
 

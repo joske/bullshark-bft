@@ -1,14 +1,14 @@
 // Copyright (c) 2021, Facebook, Inc. and its affiliates
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
-use crypto::PublicKey;
+use config::AuthorityIdentifier;
 use tap::TapFallible;
 use tokio::{
     sync::mpsc::{Receiver, Sender},
     task::JoinHandle,
 };
 use tracing::{debug, error, info, warn};
-use types::{Certificate, ConditionalBroadcastReceiver, Round};
+use types::{Certificate, CertificateAPI, ConditionalBroadcastReceiver, HeaderAPI, Round};
 
 /// Receives the highest round reached by consensus and update it for all tasks.
 pub struct StateHandler {
@@ -35,10 +35,10 @@ impl StateHandler {
     ) -> JoinHandle<()> {
         tokio::spawn(async move {
             Self {
-                name,
+                authority_id,
                 rx_committed_certificates,
                 rx_shutdown,
-                tx_commited_own_headers,
+                tx_committed_own_headers,
                 network,
             }
             .run()

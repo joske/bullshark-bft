@@ -5,7 +5,6 @@ use crate::{
     batch_fetcher::BatchFetcher,
     batch_maker::BatchMaker,
     handlers::{PrimaryReceiverHandler, WorkerReceiverHandler},
-    primary_connector::PrimaryConnector,
     quorum_waiter::QuorumWaiter,
     TransactionValidator, NUM_SHUTDOWN_RECEIVERS,
 };
@@ -18,22 +17,23 @@ use anemo_tower::{
     trace::{DefaultMakeSpan, DefaultOnFailure, TraceLayer},
 };
 use anemo_tower::{rate_limit, set_header::SetResponseHeaderLayer};
-use config::{Parameters, SharedCommittee, SharedWorkerCache, WorkerId};
-use crypto::{traits::KeyPair as _, NetworkKeyPair, NetworkPublicKey, PublicKey};
-use multiaddr::{Multiaddr, Protocol};
+use config::{Authority, AuthorityIdentifier, Committee, Parameters, WorkerCache, WorkerId};
+use crypto::{traits::KeyPair as _, NetworkKeyPair, NetworkPublicKey};
+use mysten_network::{multiaddr::Protocol, Multiaddr};
+use network::client::NetworkClient;
 use network::epoch_filter::{AllowedEpoch, EPOCH_HEADER_KEY};
 use network::failpoints::FailpointsMakeCallbackHandler;
 use std::collections::HashMap;
 use std::time::Duration;
-use std::{net::Ipv4Addr, thread::sleep};
-use store::Store;
+use std::{net::Ipv4Addr, sync::Arc, thread::sleep};
+use store::rocks::DBMap;
 use tap::TapFallible;
 use tokio::{sync::mpsc, task::JoinHandle};
 use tower::ServiceBuilder;
 use tracing::{error, info};
 use types::{
     Batch, BatchDigest, ConditionalBroadcastReceiver, PreSubscribedBroadcastSender,
-    PrimaryToWorkerServer, WorkerOurBatchMessage, WorkerToWorkerServer,
+    PrimaryToWorkerServer, WorkerToWorkerServer,
 };
 
 #[cfg(test)]
@@ -71,7 +71,8 @@ impl Worker {
         worker_cache: WorkerCache,
         parameters: Parameters,
         validator: impl TransactionValidator,
-        store: Store<BatchDigest, Batch>,
+        client: NetworkClient,
+        store: DBMap<BatchDigest, Batch>,
         tx_shutdown: &mut PreSubscribedBroadcastSender,
     ) -> Vec<JoinHandle<()>> {
         let worker_name = keypair.public().clone();
@@ -88,10 +89,6 @@ impl Worker {
             parameters: parameters.clone(),
             store,
         };
-
-        // Spawn all worker tasks.
-        let (tx_our_batch, rx_our_batch) = mpsc::channel(CHANNEL_CAPACITY);
-        let (tx_others_batch, rx_others_batch) = mpsc::channel(CHANNEL_CAPACITY);
 
         let mut shutdown_receivers = tx_shutdown.subscribe_n(NUM_SHUTDOWN_RECEIVERS);
 
@@ -251,12 +248,7 @@ impl Worker {
 
         info!("Worker {} listening to worker messages on {}", id, address);
 
-        let batch_fetcher = BatchFetcher::new(
-            worker_name,
-            network.clone(),
-            worker.store.clone(),
-            node_metrics.clone(),
-        );
+        let batch_fetcher = BatchFetcher::new(worker_name, network.clone(), worker.store.clone());
         client.set_primary_to_worker_local_handler(
             worker_peer_id,
             Arc::new(PrimaryReceiverHandler {
@@ -314,8 +306,11 @@ impl Worker {
             );
         }
 
-        let connection_monitor_handle =
-            network::connectivity::ConnectionMonitor::spawn(network.downgrade(), peer_types);
+        let (connection_monitor_handle, _) = network::connectivity::ConnectionMonitor::spawn(
+            network.downgrade(),
+            peer_types,
+            Some(shutdown_receivers.pop().unwrap()),
+        );
 
         let network_admin_server_base_port = parameters
             .network_admin_server
@@ -339,7 +334,6 @@ impl Worker {
                 shutdown_receivers.pop().unwrap(),
                 shutdown_receivers.pop().unwrap(),
             ],
-            tx_our_batch,
             validator,
             client,
             network.clone(),
@@ -405,10 +399,6 @@ impl Worker {
     fn handle_clients_transactions(
         &self,
         mut shutdown_receivers: Vec<ConditionalBroadcastReceiver>,
-        tx_our_batch: mpsc::Sender<(
-            WorkerOurBatchMessage,
-            Option<tokio::sync::oneshot::Sender<()>>,
-        )>,
         validator: impl TransactionValidator,
         client: NetworkClient,
         network: anemo::Network,
@@ -443,6 +433,7 @@ impl Worker {
             shutdown_receivers.pop().unwrap(),
             rx_batch_maker,
             tx_quorum_waiter,
+            client,
             self.store.clone(),
         );
 

@@ -6,7 +6,8 @@ use crypto::{KeyPair, NetworkKeyPair, PublicKey};
 use executor::SerializedTransaction;
 use fastcrypto::traits::KeyPair as _;
 use itertools::Itertools;
-use multiaddr::Multiaddr;
+use mysten_network::multiaddr::Multiaddr;
+use network::client::NetworkClient;
 use node::execution_state::SimpleExecutionState;
 use node::primary_node::PrimaryNode;
 use node::worker_node::WorkerNode;
@@ -350,7 +351,7 @@ impl PrimaryNodeDetails {
         let (tx_transaction_confirmation, mut rx_transaction_confirmation) = channel(100);
 
         // Primary node
-        let primary_store: NodeStorage = NodeStorage::reopen(store_path.clone(), None);
+        let primary_store: NodeStorage = NodeStorage::reopen(store_path.clone());
 
         self.node
             .start(
@@ -402,7 +403,8 @@ impl PrimaryNodeDetails {
 pub struct WorkerNodeDetails {
     pub id: WorkerId,
     pub transactions_address: Multiaddr,
-    name: PublicKey,
+    name: AuthorityIdentifier,
+    primary_key: PublicKey,
     node: WorkerNode,
     committee: Committee,
     worker_cache: WorkerCache,
@@ -424,6 +426,7 @@ impl WorkerNodeDetails {
         Self {
             id,
             name,
+            primary_key,
             store_path: temp_dir(),
             transactions_address,
             committee,
@@ -453,7 +456,7 @@ impl WorkerNodeDetails {
             temp_dir()
         };
 
-        let worker_store = NodeStorage::reopen(store_path.clone(), None);
+        let worker_store = NodeStorage::reopen(store_path.clone());
 
         self.node
             .start(

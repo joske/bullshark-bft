@@ -245,7 +245,11 @@ impl ConsensusProtocol for Bullshark {
 
 impl Bullshark {
     /// Create a new Bullshark consensus instance.
-    pub fn new(committee: Committee, store: Arc<ConsensusStore>, num_sub_dags_per_schedule: u64) -> Self {
+    pub fn new(
+        committee: Committee,
+        store: Arc<ConsensusStore>,
+        num_sub_dags_per_schedule: u64,
+    ) -> Self {
         Self {
             committee,
             store,

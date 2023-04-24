@@ -5,11 +5,11 @@
 use crate::batch_maker::MAX_PARALLEL_BATCH;
 use config::{Authority, Committee, Stake, WorkerCache, WorkerId};
 use fastcrypto::hash::Hash;
-use futures::stream::{futures_unordered::FuturesUnordered, FuturesOrdered, StreamExt as _};
+use futures::stream::{futures_unordered::FuturesUnordered, StreamExt as _};
 use network::{CancelOnDropHandler, ReliableNetwork};
 use std::time::Duration;
 use tokio::{sync::mpsc, task::JoinHandle, time::timeout};
-use tracing::{error, trace};
+use tracing::{trace, warn};
 use types::{Batch, ConditionalBroadcastReceiver, WorkerBatchMessage};
 
 #[cfg(test)]
@@ -29,7 +29,7 @@ pub struct QuorumWaiter {
     /// Receiver for shutdown.
     rx_shutdown: ConditionalBroadcastReceiver,
     /// Input Channel to receive commands.
-    rx_message: mpsc::Receiver<(Batch, Option<tokio::sync::oneshot::Sender<()>>)>,
+    rx_quorum_waiter: mpsc::Receiver<(Batch, tokio::sync::oneshot::Sender<()>)>,
     /// A network sender to broadcast the batches to the other workers.
     network: anemo::Network,
 }
@@ -43,17 +43,17 @@ impl QuorumWaiter {
         committee: Committee,
         worker_cache: WorkerCache,
         rx_shutdown: ConditionalBroadcastReceiver,
-        rx_message: mpsc::Receiver<(Batch, Option<tokio::sync::oneshot::Sender<()>>)>,
+        rx_quorum_waiter: mpsc::Receiver<(Batch, tokio::sync::oneshot::Sender<()>)>,
         network: anemo::Network,
     ) -> JoinHandle<()> {
         tokio::spawn(async move {
             Self {
-                name,
+                authority,
                 id,
                 committee,
                 worker_cache,
                 rx_shutdown,
-                rx_message,
+                rx_quorum_waiter,
                 network,
             }
             .run()

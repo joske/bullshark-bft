@@ -36,10 +36,7 @@ use fastcrypto::{
     traits::{KeyPair as _, ToFromBytes},
 };
 use futures::{stream::FuturesUnordered, StreamExt};
-use multiaddr::{Multiaddr, Protocol};
-use mysten_metrics::spawn_monitored_task;
 use mysten_network::{multiaddr::Protocol, Multiaddr};
-use network::epoch_filter::{AllowedEpoch, EPOCH_HEADER_KEY};
 use network::failpoints::FailpointsMakeCallbackHandler;
 use network::{
     client::NetworkClient,
@@ -54,12 +51,14 @@ use std::{
     thread::sleep,
     time::Duration,
 };
-use storage::{CertificateStore, PayloadToken, ProposerStore};
-use store::Store;
+use storage::{CertificateStore, HeaderStore, PayloadStore, ProposerStore, VoteDigestStore};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::{sync::watch, task::JoinHandle};
 use tokio::{
-    sync::{mpsc, oneshot},
+    sync::{
+        mpsc::{self, channel},
+        oneshot,
+    },
     time::Instant,
 };
 use tower::ServiceBuilder;
@@ -68,11 +67,11 @@ use tracing::{debug, error, info, instrument, warn};
 use types::{
     ensure,
     error::{DagError, DagResult},
-    now, BatchDigest, Certificate, CertificateDigest, FetchCertificatesRequest,
-    FetchCertificatesResponse, GetCertificatesRequest, GetCertificatesResponse, Header,
-    HeaderDigest, PayloadAvailabilityRequest, PayloadAvailabilityResponse,
-    PreSubscribedBroadcastSender, PrimaryToPrimary, PrimaryToPrimaryServer, RequestVoteRequest,
-    RequestVoteResponse, Round, Vote, VoteInfo, WorkerInfoResponse, WorkerOthersBatchMessage,
+    now, Certificate, CertificateAPI, CertificateDigest, FetchCertificatesRequest,
+    FetchCertificatesResponse, GetCertificatesRequest, GetCertificatesResponse, HeaderAPI,
+    PayloadAvailabilityRequest, PayloadAvailabilityResponse, PreSubscribedBroadcastSender,
+    PrimaryToPrimary, PrimaryToPrimaryServer, RequestVoteRequest, RequestVoteResponse, Round,
+    SendCertificateRequest, SendCertificateResponse, Vote, VoteInfoAPI, WorkerOthersBatchMessage,
     WorkerOurBatchMessage, WorkerToPrimary, WorkerToPrimaryServer,
 };
 
@@ -120,8 +119,6 @@ impl Primary {
         network_model: NetworkModel,
         tx_shutdown: &mut PreSubscribedBroadcastSender,
         tx_committed_certificates: Sender<(Round, Vec<Certificate>)>,
-        // See comments in Subscriber::spawn
-        tx_executor_network: Option<oneshot::Sender<anemo::Network>>,
     ) -> Vec<JoinHandle<()>> {
         // Write the parameters to the logs.
         parameters.tracing();
@@ -134,16 +131,13 @@ impl Primary {
             authority.protocol_key().encode_base64(),
         );
 
-        let (tx_our_digests, rx_our_digests) = mpsc::channel(CHANNEL_CAPACITY);
-        let (tx_parents, rx_parents) = mpsc::channel(CHANNEL_CAPACITY);
-        let (tx_headers, rx_headers) = mpsc::channel(CHANNEL_CAPACITY);
-        let (tx_certificate_fetcher, rx_certificate_fetcher) = mpsc::channel(CHANNEL_CAPACITY);
-        let (tx_certificates_loopback, rx_certificates_loopback) = mpsc::channel(1);
-        let (tx_certificates, rx_certificates) = mpsc::channel(CHANNEL_CAPACITY);
+        let (tx_our_digests, rx_our_digests) = channel(CHANNEL_CAPACITY);
+        let (tx_parents, rx_parents) = channel(CHANNEL_CAPACITY);
+        let (tx_headers, rx_headers) = channel(CHANNEL_CAPACITY);
+        let (tx_certificate_fetcher, rx_certificate_fetcher) = channel(CHANNEL_CAPACITY);
         let (tx_block_synchronizer_commands, rx_block_synchronizer_commands) =
-            mpsc::channel(CHANNEL_CAPACITY);
-        let (tx_state_handler, _rx_state_handler) = mpsc::channel(CHANNEL_CAPACITY);
-        let (tx_committed_own_headers, rx_committed_own_headers) = mpsc::channel(CHANNEL_CAPACITY);
+            channel(CHANNEL_CAPACITY);
+        let (tx_committed_own_headers, rx_committed_own_headers) = channel(CHANNEL_CAPACITY);
 
         let (tx_narwhal_round_updates, rx_narwhal_round_updates) = watch::channel(0u64);
         let (tx_synchronizer_network, rx_synchronizer_network) = oneshot::channel();
@@ -162,7 +156,6 @@ impl Primary {
             rx_consensus_round_updates.clone(),
             rx_synchronizer_network,
             dag.clone(),
-            node_metrics.clone(),
         ));
 
         let signature_service = SignatureService::new(signer);
@@ -182,7 +175,7 @@ impl Primary {
             certificate_store: certificate_store.clone(),
             payload_store: payload_store.clone(),
             vote_digest_store,
-            rx_narwhal_round_updates: rx_narwhal_round_updates.clone(),
+            rx_narwhal_round_updates,
         })
         // Allow only one inflight RequestVote RPC at a time per peer.
         // This is required for correctness.
@@ -384,8 +377,11 @@ impl Primary {
             );
         }
 
-        let connection_monitor_handle =
-            network::connectivity::ConnectionMonitor::spawn(network.downgrade(), peer_types);
+        let (connection_monitor_handle, _) = network::connectivity::ConnectionMonitor::spawn(
+            network.downgrade(),
+            peer_types,
+            Some(tx_shutdown.subscribe()),
+        );
 
         info!(
             "Primary {} listening to network admin messages on 127.0.0.1:{}",
@@ -412,8 +408,6 @@ impl Primary {
             signature_service,
             tx_shutdown.subscribe(),
             rx_headers,
-            tx_new_certificates,
-            tx_parents,
             network.clone(),
         );
 
@@ -427,7 +421,7 @@ impl Primary {
             rx_consensus_round_updates,
             tx_shutdown.subscribe(),
             rx_certificate_fetcher,
-            tx_certificates_loopback,
+            synchronizer.clone(),
         );
 
         // When the `Synchronizer` collects enough parent certificates, the `Proposer` generates
@@ -464,7 +458,7 @@ impl Primary {
         if dag.is_some() {
             let (tx_certificate_synchronizer, mut rx_certificate_synchronizer) =
                 mpsc::channel(CHANNEL_CAPACITY);
-            spawn_monitored_task!(async move {
+            tokio::spawn(async move {
                 while let Some(cert) = rx_certificate_synchronizer.recv().await {
                     // Ok to ignore error including Suspended,
                     // because fetching would be kicked off.
@@ -531,7 +525,7 @@ impl Primary {
                 parameters.consensus_api_grpc.remove_collections_timeout,
                 block_synchronizer_handler,
                 dag,
-                committee.clone(),
+                committee,
                 tx_shutdown.subscribe(),
             );
 
@@ -617,17 +611,6 @@ impl PrimaryReceiverHandler {
         Ok(None)
     }
 
-    fn deduplicate_and_verify(&self, certificate: &Certificate) -> DagResult<bool> {
-        let digest = certificate.digest();
-        if self.certificate_store.contains(&digest)? {
-            trace!("Certificate {digest:?} has already been processed. Skip processing.");
-            // TODO(metrics): Increment `duplicate_certificates_processed` by 1
-            return Ok(false);
-        }
-        certificate.verify(&self.committee.load(), self.worker_cache.clone())?;
-        Ok(true)
-    }
-
     #[allow(clippy::mutable_key_type)]
     async fn process_request_vote(
         &self,
@@ -678,9 +661,8 @@ impl PrimaryReceiverHandler {
 
         // If requester has provided us with parent certificates, process them all
         // before proceeding.
-        self.metrics
-            .certificates_in_votes
-            .inc_by(request.body().parents.len() as u64);
+
+        // TODO(metrics): Increment `certificates_in_votes` by `request.body().parents.len() as u64`
         let mut wait_notifications: FuturesUnordered<_> = request
             .body()
             .parents
@@ -828,8 +810,11 @@ impl PrimaryReceiverHandler {
                         header.epoch(),
                         header.round()
                     );
-                    // TODO(metrics): Increment `votes_dropped_equivocation_protection` by 1
-                    return Err(DagError::AlreadyVoted(vote_info.vote_digest, header.round));
+                    // TODO(metrics): Increment `votes_dropped_equivocation_protection`
+                    return Err(DagError::AlreadyVoted(
+                        vote_info.vote_digest(),
+                        header.round(),
+                    ));
                 }
             }
         }

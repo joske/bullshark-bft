@@ -3,10 +3,7 @@
 use crate::payload_store::PayloadStore;
 use crate::proposer_store::ProposerKey;
 use crate::vote_digest_store::VoteDigestStore;
-use crate::{
-    CertificateStore, CertificateStoreCache, ConsensusStore,
-    HeaderStore, ProposerStore,
-};
+use crate::{CertificateStore, CertificateStoreCache, ConsensusStore, HeaderStore, ProposerStore};
 use config::{AuthorityIdentifier, WorkerId};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -53,9 +50,7 @@ impl NodeStorage {
     pub(crate) const CERTIFICATE_STORE_CACHE_SIZE: usize = 100 * 60;
 
     /// Open or reopen all the storage of the node.
-    pub fn reopen<Path: AsRef<std::path::Path> + Send>(
-        store_path: Path,
-    ) -> Self {
+    pub fn reopen<Path: AsRef<std::path::Path> + Send>(store_path: Path) -> Self {
         let db_options = default_db_options().optimize_db_for_write_throughput(2);
         let rocksdb = open_cf(
             store_path,

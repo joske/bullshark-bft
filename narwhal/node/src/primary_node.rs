@@ -10,11 +10,12 @@ use consensus::Consensus;
 use crypto::{KeyPair, NetworkKeyPair, PublicKey};
 use executor::{get_restored_consensus_output, ExecutionState, Executor, SubscriberResult};
 use fastcrypto::traits::{KeyPair as _, VerifyingKey};
+use network::client::NetworkClient;
 use primary::{NetworkModel, Primary, NUM_SHUTDOWN_RECEIVERS};
 use std::sync::Arc;
 use std::time::Instant;
 use storage::NodeStorage;
-use tokio::sync::{mpsc, oneshot, watch, RwLock};
+use tokio::sync::{mpsc, watch, RwLock};
 use tokio::task::JoinHandle;
 use tracing::{debug, info, instrument};
 use types::{Certificate, ConditionalBroadcastReceiver, PreSubscribedBroadcastSender, Round};
@@ -72,6 +73,8 @@ impl PrimaryNodeInner {
         if self.is_running().await {
             return Err(NodeError::NodeAlreadyRunning);
         }
+
+        self.own_peer_id = Some(PeerId(network_keypair.public().0.to_bytes()));
 
         // create the channel to send the shutdown signal
         let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
@@ -241,7 +244,6 @@ impl PrimaryNodeInner {
             network_model,
             tx_shutdown,
             tx_committed_certificates,
-            Some(tx_executor_network),
         );
         handles.extend(primary_handles);
 
@@ -260,7 +262,7 @@ impl PrimaryNodeInner {
         mut shutdown_receivers: Vec<ConditionalBroadcastReceiver>,
         rx_new_certificates: mpsc::Receiver<Certificate>,
         tx_committed_certificates: mpsc::Sender<(Round, Vec<Certificate>)>,
-        tx_consensus_round_updates: watch::Sender<Round>,
+        tx_consensus_round_updates: watch::Sender<ConsensusRound>,
     ) -> SubscriberResult<Vec<JoinHandle<()>>>
     where
         PublicKey: VerifyingKey,
@@ -283,13 +285,13 @@ impl PrimaryNodeInner {
             );
         }
 
-        // TODO(metrics): Increment recovered_consensus_output by `num_sub_dags`
+        // TODO(metrics): Increment `recovered_consensus_output` by `num_sub_dags`
 
         // Spawn the consensus core who only sequences transactions.
         let ordering_engine = Bullshark::new(
             committee.clone(),
             store.consensus_store.clone(),
-            parameters.gc_depth,
+            Self::CONSENSUS_SCHEDULE_CHANGE_SUB_DAGS,
         );
         let consensus_handles = Consensus::spawn(
             committee.clone(),

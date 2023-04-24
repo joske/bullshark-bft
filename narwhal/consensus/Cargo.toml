@@ -10,6 +10,7 @@ publish = false
 default = ["rand"]
 metrics = ["dep:metrics", "dep:snarkos-metrics"]
 pprof = []
+benchmark = []
 
 [dependencies]
 

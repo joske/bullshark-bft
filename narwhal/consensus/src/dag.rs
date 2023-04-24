@@ -13,7 +13,7 @@ use std::{
 use thiserror::Error;
 use tokio::{
     sync::{
-        mpsc::{Receiver, Sender, self},
+        mpsc::{self, Receiver, Sender},
         oneshot,
     },
     task::JoinHandle,

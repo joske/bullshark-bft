@@ -2,25 +2,22 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 use crate::NetworkModel;
-use config::{Committee, Epoch, WorkerId};
-use crypto::{PublicKey, Signature};
-use fastcrypto::{hash::Hash as _, signature_service::SignatureService};
+use config::{AuthorityIdentifier, Committee, Epoch, WorkerId};
+use fastcrypto::hash::Hash as _;
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use storage::ProposerStore;
+use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::time::{sleep_until, Instant};
 use tokio::{
-    sync::{
-        mpsc::{Receiver, Sender},
-        oneshot, watch,
-    },
+    sync::{oneshot, watch},
     task::JoinHandle,
     time::{sleep, Duration},
 };
 use tracing::{debug, enabled, error, info, trace};
 use types::{
     error::{DagError, DagResult},
-    BatchDigest, Certificate, Header, Round, TimestampMs,
+    BatchDigest, Certificate, CertificateAPI, Header, HeaderAPI, Round, TimestampMs,
 };
 use types::{now, ConditionalBroadcastReceiver};
 
@@ -123,9 +120,8 @@ impl Proposer {
         let genesis = Certificate::genesis(&committee);
         tokio::spawn(async move {
             Self {
-                name,
+                authority_id,
                 committee,
-                signature_service,
                 header_num_of_batches_threshold,
                 max_header_num_of_batches,
                 max_header_delay,
@@ -139,9 +135,10 @@ impl Proposer {
                 tx_narwhal_round_updates,
                 proposer_store,
                 round: 0,
+                last_round_timestamp: None,
                 last_parents: genesis,
                 last_leader: None,
-                digests: Vec::with_capacity(2 * max_header_num_of_batches),
+                digests: VecDeque::with_capacity(2 * max_header_num_of_batches),
                 proposed_headers: BTreeMap::new(),
                 rx_committed_own_headers,
             }
@@ -160,7 +157,13 @@ impl Proposer {
         // Store the last header.
         self.proposer_store.write_last_proposed(&header)?;
 
-        let num_of_included_digests = header.payload.len();
+        #[cfg(feature = "benchmark")]
+        for digest in header.payload().keys() {
+            // NOTE: This log entry is used to compute performance.
+            info!("Created {} -> {:?}", header, digest);
+        }
+
+        let num_of_included_digests = header.payload().len();
 
         // Send the new header to the `Certifier` that will broadcast and certify it.
         self.tx_headers
@@ -208,7 +211,7 @@ impl Proposer {
                 "Current time {} earlier than max parent time {}, sleeping for {}ms until max parent time.",
                 current_time, parent_max_time, drift_ms,
             );
-            self.metrics.header_max_parent_wait_ms.inc_by(drift_ms);
+            // TODO(metrics): Increment `header_max_parent_wait_ms` by `drift_ms`
             sleep(Duration::from_millis(drift_ms)).await;
         }
 
@@ -224,9 +227,9 @@ impl Proposer {
         )
         .await;
 
-        let _leader_and_support = if this_round % 2 == 0 {
-            let leader_name = self.committee.leader(this_round);
-            if self.name == leader_name {
+        let leader_and_support = if this_round % 2 == 0 {
+            let authority = self.committee.leader(this_round);
+            if self.authority_id == authority.id() {
                 "even_round_is_leader"
             } else {
                 "even_round_not_leader"
@@ -239,9 +242,8 @@ impl Proposer {
                 "odd_round_no_support"
             }
         };
-
-        // TODO(metrics): Increment `headers_proposed` by 1
-        // TODO(metrics): Observe `parents.len() as f64` as `header_parents`
+        // TODO(metrics): Increment `headers_proposed`
+        // TODO(metrics): Observe `parents.len() as f64` on `header_parents`
 
         if enabled!(tracing::Level::TRACE) {
             let mut msg = format!("Created header {header:?} with parent certificates:\n");
@@ -260,7 +262,18 @@ impl Proposer {
                 Duration::from_millis(*header.created_at() - digest.timestamp).as_secs_f64();
             total_inclusion_secs += batch_inclusion_secs;
 
-            // TODO(metrics): Observe `batch_inclusion_secs` as `proposer_batch_latency`
+            #[cfg(feature = "benchmark")]
+            {
+                // NOTE: This log entry is used to compute performance.
+                tracing::info!(
+                    "Batch {:?} from worker {} took {} seconds from creation to be included in a proposed header",
+                    digest.digest,
+                    digest.worker_id,
+                    batch_inclusion_secs
+                );
+            }
+
+            // TODO(metrics): Observe `batch_inclusion_secs` on `proposer_batch_latency`
         }
 
         // NOTE: This log entry is used to compute performance.
@@ -312,7 +325,7 @@ impl Proposer {
             // min delay value to increase the chance of committing the leader.
             NetworkModel::PartiallySynchronous
                 if self.committee.size() > 1
-                    && self.committee.leader(self.round + 1) == self.name =>
+                    && self.committee.leader(self.round + 1).id() == self.authority_id =>
             {
                 Duration::ZERO
             }
@@ -342,7 +355,7 @@ impl Proposer {
     /// (i) f+1 votes for the leader, (ii) 2f+1 nodes not voting for the leader,
     /// (iii) there is no leader to vote for. This is only relevant in partial synchrony.
     fn enough_votes(&self) -> bool {
-        if self.committee.leader(self.round + 1) == self.name {
+        if self.committee.leader(self.round + 1).id() == self.authority_id {
             return true;
         }
 
@@ -399,6 +412,7 @@ impl Proposer {
         let timer_start = Instant::now();
         let max_delay_timer = sleep_until(timer_start + self.max_header_delay);
         let min_delay_timer = sleep_until(timer_start + self.min_header_delay);
+
         let header_resend_timeout = self
             .header_resend_timeout
             .unwrap_or(DEFAULT_HEADER_RESEND_TIMEOUT);
@@ -441,29 +455,34 @@ impl Proposer {
                 self.round += 1;
                 let _ = self.tx_narwhal_round_updates.send(self.round);
 
+                // Update the metrics
                 #[cfg(feature = "metrics")]
                 gauge!(snarkos_metrics::primary::CURRENT_ROUND, self.round as f64);
 
+                let current_timestamp = now();
+                let reason = if max_delay_timed_out {
+                    "max_timeout"
+                } else if enough_digests {
+                    "threshold_size_reached"
+                } else {
+                    "min_timeout"
+                };
+                if let Some(t) = &self.last_round_timestamp {
+                    // TODO(metrics): Observe `Duration::from_millis(current_timestamp - t).as_secs_f64()` on `proposal_latency`
+                }
+                self.last_round_timestamp = Some(current_timestamp);
                 debug!("Dag moved to round {}", self.round);
 
                 // Make a new header.
                 match self.make_header().await {
                     Err(e @ DagError::ShuttingDown) => debug!("{e}"),
                     Err(e) => panic!("Unexpected error: {e}"),
-                    Ok((header, _digests)) => {
-                        let _reason = if max_delay_timed_out {
-                            "max_timeout"
-                        } else if enough_digests {
-                            "threshold_size_reached"
-                        } else {
-                            "min_timeout"
-                        };
-
+                    Ok((header, digests)) => {
                         // Save the header
                         opt_latest_header = Some(header);
                         header_repeat_timer = Box::pin(sleep(header_resend_timeout));
 
-                        // TODO(metrics): Set `num_of_batch_digests_in_header` to `digests as f64`
+                        // TODO(metrics): Observe `digests as f64` on `num_of_batch_digests_in_header`
                     }
                 }
 
@@ -546,8 +565,8 @@ impl Proposer {
                             self.proposed_headers.len()
                         );
 
-                        self.metrics.proposer_resend_headers.inc_by(retransmit_rounds.len() as u64);
-                        self.metrics.proposer_resend_batches.inc_by(num_to_resend as u64);
+                        // TODO(metrics): Increment `proposer_resend_headers` by `retransmit_rounds.len() as u64`
+                        // TODO(metrics): Increment `proposer_resend_batches` by `num_to_resend as u64`
                     }
                 },
 
@@ -604,13 +623,13 @@ impl Proposer {
                     // we ignore this check and advance anyway.
                     advance = self.ready();
 
-                    let _round_type = if self.round % 2 == 0 {
+                    let round_type = if self.round % 2 == 0 {
                         "even"
                     } else {
                         "odd"
                     };
 
-                    // TODO(metrics): Increment `proposer_ready_to_advance` by 1
+                    // TODO(metrics): Increment `proposer_ready_to_advance`
                 }
 
                 // Receive digests from our workers.

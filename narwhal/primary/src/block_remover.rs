@@ -9,12 +9,14 @@ use futures::future::try_join_all;
 use itertools::Either;
 use network::PrimaryToWorkerRpc;
 use std::{collections::HashMap, sync::Arc};
-use storage::{CertificateStore, PayloadToken};
-use store::{rocks::TypedStoreError, Store};
+use storage::{CertificateStore, HeaderStore, PayloadStore};
+use store::rocks::TypedStoreError;
 use tokio::sync::mpsc;
 
 use tracing::{debug, instrument, warn};
-use types::{BatchDigest, Certificate, CertificateDigest, Header, HeaderDigest, Round};
+use types::{
+    BatchDigest, Certificate, CertificateAPI, CertificateDigest, HeaderAPI, HeaderDigest, Round,
+};
 
 #[cfg(test)]
 #[path = "tests/block_remover_tests.rs"]

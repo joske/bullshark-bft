@@ -7,22 +7,17 @@ mod subscriber;
 pub use errors::{SubscriberError, SubscriberResult};
 pub use state::ExecutionIndices;
 
-use async_trait::async_trait;
-use config::{Committee, SharedWorkerCache};
-use crypto::PublicKey;
-
-use std::sync::Arc;
-use storage::CertificateStore;
-
 use crate::subscriber::spawn_subscriber;
+
+use async_trait::async_trait;
+use config::{AuthorityIdentifier, Committee, WorkerCache};
 use mockall::automock;
-use tokio::sync::{mpsc, oneshot};
-use tokio::task::JoinHandle;
+use network::client::NetworkClient;
+use std::sync::Arc;
+use storage::{CertificateStore, ConsensusStore};
+use tokio::{sync::mpsc::Receiver, task::JoinHandle};
 use tracing::info;
-use types::{
-    CertificateDigest, CommittedSubDag, ConditionalBroadcastReceiver, ConsensusOutput,
-    ConsensusStore,
-};
+use types::{CertificateDigest, CommittedSubDag, ConditionalBroadcastReceiver, ConsensusOutput};
 
 /// Convenience type representing a serialized transaction.
 pub type SerializedTransaction = Vec<u8>;
@@ -53,7 +48,7 @@ impl Executor {
         client: NetworkClient,
         execution_state: State,
         shutdown_receivers: Vec<ConditionalBroadcastReceiver>,
-        rx_sequence: mpsc::Receiver<CommittedSubDag>,
+        rx_sequence: Receiver<CommittedSubDag>,
         restored_consensus_output: Vec<CommittedSubDag>,
     ) -> SubscriberResult<Vec<JoinHandle<()>>>
     where

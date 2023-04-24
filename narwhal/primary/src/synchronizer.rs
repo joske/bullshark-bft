@@ -7,20 +7,39 @@ use consensus::consensus::ConsensusRound;
 use consensus::dag::Dag;
 use crypto::NetworkPublicKey;
 use fastcrypto::hash::Hash as _;
-use network::{anemo_ext::NetworkExt, RetryConfig};
-use std::{collections::HashMap, sync::Arc};
-use storage::{CertificateStore, PayloadToken};
-use store::Store;
-use tokio::sync::{mpsc, watch};
-use tracing::debug;
+use futures::{stream::FuturesOrdered, StreamExt};
+use mysten_common::sync::notify_once::NotifyOnce;
+use network::{
+    anemo_ext::{NetworkExt, WaitingPeer},
+    client::NetworkClient,
+    PrimaryToWorkerClient, RetryConfig,
+};
+use parking_lot::Mutex;
+use std::{
+    cmp::min,
+    collections::{BTreeMap, HashMap, HashSet, VecDeque},
+    iter,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
+use storage::{CertificateStore, PayloadStore};
+use tokio::{
+    sync::{broadcast, mpsc, oneshot, watch, MutexGuard},
+    task::JoinSet,
+    time::sleep,
+};
+use tracing::{debug, error, trace, warn};
 use types::{
     ensure,
-    error::{DagError, DagResult},
-    BatchDigest, Certificate, CertificateDigest, Header, PrimaryToWorkerClient, Round,
-    WorkerSynchronizeMessage,
+    error::{AcceptNotification, DagError, DagResult},
+    Certificate, CertificateAPI, CertificateDigest, Header, HeaderAPI, PrimaryToPrimaryClient,
+    Round, SendCertificateRequest, SendCertificateResponse, WorkerSynchronizeMessage,
 };
 
-use crate::{aggregators::CertificatesAggregator, metrics::PrimaryMetrics, CHANNEL_CAPACITY};
+use crate::{aggregators::CertificatesAggregator, CHANNEL_CAPACITY};
 
 #[cfg(test)]
 #[path = "tests/synchronizer_tests.rs"]
@@ -49,17 +68,27 @@ struct Inner {
     client: NetworkClient,
     /// The persistent storage tables.
     certificate_store: CertificateStore,
-    payload_store: Store<(BatchDigest, WorkerId), PayloadToken>,
-    /// Send commands to the `CertificateFetcher`.
+    /// The persistent store of the available batch digests produced either via our own workers
+    /// or others workers.
+    payload_store: PayloadStore,
+    /// Send missing certificates to the `CertificateFetcher`.
     tx_certificate_fetcher: mpsc::Sender<Certificate>,
-    /// Get a signal when the round changes.
-    rx_consensus_round_updates: watch::Receiver<Round>,
-    /// The genesis and its digests.
+    /// Send certificates to be accepted into a separate task that runs
+    /// `process_certificate_with_lock()` in a loop.
+    /// See comment above `process_certificate_with_lock()` for why this is necessary.
+    tx_certificate_acceptor: mpsc::Sender<(Certificate, oneshot::Sender<DagResult<()>>, bool)>,
+    /// Output all certificates to the consensus layer. Must send certificates in causal order.
+    tx_new_certificates: mpsc::Sender<Certificate>,
+    /// Send valid a quorum of certificates' ids to the `Proposer` (along with their round).
+    tx_parents: mpsc::Sender<(Vec<Certificate>, Round, Epoch)>,
+    /// Send own certificates to be broadcasted to all other peers.
+    tx_own_certificate_broadcast: broadcast::Sender<Certificate>,
+    /// Get a signal when the commit & gc round changes.
+    rx_consensus_round_updates: watch::Receiver<ConsensusRound>,
+    /// Genesis digests and contents.
     genesis: HashMap<CertificateDigest, Certificate>,
     /// The dag used for the external consensus
     dag: Option<Arc<Dag>>,
-    /// Contains Synchronizer specific metrics among other Primary metrics.
-    metrics: Arc<PrimaryMetrics>,
     /// Background tasks synchronizing worker batches for processed certificates.
     batch_tasks: Mutex<JoinSet<DagResult<()>>>,
     /// Background tasks broadcasting newly formed certificates.
@@ -140,14 +169,9 @@ impl Inner {
         } else {
             "other"
         };
-        self.metrics
-            .highest_processed_round
-            .with_label_values(&[certificate_source])
-            .set(highest_processed_round as i64);
-        self.metrics
-            .certificates_processed
-            .with_label_values(&[certificate_source])
-            .inc();
+
+        // TODO(metrics): Set `highest_processed_round` to `highest_processed_round as i64`
+        // TODO(metrics): Increment `certificates_processed`
 
         // Append the certificate to the aggregator of the
         // corresponding round.
@@ -238,11 +262,13 @@ impl Synchronizer {
         gc_depth: Round,
         client: NetworkClient,
         certificate_store: CertificateStore,
-        payload_store: Store<(BatchDigest, WorkerId), PayloadToken>,
+        payload_store: PayloadStore,
         tx_certificate_fetcher: mpsc::Sender<Certificate>,
-        rx_consensus_round_updates: watch::Receiver<Round>,
+        tx_new_certificates: mpsc::Sender<Certificate>,
+        tx_parents: mpsc::Sender<(Vec<Certificate>, Round, Epoch)>,
+        rx_consensus_round_updates: watch::Receiver<ConsensusRound>,
+        rx_synchronizer_network: oneshot::Receiver<Network>,
         dag: Option<Arc<Dag>>,
-        metrics: Arc<PrimaryMetrics>,
     ) -> Self {
         let committee: &Committee = &committee;
         let genesis = Self::make_genesis(committee);
@@ -272,7 +298,6 @@ impl Synchronizer {
             rx_consensus_round_updates: rx_consensus_round_updates.clone(),
             genesis,
             dag,
-            metrics,
             batch_tasks: Mutex::new(JoinSet::new()),
             certificate_senders: Mutex::new(JoinSet::new()),
             certificates_aggregators: Mutex::new(BTreeMap::new()),
@@ -281,7 +306,7 @@ impl Synchronizer {
 
         // Start a task to recover parent certificates for proposer.
         let inner_proposer = inner.clone();
-        spawn_monitored_task!(async move {
+        tokio::spawn(async move {
             let last_round_certificates = inner_proposer
                 .certificate_store
                 .last_two_rounds_certs()
@@ -299,7 +324,7 @@ impl Synchronizer {
 
         // Start a task to update gc_round and gc in-memory data.
         let weak_inner = Arc::downgrade(&inner);
-        spawn_monitored_task!(async move {
+        tokio::spawn(async move {
             let mut rx_consensus_round_updates = rx_consensus_round_updates.clone();
             loop {
                 let result = rx_consensus_round_updates.changed().await;
@@ -342,7 +367,7 @@ impl Synchronizer {
         // Start a task to accept certificates. See comment above `process_certificate_with_lock()`
         // for why this task is needed.
         let weak_inner = Arc::downgrade(&inner);
-        spawn_monitored_task!(async move {
+        tokio::spawn(async move {
             loop {
                 let Some((certificate, result_sender, early_suspend)) = rx_certificate_acceptor.recv().await else {
                     debug!("Synchronizer is shutting down.");
@@ -361,7 +386,7 @@ impl Synchronizer {
 
         // Start tasks to broadcast created certificates.
         let inner_senders = inner.clone();
-        spawn_monitored_task!(async move {
+        tokio::spawn(async move {
             let Ok(network) = rx_synchronizer_network.await else {
                 error!("Failed to receive Network!");
                 return;
@@ -457,15 +482,10 @@ impl Synchronizer {
             certificate.metadata().created_at - *certificate.header().created_at(),
         )
         .as_secs_f64();
-        self.inner
-            .metrics
-            .certificate_created_round
-            .set(round as i64);
-        self.inner.metrics.certificates_created.inc();
-        self.inner
-            .metrics
-            .header_to_certificate_latency
-            .observe(header_to_certificate_duration);
+
+        // TODO(metrics): Set `certificate_created_round` to `round as i64`
+        // TODO(metrics): Increment `certificates_created`
+        // TODO(metrics): Observe `header_to_certificate_duration` on `header_to_certificate_latency`
 
         // NOTE: This log entry is used to compute performance.
         debug!(
@@ -518,7 +538,7 @@ impl Synchronizer {
         let digest = certificate.digest();
         if self.inner.certificate_store.contains(&digest)? {
             trace!("Certificate {digest:?} has already been processed. Skip processing.");
-            self.inner.metrics.duplicate_certificates_processed.inc();
+            // TODO(metrics): Increment `duplicate_certificates_processed`
             return Ok(());
         }
         // Ensure parents are checked if !early_suspend.
@@ -526,11 +546,7 @@ impl Synchronizer {
         if early_suspend {
             if let Some(notify) = self.inner.state.lock().await.check_suspended(&digest) {
                 trace!("Certificate {digest:?} is still suspended. Skip processing.");
-                self.inner
-                    .metrics
-                    .certificates_suspended
-                    .with_label_values(&["dedup"])
-                    .inc();
+                // TODO(metrics): Increment `certificates_suspended`
                 return Err(DagError::Suspended(notify));
             }
         }
@@ -554,11 +570,8 @@ impl Synchronizer {
             .highest_received_round
             .fetch_max(certificate.round(), Ordering::AcqRel)
             .max(certificate.round());
-        self.inner
-            .metrics
-            .highest_received_round
-            .with_label_values(&[certificate_source])
-            .set(highest_received_round as i64);
+
+        // TODO(metrics): Set `highest_received_round` to `highest_received_round as i64`
 
         // Let the proposer draw early conclusions from a certificate at this round and epoch, without its
         // parents or payload (which we may not have yet).
@@ -638,11 +651,7 @@ impl Synchronizer {
             // acquired.
             if let Some(notify) = state.check_suspended(&digest) {
                 trace!("Certificate {digest:?} is still suspended. Skip processing.");
-                inner
-                    .metrics
-                    .certificates_suspended
-                    .with_label_values(&["dedup_locked"])
-                    .inc();
+                // TODO(metrics): Increment `certificates_suspended`
                 return Err(DagError::Suspended(notify));
             }
         }
@@ -656,18 +665,11 @@ impl Synchronizer {
                     "Processing certificate {:?} suspended: missing ancestors",
                     certificate
                 );
-                inner
-                    .metrics
-                    .certificates_suspended
-                    .with_label_values(&["missing_parents"])
-                    .inc();
+                // TODO(metrics): Increment `certificates_suspended`
                 // There is no upper round limit to suspended certificates. Currently there is no
                 // memory usage issue and this will speed up catching up. But we can revisit later.
                 let notify = state.insert(certificate, missing_parents, !early_suspend);
-                inner
-                    .metrics
-                    .certificates_currently_suspended
-                    .set(state.num_suspended() as i64);
+                // TODO(metrics): Set `certificates_currently_suspended` to `state.num_suspended() as i64`
                 return Err(DagError::Suspended(notify));
             }
         }
@@ -683,10 +685,7 @@ impl Synchronizer {
                 .await?;
         }
 
-        inner
-            .metrics
-            .certificates_currently_suspended
-            .set(state.num_suspended() as i64);
+        // TODO(metrics): Set `certificates_currently_suspended` to `state.num_suspended() as i64`
 
         Ok(())
     }

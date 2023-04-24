@@ -8,18 +8,18 @@ use crate::utils::gc_round;
 use crate::{ConsensusError, Outcome, SequenceNumber};
 use config::{AuthorityIdentifier, Committee};
 use fastcrypto::hash::Hash;
-use tokio::sync::mpsc;
 use std::{
     cmp::{max, Ordering},
     collections::{BTreeMap, BTreeSet, HashMap},
     sync::Arc,
 };
 use storage::{CertificateStore, ConsensusStore};
+use tokio::sync::mpsc;
 use tokio::{sync::watch, task::JoinHandle};
 use tracing::{debug, info, instrument};
 use types::{
-    Certificate, CertificateAPI, CertificateDigest, CommittedSubDag,
-    ConditionalBroadcastReceiver, ConsensusCommit, HeaderAPI, Round, Timestamp,
+    Certificate, CertificateAPI, CertificateDigest, CommittedSubDag, ConditionalBroadcastReceiver,
+    ConsensusCommit, HeaderAPI, Round, Timestamp,
 };
 
 #[cfg(feature = "metrics")]

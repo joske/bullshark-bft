@@ -15,7 +15,6 @@ use fastcrypto::hash::Hash;
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use itertools::Itertools;
 use network::WorkerRpc;
-use prometheus::IntGauge;
 use rand::{rngs::ThreadRng, seq::SliceRandom};
 use store::{rocks::DBMap, Map};
 use tokio::{
@@ -25,15 +24,12 @@ use tokio::{
 use tracing::debug;
 use types::{Batch, BatchDigest, RequestBatchesRequest, RequestBatchesResponse};
 
-use crate::metrics::WorkerMetrics;
-
 const REMOTE_PARALLEL_FETCH_INTERVAL: Duration = Duration::from_secs(2);
 
 pub struct BatchFetcher {
     name: NetworkPublicKey,
     network: Arc<dyn RequestBatchesNetwork>,
     batch_store: DBMap<BatchDigest, Batch>,
-    metrics: Arc<WorkerMetrics>,
 }
 
 impl BatchFetcher {
@@ -41,13 +37,11 @@ impl BatchFetcher {
         name: NetworkPublicKey,
         network: Network,
         batch_store: DBMap<BatchDigest, Batch>,
-        metrics: Arc<WorkerMetrics>,
     ) -> Self {
         Self {
             name,
             network: Arc::new(RequestBatchesNetworkImpl { network }),
             batch_store,
-            metrics,
         }
     }
 
@@ -78,17 +72,14 @@ impl BatchFetcher {
             }
 
             // Fetch from local storage.
-            let _timer = self.metrics.worker_local_fetch_latency.start_timer();
             fetched_batches.extend(self.fetch_local(remaining_digests.clone()).await);
             remaining_digests.retain(|d| !fetched_batches.contains_key(d));
             if remaining_digests.is_empty() {
                 return fetched_batches;
             }
-            drop(_timer);
 
             // Fetch from remote workers.
             // TODO: Can further parallelize this by target worker_id if necessary.
-            let _timer = self.metrics.worker_remote_fetch_latency.start_timer();
             let mut known_workers: Vec<_> = known_workers.iter().collect();
             known_workers.shuffle(&mut ThreadRng::default());
             let mut known_workers = VecDeque::from(known_workers);
@@ -145,16 +136,7 @@ impl BatchFetcher {
             .expect("Failed to get batches");
         for (digest, batch) in digests.into_iter().zip(local_batches.into_iter()) {
             if let Some(batch) = batch {
-                self.metrics
-                    .worker_batch_fetch
-                    .with_label_values(&["local", "success"])
-                    .inc();
                 fetched_batches.insert(digest, batch);
-            } else {
-                self.metrics
-                    .worker_batch_fetch
-                    .with_label_values(&["local", "missing"])
-                    .inc();
             }
         }
 
@@ -180,41 +162,22 @@ impl BatchFetcher {
                 digests.len(),
             );
             let deadline = Instant::now() + timeout;
-            let request_batch_guard =
-                PendingGuard::make_inc(&self.metrics.pending_remote_request_batch);
             let response = self
                 .safe_request_batches(digests.clone(), worker.clone(), timeout)
                 .await;
-            drop(request_batch_guard);
             match response {
                 Ok(remote_batches) => {
-                    self.metrics
-                        .worker_batch_fetch
-                        .with_label_values(&["remote", "success"])
-                        .inc();
                     debug!("Found {} batches remotely", remote_batches.len());
                     return remote_batches;
                 }
                 Err(err) => {
                     if err.to_string().contains("Timeout") {
-                        self.metrics
-                            .worker_batch_fetch
-                            .with_label_values(&["remote", "timeout"])
-                            .inc();
                         debug!("Timed out retrieving payloads {digests:?} from {worker} attempt {attempt}: {err}");
                     } else if err.to_string().contains("[Protocol violation]") {
-                        self.metrics
-                            .worker_batch_fetch
-                            .with_label_values(&["remote", "fail"])
-                            .inc();
                         debug!("Failed retrieving payloads {digests:?} from possibly byzantine {worker} attempt {attempt}: {err}");
                         // Do not bother retrying if the remote worker is byzantine.
                         return HashMap::new();
                     } else {
-                        self.metrics
-                            .worker_batch_fetch
-                            .with_label_values(&["remote", "fail"])
-                            .inc();
                         debug!("Error retrieving payloads {digests:?} from {worker} attempt {attempt}: {err}");
                     }
                 }
@@ -262,24 +225,6 @@ impl BatchFetcher {
         }
 
         Ok(fetched_batches)
-    }
-}
-
-// todo - make it generic so that other can reuse
-struct PendingGuard<'a> {
-    metric: &'a IntGauge,
-}
-
-impl<'a> PendingGuard<'a> {
-    pub fn make_inc(metric: &'a IntGauge) -> Self {
-        metric.inc();
-        Self { metric }
-    }
-}
-
-impl<'a> Drop for PendingGuard<'a> {
-    fn drop(&mut self) {
-        self.metric.dec()
     }
 }
 
@@ -339,7 +284,6 @@ mod tests {
             name: test_pk(0),
             network: Arc::new(network.clone()),
             batch_store: batch_store.clone(),
-            metrics: Arc::new(WorkerMetrics::default()),
         };
         let expected_batches = HashMap::from_iter(vec![
             (batch1.digest(), batch1.clone()),
@@ -374,7 +318,6 @@ mod tests {
             name: test_pk(0),
             network: Arc::new(network.clone()),
             batch_store,
-            metrics: Arc::new(WorkerMetrics::default()),
         };
         let expected_batches = HashMap::from_iter(vec![
             (batch1.digest(), batch1.clone()),
@@ -405,7 +348,6 @@ mod tests {
             name: test_pk(0),
             network: Arc::new(network.clone()),
             batch_store,
-            metrics: Arc::new(WorkerMetrics::default()),
         };
         let expected_batches = HashMap::from_iter(vec![
             (batch1.digest(), batch1.clone()),
@@ -435,7 +377,6 @@ mod tests {
             name: test_pk(0),
             network: Arc::new(network.clone()),
             batch_store,
-            metrics: Arc::new(WorkerMetrics::default()),
         };
         let expected_batches = HashMap::from_iter(vec![
             (batch1.digest(), batch1.clone()),
@@ -479,7 +420,6 @@ mod tests {
             name: test_pk(0),
             network: Arc::new(network.clone()),
             batch_store,
-            metrics: Arc::new(WorkerMetrics::default()),
         };
         let fetched_batches = fetcher.fetch(digests, known_workers).await;
         assert_eq!(fetched_batches, expected_batches);

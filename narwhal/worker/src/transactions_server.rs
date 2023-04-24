@@ -1,10 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
+
+use crate::client::LocalNarwhalClient;
 use crate::TransactionValidator;
 use async_trait::async_trait;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use multiaddr::Multiaddr;
 use mysten_network::server::Server;
 use mysten_network::Multiaddr;
 use std::sync::Arc;
@@ -14,7 +15,6 @@ use tokio::task::JoinHandle;
 use tokio::time::{sleep, timeout};
 use tonic::{Request, Response, Status};
 use tracing::{error, info, warn};
-use types::error::DagError;
 use types::{
     ConditionalBroadcastReceiver, Empty, Transaction, TransactionProto, Transactions,
     TransactionsServer, TxResponse,
@@ -125,7 +125,7 @@ impl<V: TransactionValidator> TxServer<V> {
 /// Defines how the network receiver handles incoming transactions.
 #[derive(Clone)]
 pub(crate) struct TxReceiverHandler<V> {
-    pub(crate) tx_batch_maker: mpsc::Sender<(Transaction, TxResponse)>,
+    pub(crate) local_client: Arc<LocalNarwhalClient>,
     pub(crate) validator: V,
 }
 

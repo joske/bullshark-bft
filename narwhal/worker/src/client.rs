@@ -10,7 +10,8 @@ use std::{
 use arc_swap::ArcSwap;
 use mysten_network::{multiaddr::Protocol, Multiaddr};
 use thiserror::Error;
-use types::{metered_channel::Sender, Transaction, TxResponse};
+use tokio::sync::mpsc;
+use types::{Transaction, TxResponse};
 
 /// Uses a map to allow running multiple Narwhal instances in the same process.
 /// TODO: after Rust 1.66, use BTreeMap::new() instead of wrapping it in an Option.
@@ -40,11 +41,11 @@ pub enum NarwhalError {
 #[derive(Clone)]
 pub struct LocalNarwhalClient {
     /// TODO: maybe use tx_batch_maker for load schedding.
-    tx_batch_maker: Sender<(Transaction, TxResponse)>,
+    tx_batch_maker: mpsc::Sender<(Transaction, TxResponse)>,
 }
 
 impl LocalNarwhalClient {
-    pub fn new(tx_batch_maker: Sender<(Transaction, TxResponse)>) -> Arc<Self> {
+    pub fn new(tx_batch_maker: mpsc::Sender<(Transaction, TxResponse)>) -> Arc<Self> {
         Arc::new(Self { tx_batch_maker })
     }
 

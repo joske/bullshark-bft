@@ -50,8 +50,6 @@ fn test_primary_no_consensus() {
     let workers_file_path = format!("{config_path}/smoke_test_workers.json");
     worker_cache.export(&workers_file_path).unwrap();
 
-    // TODO: this spot might require a delay if the test is flaky
-
     let mut child = std::process::Command::new("cargo")
         .current_dir("..")
         .args(["run", "--bin", "narwhal-node", "--"])
@@ -135,8 +133,6 @@ fn test_primary_with_consensus() {
 
     let workers_file_path = format!("{config_path}/smoke_test_workers.json");
     worker_cache.export(&workers_file_path).unwrap();
-
-    // TODO: this spot might require a delay if the test is flaky
 
     let mut child = std::process::Command::new("cargo")
         .current_dir("..")

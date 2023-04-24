@@ -34,8 +34,8 @@ use tokio::{
 };
 use tracing::{debug, error, info, instrument, trace, warn};
 use types::{
-    BatchDigest, Certificate, CertificateDigest, ConditionalBroadcastReceiver,
-    GetCertificatesRequest, PayloadAvailabilityRequest, PrimaryToPrimaryClient,
+    BatchDigest, Certificate, CertificateAPI, CertificateDigest, ConditionalBroadcastReceiver,
+    GetCertificatesRequest, HeaderAPI, PayloadAvailabilityRequest, PrimaryToPrimaryClient,
     WorkerSynchronizeMessage,
 };
 
@@ -201,7 +201,7 @@ impl BlockSynchronizer {
         tokio::spawn(async move {
             let _ = &parameters;
             Self {
-                name,
+                authority_id,
                 committee,
                 worker_cache,
                 rx_shutdown,

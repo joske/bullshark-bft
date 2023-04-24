@@ -13,7 +13,9 @@ pub mod consensus;
 #[path = "tests/consensus_utils.rs"]
 pub mod consensus_utils;
 pub mod dag;
-mod utils;
+pub mod metrics;
+pub mod tusk;
+pub mod utils;
 
 pub use crate::consensus::Consensus;
 use store::StoreError;
