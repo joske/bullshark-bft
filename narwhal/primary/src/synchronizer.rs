@@ -54,7 +54,6 @@ impl Synchronizer {
         dag: Option<Arc<Dag>>,
         genesis_certs: Vec<Certificate>,
     ) -> Self {
-        // let genesis = Self::make_genesis(&committee.load());
         let genesis = genesis_certs.into_iter().map(|x| (x.digest(), x)).collect();
 
         Self {
@@ -68,13 +67,6 @@ impl Synchronizer {
             dag,
         }
     }
-
-    //  fn make_genesis(committee: &Committee) -> HashMap<CertificateDigest, Certificate> {
-    //      Certificate::genesis(committee)
-    //          .into_iter()
-    //          .map(|x| (x.digest(), x))
-    //          .collect()
-    //  }
 
     /// Synchronizes batches in the given header with other nodes (through our workers).
     /// Blocks until either synchronization is complete, or the current consensus rounds advances

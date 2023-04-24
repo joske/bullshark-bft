@@ -121,7 +121,6 @@ impl Proposer {
         rx_committed_own_headers: Receiver<(Round, Vec<Round>)>,
         genesis_certs: Vec<Certificate>,
     ) -> JoinHandle<()> {
-        // let genesis = Certificate::genesis(&committee);
         tokio::spawn(async move {
             Self {
                 name,

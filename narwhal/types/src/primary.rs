@@ -812,10 +812,6 @@ impl Certificate {
         // Each primary will have signed their own version of the genesis headers in the
         // certificates but the comparison only checks the header digests which don't include the
         // signature.
-        //  if self.round() == 0 && Self::genesis(committee).contains(self) {
-        //      return Ok(());
-        //  }
-
         if self.round() == 0 && genesis_certs.contains(self) {
             return Ok(());
         }
@@ -823,19 +819,19 @@ impl Certificate {
         // Check the embedded header.
         self.header.verify(committee, worker_cache)?;
 
-        let (weight, _pks) = self.signed_by(committee);
+        let (weight, pks) = self.signed_by(committee);
 
         ensure!(
             weight >= committee.quorum_threshold(),
             DagError::CertificateRequiresQuorum
         );
 
-        // TODO(nkls): work out how to do this.
+        // TODO(nkls): work out if an aggregate sig construction in snarkVM is necessary.
         // Verify the signatures
-        //  let certificate_digest: Digest<{ crypto::DIGEST_LENGTH }> = Digest::from(self.digest());
-        //  self.aggregated_signature
-        //      .verify(&pks[..], certificate_digest.as_ref())
-        //      .map_err(|_| DagError::InvalidSignature)?;
+        let certificate_digest: Digest<{ crypto::DIGEST_LENGTH }> = Digest::from(self.digest());
+        self.aggregated_signature
+            .verify(&pks[..], certificate_digest.as_ref())
+            .map_err(|_| DagError::InvalidSignature)?;
 
         Ok(())
     }

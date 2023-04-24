@@ -117,7 +117,7 @@ impl InnerDag {
             vertices,
             rx_shutdown,
         };
-        // let genesis = Certificate::genesis(committee);
+
         for cert in genesis_certs.into_iter() {
             idg.insert(cert)
                 .expect("Insertion of the certificates produced by genesis should be leaves!");

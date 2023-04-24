@@ -44,24 +44,21 @@ pub type NetworkKeyPair = ed25519::Ed25519KeyPair;
 pub type DefaultHashFunction = Blake2b256;
 pub const DIGEST_LENGTH: usize = DefaultHashFunction::OUTPUT_SIZE;
 
-use base64ct::Base64;
-use base64ct::Encoding;
+use std::{cmp::Ordering, fmt::Display, fs::File, io, io::Write, ops::Deref};
+
+use base64ct::{Base64, Encoding};
 use eyre::eyre;
-use rand::{rngs::StdRng, thread_rng, SeedableRng};
-use serde::Deserialize;
-use serde::Serialize;
-use snarkvm_console::account::Address;
-use snarkvm_console::network::Testnet3;
-use snarkvm_console::prelude::Compare;
-use snarkvm_console::prelude::Equal;
-use snarkvm_console::prelude::FromBytes;
-use snarkvm_console::prelude::ToBytes;
-use std::ops::Deref;
-use std::{cmp::Ordering, fs::File, io};
-use std::{fmt::Display, io::Write};
-use tokio::sync::mpsc::channel;
-use tokio::sync::mpsc::Sender;
-use tokio::sync::oneshot;
+use rand::{rngs::StdRng, thread_rng, CryptoRng, Rng, SeedableRng};
+use serde::{Deserialize, Serialize};
+use snarkvm_console::{
+    account::Address,
+    network::Testnet3,
+    prelude::{Compare, Equal, FromBytes, ToBytes},
+};
+use tokio::sync::{
+    mpsc::{channel, Sender},
+    oneshot,
+};
 
 type CurrentNetwork = Testnet3;
 
@@ -193,9 +190,6 @@ impl KeyPair {
     }
 }
 
-use rand::CryptoRng;
-use rand::Rng;
-
 impl KeyPair {
     pub fn new<R: Rng + CryptoRng>(rng: &mut R) -> Result<Self, eyre::Report> {
         let private = snarkvm_console::account::PrivateKey::new(rng).map_err(|e| eyre!(e))?;
@@ -262,6 +256,22 @@ impl SignatureService {
 #[derive(Clone, Serialize, Deserialize, Default)]
 pub struct AggregateSignature(pub Vec<snarkvm_console::account::Signature<CurrentNetwork>>);
 
+impl AggregateSignature {
+    pub fn verify(&self, pks: &[PublicKey], digest: &[u8]) -> Result<(), eyre::Report> {
+        if pks.len() != self.0.len() {
+            return Err(eyre!(
+                "number of signatures does not match number of public keys"
+            ));
+        }
+        for (pk, sig) in pks.iter().zip(self.0.iter()) {
+            if !sig.verify_bytes(&pk.0, digest) {
+                return Err(eyre!("signature verification failed"));
+            }
+        }
+        Ok(())
+    }
+}
+
 // type KeyPair = IDK, depends what functionality they use of it, seems unnecessary;
 //
 // type NetworkPublicKey = snarkvm_console::account::Address; (check if theres a reason they had to make a different PublicKey for the Network);
@@ -273,6 +283,7 @@ pub struct AggregateSignature(pub Vec<snarkvm_console::account::Signature<Curren
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::KeyPair;
     use base64ct::Base64;
 
     #[test]
@@ -301,5 +312,23 @@ mod tests {
             .request_signature(Digest::new([0u8; 32]))
             .await;
         let _b64 = Base64::encode_string(&sig.to_bytes_le().unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_aggregate_signature() {
+        let mut v = Vec::new();
+        let mut pks = Vec::new();
+        let digest = Digest::new([1u8; 32]);
+        let rng = &mut thread_rng();
+        for _ in 0..10 {
+            let kp = KeyPair::new(rng).unwrap();
+            let pk = kp.private();
+            let signature_service = SignatureService::new(*pk);
+            let sig = signature_service.request_signature(digest).await;
+            v.push(sig);
+            pks.push(kp.public().clone());
+        }
+        let agg_sig = AggregateSignature(v);
+        agg_sig.verify(pks.as_slice(), digest.as_ref()).unwrap();
     }
 }

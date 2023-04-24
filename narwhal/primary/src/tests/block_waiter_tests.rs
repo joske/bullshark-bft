@@ -268,7 +268,6 @@ async fn test_return_error_when_certificate_is_missing() {
     let name = primary.public_key();
 
     // AND create a certificate but don't store it
-    // let certificate = Certificate::default();
     let digest = CertificateDigest::new([0u8; 32]);
 
     // AND mock the responses of the BlockSynchronizer
@@ -309,7 +308,6 @@ async fn test_return_error_when_certificate_is_missing_when_get_blocks() {
     let name = primary.public_key();
 
     // AND create a certificate but don't store it
-    // let certificate = Certificate::default();
     let digest = CertificateDigest::new([0u8; 32]);
 
     // AND mock the responses of the BlockSynchronizer
