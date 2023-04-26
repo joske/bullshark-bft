@@ -7,7 +7,7 @@ use crate::{
 };
 use anemo::PeerId;
 use config::{BlockSynchronizerParameters, Parameters};
-use fastcrypto::hash::Hash;
+use crypto::Hash;
 use futures::future::try_join_all;
 use std::{
     collections::{HashMap, HashSet},

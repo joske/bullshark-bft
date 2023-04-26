@@ -6,10 +6,8 @@ use crate::TrivialTransactionValidator;
 use arc_swap::ArcSwap;
 use bytes::Bytes;
 use consensus::dag::Dag;
-use fastcrypto::{
-    encoding::{Encoding, Hex},
-    hash::Hash,
-};
+use crypto::Hash;
+use fastcrypto::encoding::{Encoding, Hex};
 use futures::stream::FuturesOrdered;
 use futures::StreamExt;
 use primary::{NetworkModel, Primary, CHANNEL_CAPACITY, NUM_SHUTDOWN_RECEIVERS};

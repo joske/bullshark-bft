@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::{common::create_db_stores, synchronizer::Synchronizer, NUM_SHUTDOWN_RECEIVERS};
 use consensus::dag::Dag;
-use fastcrypto::hash::Hash;
+use crypto::Hash;
 use std::{
     collections::{BTreeSet, HashMap},
     num::NonZeroUsize,

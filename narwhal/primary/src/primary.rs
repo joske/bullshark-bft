@@ -28,12 +28,10 @@ use async_trait::async_trait;
 use config::{Parameters, SharedCommittee, SharedWorkerCache, WorkerId, WorkerInfo};
 use consensus::dag::Dag;
 use crypto::{
-    EncodeDecodeBase64, KeyPair, NetworkKeyPair, NetworkPublicKey, PublicKey, SignatureService,
+    EncodeDecodeBase64, Hash, KeyPair, NetworkKeyPair, NetworkPublicKey, PublicKey,
+    SignatureService,
 };
-use fastcrypto::{
-    hash::Hash,
-    traits::{KeyPair as _, ToFromBytes},
-};
+use fastcrypto::traits::{KeyPair as _, ToFromBytes};
 use multiaddr::{Multiaddr, Protocol};
 use network::epoch_filter::{AllowedEpoch, EPOCH_HEADER_KEY};
 use network::failpoints::FailpointsMakeCallbackHandler;

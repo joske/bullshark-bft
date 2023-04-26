@@ -3,7 +3,7 @@
 use bytes::Bytes;
 use consensus::bullshark::Bullshark;
 use consensus::Consensus;
-use fastcrypto::hash::Hash;
+use crypto::Hash;
 use narwhal_executor::get_restored_consensus_output;
 use narwhal_executor::MockExecutionState;
 use primary::NUM_SHUTDOWN_RECEIVERS;

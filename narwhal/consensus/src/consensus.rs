@@ -6,8 +6,7 @@
 
 use crate::{ConsensusError, SequenceNumber};
 use config::Committee;
-use crypto::PublicKey;
-use fastcrypto::hash::Hash;
+use crypto::{Hash, PublicKey};
 use std::{
     cmp::{max, Ordering},
     collections::{BTreeMap, HashMap},

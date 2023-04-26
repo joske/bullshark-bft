@@ -4,8 +4,7 @@
 use super::UnsignedHeader;
 use crate::{BatchDigest, CertificateDigest, Header, HeaderDigest};
 use config::WorkerId;
-use crypto::KeyPair;
-use fastcrypto::hash::{Digest, Hash};
+use crypto::{Digest, Hash, KeyPair};
 use once_cell::sync::OnceCell;
 use proptest::{collection, prelude::*, strategy::Strategy};
 use rand::{rngs::StdRng, thread_rng, SeedableRng};

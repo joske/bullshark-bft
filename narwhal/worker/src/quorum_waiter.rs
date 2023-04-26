@@ -4,8 +4,7 @@
 
 use crate::batch_maker::MAX_PARALLEL_BATCH;
 use config::{Committee, SharedWorkerCache, Stake, WorkerId};
-use crypto::PublicKey;
-use fastcrypto::hash::Hash;
+use crypto::{Hash, PublicKey};
 use futures::stream::{futures_unordered::FuturesUnordered, FuturesOrdered, StreamExt as _};
 use network::{CancelOnDropHandler, ReliableNetwork};
 use std::time::Duration;

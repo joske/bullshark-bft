@@ -10,9 +10,8 @@ use crate::{
 use anemo::PeerId;
 use anyhow::anyhow;
 use config::{Committee, Parameters, SharedWorkerCache, WorkerId};
-use crypto::traits::ToFromBytes;
-use crypto::{NetworkPublicKey, PublicKey};
-use fastcrypto::hash::Hash;
+use crypto::{Hash, NetworkPublicKey, PublicKey};
+use fastcrypto::traits::ToFromBytes;
 use futures::{
     future::{join_all, BoxFuture},
     stream::FuturesUnordered,

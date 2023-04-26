@@ -1,8 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
-use crypto::PublicKey;
+use crypto::{Hash, PublicKey};
 use dashmap::DashMap;
-use fastcrypto::hash::Hash;
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, VecDeque},
@@ -446,8 +445,7 @@ impl CertificateStore {
 #[cfg(test)]
 mod test {
     use crate::certificate_store::CertificateStore;
-    use crypto::PublicKey;
-    use fastcrypto::hash::Hash;
+    use crypto::{Hash, PublicKey};
     use futures::future::join_all;
     use std::{
         collections::{BTreeSet, HashSet},

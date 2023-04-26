@@ -9,11 +9,11 @@ use crate::{
 use bytes::Bytes;
 use config::{Committee, Epoch, SharedWorkerCache, Stake, WorkerId, WorkerInfo};
 use crypto::{
-    AggregateSignature, EncodeDecodeBase64, PrivateKey, PublicKey, Signature, SignatureService,
+    AggregateSignature, Digest, EncodeDecodeBase64, Hash, PrivateKey, PublicKey, Signature,
+    SignatureService,
 };
 use dag::node_dag::Affiliated;
 use derive_builder::Builder;
-use fastcrypto::hash::{Digest, Hash, HashFunction};
 use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
 use proptest_derive::Arbitrary;
@@ -102,7 +102,7 @@ impl Batch {
 #[derive(
     Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary,
 )]
-pub struct BatchDigest(pub [u8; crypto::DIGEST_LENGTH]);
+pub struct BatchDigest(pub Digest);
 
 impl fmt::Debug for BatchDigest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
@@ -120,25 +120,25 @@ impl fmt::Display for BatchDigest {
     }
 }
 
-impl From<BatchDigest> for Digest<{ crypto::DIGEST_LENGTH }> {
+impl From<BatchDigest> for Digest {
     fn from(digest: BatchDigest) -> Self {
-        Digest::new(digest.0)
+        digest.0
     }
 }
 
 impl BatchDigest {
-    pub fn new(val: [u8; crypto::DIGEST_LENGTH]) -> BatchDigest {
+    pub fn new(val: Digest) -> BatchDigest {
         BatchDigest(val)
     }
 }
 
-impl Hash<{ crypto::DIGEST_LENGTH }> for Batch {
+impl Hash for Batch {
     type TypedDigest = BatchDigest;
 
     fn digest(&self) -> Self::TypedDigest {
-        BatchDigest::new(
-            crypto::DefaultHashFunction::digest_iterator(self.transactions.iter()).into(),
-        )
+        BatchDigest::new(crypto::DefaultHashFunction::digest_iterator(
+            self.transactions.iter(),
+        ))
     }
 }
 
@@ -317,7 +317,7 @@ impl Header {
         }
 
         // Check the signature.
-        let digest: Digest<{ crypto::DIGEST_LENGTH }> = Digest::from(self.digest());
+        let digest: Digest = Digest::from(self.digest());
 
         if !self.signature.verify_bytes(&self.author, digest.as_ref()) {
             return Err(DagError::InvalidSignature);
@@ -330,11 +330,11 @@ impl Header {
 #[derive(
     Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary,
 )]
-pub struct HeaderDigest([u8; crypto::DIGEST_LENGTH]);
+pub struct HeaderDigest(Digest);
 
-impl From<HeaderDigest> for Digest<{ crypto::DIGEST_LENGTH }> {
+impl From<HeaderDigest> for Digest {
     fn from(hd: HeaderDigest) -> Self {
-        Digest::new(hd.0)
+        hd.0
     }
 }
 
@@ -354,7 +354,7 @@ impl fmt::Display for HeaderDigest {
     }
 }
 
-impl Hash<{ crypto::DIGEST_LENGTH }> for UnsignedHeader {
+impl Hash for UnsignedHeader {
     type TypedDigest = HeaderDigest;
 
     fn digest(&self) -> HeaderDigest {
@@ -373,11 +373,11 @@ impl Hash<{ crypto::DIGEST_LENGTH }> for UnsignedHeader {
         for x in self.parents.iter() {
             hasher.update(Digest::from(*x))
         }
-        HeaderDigest(hasher.finalize().into())
+        HeaderDigest(hasher.finalize())
     }
 }
 
-impl Hash<{ crypto::DIGEST_LENGTH }> for Header {
+impl Hash for Header {
     type TypedDigest = HeaderDigest;
 
     fn digest(&self) -> HeaderDigest {
@@ -396,7 +396,7 @@ impl Hash<{ crypto::DIGEST_LENGTH }> for Header {
         for x in self.parents.iter() {
             hasher.update(Digest::from(*x))
         }
-        HeaderDigest(hasher.finalize().into())
+        HeaderDigest(hasher.finalize())
     }
 }
 
@@ -409,10 +409,7 @@ impl fmt::Debug for Header {
             self.round,
             self.author.encode_base64(),
             self.epoch,
-            self.payload
-                .keys()
-                .map(|x| Digest::from(*x).size())
-                .sum::<usize>(),
+            self.payload.keys().map(|_| Digest::size()).sum::<usize>(),
         )
     }
 }
@@ -485,7 +482,7 @@ impl Vote {
 
         let mut rng = thread_rng();
 
-        let vote_digest: Digest<{ crypto::DIGEST_LENGTH }> = unsigned_vote.digest().into();
+        let vote_digest: Digest = unsigned_vote.digest().into();
 
         // Note: fastcrypto also uses infallible signing in their impl of the signature
         // service.
@@ -520,7 +517,7 @@ impl Vote {
         );
 
         // Check the signature.
-        let vote_digest: Digest<{ crypto::DIGEST_LENGTH }> = self.digest().into();
+        let vote_digest: Digest = self.digest().into();
 
         if !self
             .signature
@@ -535,11 +532,11 @@ impl Vote {
 #[derive(
     Clone, Serialize, Deserialize, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Copy, Arbitrary,
 )]
-pub struct VoteDigest([u8; crypto::DIGEST_LENGTH]);
+pub struct VoteDigest(Digest);
 
-impl From<VoteDigest> for Digest<{ crypto::DIGEST_LENGTH }> {
+impl From<VoteDigest> for Digest {
     fn from(hd: VoteDigest) -> Self {
-        Digest::new(hd.0)
+        hd.0
     }
 }
 
@@ -559,7 +556,7 @@ impl fmt::Display for VoteDigest {
     }
 }
 
-impl Hash<{ crypto::DIGEST_LENGTH }> for UnsignedVote {
+impl Hash for UnsignedVote {
     type TypedDigest = VoteDigest;
 
     fn digest(&self) -> VoteDigest {
@@ -571,11 +568,11 @@ impl Hash<{ crypto::DIGEST_LENGTH }> for UnsignedVote {
         // trait design in snarkVM.
         hasher.update(&self.origin.to_bytes_le().unwrap());
         // TODO(nkls): why is the author not hashed here?
-        VoteDigest(hasher.finalize().into())
+        VoteDigest(hasher.finalize())
     }
 }
 
-impl Hash<{ crypto::DIGEST_LENGTH }> for Vote {
+impl Hash for Vote {
     type TypedDigest = VoteDigest;
 
     fn digest(&self) -> VoteDigest {
@@ -586,7 +583,7 @@ impl Hash<{ crypto::DIGEST_LENGTH }> for Vote {
         // SAFETY: this conversion can't fail, the result is just a side-effect of the `ToBytes`
         // trait design in snarkVM.
         hasher.update(&self.origin.to_bytes_le().unwrap());
-        VoteDigest(hasher.finalize().into())
+        VoteDigest(hasher.finalize())
     }
 }
 
@@ -641,8 +638,7 @@ impl Certificate {
 
                 let mut rng = thread_rng();
 
-                let header_digest: Digest<{ crypto::DIGEST_LENGTH }> =
-                    unsigned_header.digest().into();
+                let header_digest: Digest = unsigned_header.digest().into();
 
                 // Note: fastcrypto also uses infallible signing in their impl of the signature
                 // service.
@@ -828,7 +824,7 @@ impl Certificate {
 
         // TODO(nkls): work out if an aggregate sig construction in snarkVM is necessary.
         // Verify the signatures
-        let certificate_digest: Digest<{ crypto::DIGEST_LENGTH }> = Digest::from(self.digest());
+        let certificate_digest: Digest = Digest::from(self.digest());
         self.aggregated_signature
             .verify(&pks[..], certificate_digest.as_ref())
             .map_err(|_| DagError::InvalidSignature)?;
@@ -853,23 +849,23 @@ impl Certificate {
     Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary,
 )]
 
-pub struct CertificateDigest([u8; crypto::DIGEST_LENGTH]);
+pub struct CertificateDigest(Digest);
 
 impl CertificateDigest {
-    pub fn new(digest: [u8; crypto::DIGEST_LENGTH]) -> CertificateDigest {
+    pub fn new(digest: Digest) -> CertificateDigest {
         CertificateDigest(digest)
     }
 }
 
 impl AsRef<[u8]> for CertificateDigest {
     fn as_ref(&self) -> &[u8] {
-        &self.0
+        self.0.as_ref()
     }
 }
 
-impl From<CertificateDigest> for Digest<{ crypto::DIGEST_LENGTH }> {
+impl From<CertificateDigest> for Digest {
     fn from(hd: CertificateDigest) -> Self {
-        Digest::new(hd.0)
+        hd.0
     }
 }
 impl From<CertificateDigest> for CertificateDigestProto {
@@ -896,7 +892,7 @@ impl fmt::Display for CertificateDigest {
     }
 }
 
-impl Hash<{ crypto::DIGEST_LENGTH }> for Certificate {
+impl Hash for Certificate {
     type TypedDigest = CertificateDigest;
 
     fn digest(&self) -> CertificateDigest {
@@ -907,7 +903,7 @@ impl Hash<{ crypto::DIGEST_LENGTH }> for Certificate {
         // SAFETY: this conversion can't fail, the result is just a side-effect of the `ToBytes`
         // trait design in snarkVM.
         hasher.update(&self.origin().to_bytes_le().unwrap());
-        CertificateDigest(hasher.finalize().into())
+        CertificateDigest(hasher.finalize())
     }
 }
 
@@ -936,7 +932,7 @@ impl PartialEq for Certificate {
 }
 
 impl Affiliated for Certificate {
-    fn parents(&self) -> Vec<<Self as Hash<{ crypto::DIGEST_LENGTH }>>::TypedDigest> {
+    fn parents(&self) -> Vec<<Self as Hash>::TypedDigest> {
         self.header.parents.iter().cloned().collect()
     }
 

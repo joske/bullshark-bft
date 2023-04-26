@@ -6,10 +6,9 @@ use arc_swap::ArcSwap;
 use bincode::Options;
 use config::{Parameters, WorkerId};
 use consensus::dag::Dag;
-use crypto::{PublicKey, SignatureService};
+use crypto::{Hash, PublicKey, SignatureService};
 use fastcrypto::{
     encoding::{Encoding, Hex},
-    hash::Hash,
     traits::KeyPair,
 };
 use itertools::Itertools;

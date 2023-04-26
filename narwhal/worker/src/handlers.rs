@@ -5,8 +5,7 @@ use anemo::types::response::StatusCode;
 use anyhow::Result;
 use async_trait::async_trait;
 use config::{SharedCommittee, SharedWorkerCache, WorkerId};
-use crypto::PublicKey;
-use fastcrypto::hash::Hash;
+use crypto::{Hash, PublicKey};
 use futures::{stream::FuturesUnordered, StreamExt};
 
 use rand::seq::SliceRandom;

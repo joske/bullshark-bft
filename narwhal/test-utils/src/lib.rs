@@ -7,11 +7,8 @@ use config::{
     utils::get_available_port, Authority, Committee, Epoch, SharedWorkerCache, Stake, WorkerCache,
     WorkerId, WorkerIndex, WorkerInfo,
 };
-use crypto::{KeyPair, NetworkKeyPair, NetworkPublicKey, PublicKey};
-use fastcrypto::{
-    hash::Hash as _,
-    traits::{AllowedRng, KeyPair as _},
-};
+use crypto::{Hash, KeyPair, NetworkKeyPair, NetworkPublicKey, PublicKey};
+use fastcrypto::traits::{AllowedRng, KeyPair as _};
 use indexmap::IndexMap;
 use multiaddr::Multiaddr;
 use rand::{

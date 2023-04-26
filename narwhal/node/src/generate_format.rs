@@ -2,8 +2,8 @@ use clap::{clap_derive::ValueEnum, Parser};
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 use config::{Authority, Committee, Epoch, WorkerIndex, WorkerInfo};
-use crypto::{KeyPair, NetworkKeyPair};
-use fastcrypto::{hash::Hash, traits::KeyPair as _};
+use crypto::{Hash, KeyPair, NetworkKeyPair};
+use fastcrypto::traits::KeyPair as _;
 use multiaddr::Multiaddr;
 use rand::{prelude::StdRng, thread_rng, SeedableRng};
 use serde_reflection::{Registry, Result, Samples, Tracer, TracerConfig};
@@ -72,7 +72,7 @@ fn get_registry() -> Result<Registry> {
         .round(1)
         .payload(
             (0..4u32)
-                .map(|wid| (BatchDigest([0u8; 32]), (wid, 0u64)))
+                .map(|wid| (BatchDigest::default(), (wid, 0u64)))
                 .collect(),
         )
         .parents(certificates.iter().map(|x| x.digest()).collect())
@@ -107,16 +107,16 @@ fn get_registry() -> Result<Registry> {
     tracer.trace_value(&mut samples, &worker_index)?;
 
     let our_batch = WorkerOurBatchMessage {
-        digest: BatchDigest([0u8; 32]),
+        digest: BatchDigest::default(),
         worker_id: 0,
         metadata: Metadata { created_at: 0 },
     };
     let others_batch = WorkerOthersBatchMessage {
-        digest: BatchDigest([0u8; 32]),
+        digest: BatchDigest::default(),
         worker_id: 0,
     };
     let sync = WorkerSynchronizeMessage {
-        digests: vec![BatchDigest([0u8; 32])],
+        digests: vec![BatchDigest::default()],
         target: pk,
     };
 

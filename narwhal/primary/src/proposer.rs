@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::NetworkModel;
 use config::{Committee, Epoch, WorkerId};
-use crypto::{PublicKey, SignatureService};
-use fastcrypto::hash::Hash as _;
+use crypto::{Hash as _, PublicKey, SignatureService};
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use storage::ProposerStore;

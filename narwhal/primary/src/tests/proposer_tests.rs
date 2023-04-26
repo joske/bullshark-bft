@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use super::*;
 use crate::NUM_SHUTDOWN_RECEIVERS;
+use crypto::Digest;
 use indexmap::IndexMap;
 use test_utils::{fixture_payload, CommitteeFixture};
 use types::PreSubscribedBroadcastSender;
@@ -100,7 +101,7 @@ async fn propose_payload_and_repropose_after_n_seconds() {
     let mut name_bytes = [0u8; 32];
     name_bytes.copy_from_slice(&name.to_bytes()[..32]);
 
-    let digest = BatchDigest(name_bytes);
+    let digest = BatchDigest(Digest::new(name_bytes));
     let worker_id = 0;
     let created_at_ts = 0;
     let (tx_ack, rx_ack) = tokio::sync::oneshot::channel();
@@ -223,7 +224,7 @@ async fn equivocation_protection() {
     let mut name_bytes = [0u8; 32];
     name_bytes.copy_from_slice(&name.to_bytes()[..32]);
 
-    let digest = BatchDigest(name_bytes);
+    let digest = BatchDigest(Digest::new(name_bytes));
     let worker_id = 0;
     let created_at_ts = 0;
     let (tx_ack, rx_ack) = tokio::sync::oneshot::channel();
@@ -294,7 +295,7 @@ async fn equivocation_protection() {
     let mut name_bytes = [0u8; 32];
     name_bytes.copy_from_slice(&name.to_bytes()[..32]);
 
-    let digest = BatchDigest(name_bytes);
+    let digest = BatchDigest(Digest::new(name_bytes));
     let worker_id = 0;
     let (tx_ack, rx_ack) = tokio::sync::oneshot::channel();
     tx_our_digests

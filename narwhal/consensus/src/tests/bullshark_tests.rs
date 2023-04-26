@@ -5,7 +5,7 @@ use super::*;
 
 use crate::consensus_utils::*;
 use crate::{Consensus, NUM_SHUTDOWN_RECEIVERS};
-use fastcrypto::hash::Hash;
+use crypto::Hash;
 #[allow(unused_imports)]
 use fastcrypto::traits::KeyPair;
 #[cfg(test)]

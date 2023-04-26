@@ -20,16 +20,19 @@ merlin = "3.0.0"
 once_cell = "1.16"
 readonly = "0.2.2"
 base64ct = "1.6"
+proptest-derive = "0.3.0"
+proptest = "1.0.0"
 
 [dependencies.snarkvm-console]
 version = "0.9.14"
+
+[dependencies.bitvec]
+version = "1.0"
 
 [features]
 default = []
 [dev-dependencies]
 bincode = "1.3.3"
 hex-literal = "0.3.4"
-proptest = "1.0.0"
-proptest-derive = "0.3.0"
 serde_json = "1.0.88"
 serde-reflection = "0.3.6"

@@ -3,8 +3,8 @@
 
 use super::{Dag, ValidatorDagError};
 use crate::NUM_SHUTDOWN_RECEIVERS;
+use crypto::Hash;
 use dag::node_dag::NodeDagError;
-use fastcrypto::hash::Hash;
 use indexmap::IndexMap;
 use std::{collections::BTreeSet, sync::Arc};
 use test_utils::{make_optimal_certificates, CommitteeFixture};

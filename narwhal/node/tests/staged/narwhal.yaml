@@ -11,9 +11,7 @@ Batch:
         TYPENAME: Metadata
 BatchDigest:
   NEWTYPESTRUCT:
-    TUPLEARRAY:
-      CONTENT: U8
-      SIZE: 32
+    TYPENAME: Digest
 Certificate:
   STRUCT:
     - header:
@@ -24,6 +22,9 @@ Certificate:
     - metadata:
         TYPENAME: Metadata
 CertificateDigest:
+  NEWTYPESTRUCT:
+    TYPENAME: Digest
+Digest:
   NEWTYPESTRUCT:
     TUPLEARRAY:
       CONTENT: U8
@@ -48,9 +49,7 @@ Header:
     - signature: BYTES
 HeaderDigest:
   NEWTYPESTRUCT:
-    TUPLEARRAY:
-      CONTENT: U8
-      SIZE: 32
+    TYPENAME: Digest
 Metadata:
   STRUCT:
     - created_at: U64

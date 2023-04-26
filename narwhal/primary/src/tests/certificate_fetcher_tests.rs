@@ -5,8 +5,8 @@ use crate::{certificate_fetcher::CertificateFetcher, core::Core, synchronizer::S
 use anemo::async_trait;
 use anyhow::Result;
 use config::{Epoch, WorkerId};
-use crypto::{PublicKey, Signature, SignatureService};
-use fastcrypto::{hash::Hash, traits::KeyPair};
+use crypto::{Hash, PublicKey, Signature, SignatureService};
+use fastcrypto::traits::KeyPair;
 use indexmap::IndexMap;
 use itertools::Itertools;
 use once_cell::sync::OnceCell;

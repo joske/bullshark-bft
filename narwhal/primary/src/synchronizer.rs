@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use config::{SharedCommittee, SharedWorkerCache, WorkerId};
 use consensus::dag::Dag;
-use crypto::PublicKey;
-use fastcrypto::hash::Hash as _;
+use crypto::{Hash, PublicKey};
 use network::{anemo_ext::NetworkExt, RetryConfig};
 use std::{collections::HashMap, sync::Arc};
 use storage::{CertificateStore, PayloadToken};

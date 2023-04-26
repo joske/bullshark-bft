@@ -3,8 +3,8 @@
 use arc_swap::ArcSwap;
 use config::{BlockSynchronizerParameters, Committee, Parameters, WorkerId};
 use consensus::dag::Dag;
-use crypto::PublicKey;
-use fastcrypto::{hash::Hash, traits::KeyPair as _};
+use crypto::{Hash, PublicKey};
+use fastcrypto::traits::KeyPair as _;
 use indexmap::IndexMap;
 use narwhal_primary as primary;
 use narwhal_primary::NUM_SHUTDOWN_RECEIVERS;
@@ -56,7 +56,7 @@ async fn test_get_collections() {
     let mut header_digests = Vec::new();
     // Blocks/Collections
     let mut collection_digests = Vec::new();
-    let mut missing_certificate = CertificateDigest::new([0; 32]);
+    let mut missing_certificate = CertificateDigest::default();
 
     // Generate headers
     for n in 0..5 {

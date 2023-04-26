@@ -10,8 +10,7 @@ use crate::{
 
 use anyhow::Result;
 use config::{Committee, Epoch};
-use crypto::{NetworkPublicKey, PublicKey, SignatureService};
-use fastcrypto::hash::Hash as _;
+use crypto::{Hash as _, NetworkPublicKey, PublicKey, SignatureService};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use network::{anemo_ext::NetworkExt, CancelOnDropHandler, ReliableNetwork};
