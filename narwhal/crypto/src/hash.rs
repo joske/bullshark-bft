@@ -111,9 +111,7 @@ impl fmt::Display for Digest {
         write!(
             f,
             "{}",
-            Base64::encode_string(&self.0)
-                .get(0..DIGEST_LENGTH)
-                .unwrap()
+            Base64::encode_string(&self.0).get(..DIGEST_LENGTH).unwrap()
         )
     }
 }

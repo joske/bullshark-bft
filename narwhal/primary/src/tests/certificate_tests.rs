@@ -146,12 +146,10 @@ fn test_unknown_signature_in_certificate() {
     assert!(Certificate::new(&committee, header, signatures).is_err());
 }
 
-proptest::proptest! {
 #[test]
-    /// This test checks that the certificate verification is correct for all committee sizes. It takes a long time to run.
-    fn test_certificate_verification(
-        committee_size in 4..35_usize
-    ) {
+/// This test checks that the certificate verification is correct for all committee sizes. It takes a long time to run.
+fn test_certificate_verification() {
+    for committee_size in 4..=35 {
         let fixture = CommitteeFixture::builder()
             .committee_size(NonZeroUsize::new(committee_size).unwrap())
             .build();
@@ -173,7 +171,11 @@ proptest::proptest! {
         let certificate = Certificate::new(&committee, header, signatures).unwrap();
 
         assert!(certificate
-            .verify(&committee, fixture.worker_cache().into(), genesis_certs.as_slice())
+            .verify(
+                &committee,
+                fixture.worker_cache().into(),
+                genesis_certs.as_slice()
+            )
             .is_ok());
     }
 }

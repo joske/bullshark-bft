@@ -3,18 +3,14 @@
 
 use arc_swap::ArcSwap;
 use bytes::Bytes;
-use config::{Epoch, Parameters};
+use config::Parameters;
 use consensus::dag::Dag;
 use crypto::{Hash, PublicKey};
 use fastcrypto::traits::KeyPair as _;
 use narwhal_primary as primary;
 use narwhal_primary::NUM_SHUTDOWN_RECEIVERS;
 use primary::{NetworkModel, Primary, CHANNEL_CAPACITY};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::BTreeSet, sync::Arc, time::Duration};
 use storage::NodeStorage;
 use test_utils::{
     make_optimal_certificates, make_optimal_signed_certificates, temp_dir, CommitteeFixture,
@@ -81,17 +77,6 @@ async fn test_rounds_errors() {
 
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
 
-    // AND create a committee passed exclusively to the DAG that does not include the name public key
-    // In this way, the genesis certificate is not run for that authority and is absent when we try to fetch it
-    let no_name_committee = config::Committee {
-        epoch: Epoch::default(),
-        authorities: committee
-            .authorities
-            .iter()
-            .filter_map(|(pk, a)| (*pk != name).then_some((pk.clone(), a.clone())))
-            .collect::<BTreeMap<_, _>>(),
-    };
-
     Primary::spawn(
         name.clone(),
         keypair.clone(),
@@ -109,13 +94,7 @@ async fn test_rounds_errors() {
         rx_consensus_round_updates,
         /* external_consensus */
         Some(Arc::new(
-            Dag::new(
-                &no_name_committee,
-                rx_new_certificates,
-                tx_shutdown.subscribe(),
-                vec![],
-            )
-            .1,
+            Dag::new(rx_new_certificates, tx_shutdown.subscribe(), vec![]).1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
@@ -186,7 +165,6 @@ async fn test_rounds_return_successful_response() {
     // AND setup the DAG
     let dag = Arc::new(
         Dag::new(
-            &committee,
             rx_new_certificates,
             tx_shutdown.subscribe(),
             genesis_certs.clone(),
@@ -286,7 +264,6 @@ async fn test_node_read_causal_signed_certificates() {
 
     let dag = Arc::new(
         Dag::new(
-            &committee,
             rx_new_certificates,
             tx_shutdown.subscribe(),
             genesis_certs.clone(),
@@ -409,7 +386,6 @@ async fn test_node_read_causal_signed_certificates() {
         /* external_consensus */
         Some(Arc::new(
             Dag::new(
-                &committee,
                 rx_new_certificates_2,
                 tx_shutdown.subscribe(),
                 genesis_certs.clone(),

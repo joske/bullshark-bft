@@ -29,15 +29,7 @@ async fn deliver_certificate_using_dag() {
     let primary = fixture.authorities().next().unwrap();
     let keypair = primary.keypair().clone();
     let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
-    let dag = Arc::new(
-        Dag::new(
-            &committee,
-            rx_consensus,
-            tx_shutdown.subscribe(),
-            genesis_certs.clone(),
-        )
-        .1,
-    );
+    let dag = Arc::new(Dag::new(rx_consensus, tx_shutdown.subscribe(), genesis_certs.clone()).1);
     let synchronizer = Synchronizer::new(
         name,
         fixture.committee().into(),

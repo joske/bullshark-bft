@@ -29,12 +29,7 @@ async fn inner_dag_insert_one() {
 
     // set up a Dag
     let (tx_cert, rx_cert) = test_utils::test_channel!(1);
-    Dag::new(
-        &committee,
-        rx_cert,
-        tx_shutdown.subscribe(),
-        genesis_certs.clone(),
-    );
+    Dag::new(rx_cert, tx_shutdown.subscribe(), genesis_certs.clone());
 
     // Feed the certificates to the Dag
     while let Some(certificate) = certificates.pop_front() {
@@ -60,12 +55,7 @@ async fn test_dag_read_notify() {
     // set up a Dag
     let (_tx_cert, rx_cert) = test_utils::test_channel!(1);
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
-    let arc = Arc::new(Dag::new(
-        &committee,
-        rx_cert,
-        tx_shutdown.subscribe(),
-        genesis_certs,
-    ));
+    let arc = Arc::new(Dag::new(rx_cert, tx_shutdown.subscribe(), genesis_certs));
     let cloned = arc.clone();
     let handle = tokio::spawn(async move {
         let _ = &arc;
@@ -101,7 +91,7 @@ async fn test_dag_new_has_genesis_and_its_not_live() {
     let (_tx_cert, rx_cert) = test_utils::test_channel!(1);
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
 
-    let (_, dag) = Dag::new(&committee, rx_cert, tx_shutdown.subscribe(), genesis_certs);
+    let (_, dag) = Dag::new(rx_cert, tx_shutdown.subscribe(), genesis_certs);
 
     for certificate in genesis.clone() {
         assert!(dag.contains(certificate).await);
@@ -154,7 +144,7 @@ async fn test_dag_compresses_empty_blocks() {
     let (_tx_cert, rx_cert) = test_utils::test_channel!(1);
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
 
-    let (_, dag) = Dag::new(&committee, rx_cert, tx_shutdown.subscribe(), genesis_certs);
+    let (_, dag) = Dag::new(rx_cert, tx_shutdown.subscribe(), genesis_certs);
 
     // insert one round of empty certificates
     let (mut certificates, next_parents) =
@@ -223,7 +213,7 @@ async fn test_dag_rounds_after_compression() {
     let (_tx_cert, rx_cert) = test_utils::test_channel!(1);
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
 
-    let (_, dag) = Dag::new(&committee, rx_cert, tx_shutdown.subscribe(), genesis_certs);
+    let (_, dag) = Dag::new(rx_cert, tx_shutdown.subscribe(), genesis_certs);
 
     // insert one round of empty certificates
     let (mut certificates, next_parents) =
@@ -275,7 +265,7 @@ async fn dag_mutation_failures() {
     let (_tx_cert, rx_cert) = test_utils::test_channel!(1);
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
 
-    let (_handle, dag) = Dag::new(&committee, rx_cert, tx_shutdown.subscribe(), genesis_certs);
+    let (_handle, dag) = Dag::new(rx_cert, tx_shutdown.subscribe(), genesis_certs);
     let mut certs_to_insert = certificates.clone();
     let mut certs_to_insert_in_reverse = certs_to_insert.clone();
     let mut certs_to_remove_before_insert = certs_to_insert.clone();
@@ -345,7 +335,7 @@ async fn dag_insert_one_and_rounds_node_read() {
 
     // set up a Dag
     let (_tx_cert, rx_cert) = test_utils::test_channel!(1);
-    let (_handle, dag) = Dag::new(&committee, rx_cert, tx_shutdown.subscribe(), genesis_certs);
+    let (_handle, dag) = Dag::new(rx_cert, tx_shutdown.subscribe(), genesis_certs);
     let mut certs_to_insert = certificates.clone();
 
     // Feed the certificates to the Dag
@@ -394,12 +384,7 @@ async fn dag_insert_and_remove_reads() {
 
     // set up a Dag
     let (_tx_cert, rx_cert) = test_utils::test_channel!(1);
-    let (_handle, dag) = Dag::new(
-        &committee,
-        rx_cert,
-        tx_shutdown.subscribe(),
-        genesis_certs.clone(),
-    );
+    let (_handle, dag) = Dag::new(rx_cert, tx_shutdown.subscribe(), genesis_certs.clone());
 
     // Feed the certificates to the Dag
     while let Some(certificate) = certificates.pop_front() {

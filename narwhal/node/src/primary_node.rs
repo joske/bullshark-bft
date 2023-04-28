@@ -168,7 +168,6 @@ impl PrimaryNodeInner {
         let (dag, network_model) = if !internal_consensus {
             debug!("Consensus is disabled: the primary will run w/o Bullshark");
             let (handle, dag) = Dag::new(
-                &committee.load(),
                 rx_new_certificates,
                 tx_shutdown.subscribe(),
                 genesis_certs.clone(),

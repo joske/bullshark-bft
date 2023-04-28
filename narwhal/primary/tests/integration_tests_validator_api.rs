@@ -125,7 +125,6 @@ async fn test_get_collections() {
         /* dag */
         Some(Arc::new(
             Dag::new(
-                &committee,
                 rx_new_certificates,
                 tx_shutdown.subscribe(),
                 genesis_certs.clone(),
@@ -262,7 +261,6 @@ async fn test_remove_collections() {
 
     let dag = Arc::new(
         Dag::new(
-            &committee,
             rx_new_certificates,
             tx_shutdown.subscribe(),
             genesis_certs.clone(),
@@ -491,7 +489,6 @@ async fn test_read_causal_signed_certificates() {
 
     let dag = Arc::new(
         Dag::new(
-            &committee,
             rx_new_certificates,
             tx_shutdown.subscribe(),
             genesis_certs.clone(),
@@ -616,7 +613,6 @@ async fn test_read_causal_signed_certificates() {
         /* external_consensus */
         Some(Arc::new(
             Dag::new(
-                &committee,
                 rx_new_certificates_2,
                 tx_shutdown_2.subscribe(),
                 genesis_certs.clone(),
@@ -718,7 +714,6 @@ async fn test_read_causal_unsigned_certificates() {
 
     let dag = Arc::new(
         Dag::new(
-            &committee,
             rx_new_certificates,
             tx_shutdown.subscribe(),
             genesis_certs.clone(),
@@ -832,7 +827,6 @@ async fn test_read_causal_unsigned_certificates() {
         /* external_consensus */
         Some(Arc::new(
             Dag::new(
-                &committee,
                 rx_new_certificates_2,
                 tx_shutdown_2.subscribe(),
                 genesis_certs.clone(),
@@ -1009,7 +1003,6 @@ async fn test_get_collections_with_missing_certificates() {
         /* external_consensus */
         Some(Arc::new(
             Dag::new(
-                &committee,
                 rx_new_certificates_1,
                 tx_shutdown.subscribe(),
                 genesis_certs.clone(),

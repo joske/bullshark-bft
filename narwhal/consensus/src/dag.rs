@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use config::Committee;
 use crypto::{Hash, PublicKey};
 use dag::node_dag::{NodeDag, NodeDagError};
 use std::{
@@ -101,7 +100,6 @@ enum DagCommand {
 
 impl InnerDag {
     fn new(
-        _committee: &Committee,
         rx_primary: mpsc::Receiver<Certificate>,
         rx_commands: Receiver<DagCommand>,
         dag: NodeDag<Certificate>,
@@ -333,14 +331,12 @@ impl InnerDag {
 
 impl Dag {
     pub fn new(
-        committee: &Committee,
         rx_primary: mpsc::Receiver<Certificate>,
         rx_shutdown: ConditionalBroadcastReceiver,
         genesis_certs: Vec<Certificate>,
     ) -> (JoinHandle<()>, Self) {
         let (tx_commands, rx_commands) = tokio::sync::mpsc::channel(DEFAULT_CHANNEL_SIZE);
         let mut idg = InnerDag::new(
-            committee,
             rx_primary,
             rx_commands,
             /* dag */ NodeDag::new(),

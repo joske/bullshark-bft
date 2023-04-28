@@ -157,10 +157,10 @@ pub struct Header {
     pub signature: Signature,
 }
 
-impl Default for Header {
-    fn default() -> Self {
+impl Header {
+    fn for_author(author: PublicKey) -> Self {
         let h = UnsignedHeader {
-            author: PublicKey::default(),
+            author,
             round: 0,
             epoch: 0,
             created_at: 0,
@@ -608,7 +608,7 @@ impl PartialEq for Vote {
 }
 
 #[serde_as]
-#[derive(Clone, Serialize, Deserialize, Default)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Certificate {
     pub header: Header,
     aggregated_signature: AggregateSignature,
@@ -685,13 +685,12 @@ impl Certificate {
     }
 
     pub fn new_test_empty(author: PublicKey) -> Self {
-        let header = Header {
-            author,
-            ..Default::default()
-        };
+        let header = Header::for_author(author);
         Self {
             header,
-            ..Default::default()
+            aggregated_signature: Default::default(),
+            signed_authorities: Default::default(),
+            metadata: Default::default(),
         }
     }
 

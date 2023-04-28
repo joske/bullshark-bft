@@ -286,7 +286,6 @@ async fn get_network_peers_from_admin_server() {
         /* dag */
         Some(Arc::new(
             Dag::new(
-                &committee,
                 rx_new_certificates,
                 tx_shutdown.subscribe(),
                 genesis_certs.clone(),
@@ -404,7 +403,6 @@ async fn get_network_peers_from_admin_server() {
         /* dag */
         Some(Arc::new(
             Dag::new(
-                &committee,
                 rx_new_certificates_2,
                 tx_shutdown.subscribe(),
                 genesis_certs.clone(),
