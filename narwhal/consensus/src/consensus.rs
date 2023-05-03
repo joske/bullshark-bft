@@ -478,38 +478,46 @@ where
 #[cfg(test)]
 mod tests {
     use super::ConsensusState;
+    use config::AuthorityIdentifier;
     use fastcrypto::{bls12381::min_sig::BLS12381KeyPair, traits::KeyPair};
     use rand::thread_rng;
-    use types::Certificate;
+    use types::{Certificate, CertificateAPI, Header};
+
+    fn update_round(cert: &mut Certificate, round: u64) {
+        let mut cert = cert;
+        match cert.header_mut() {
+            Header::V1(header) => {
+                header.round = round;
+            }
+        }
+    }
 
     #[test]
     fn test_gc() {
         let mut state = ConsensusState::new(5);
         // nothing in DAG yet
         assert_eq!(state.dag.len(), 0);
-        // create 2 keypairs
-        let kp1 = BLS12381KeyPair::generate(&mut thread_rng());
-        let pub_key1 = kp1.public();
-        let kp2 = BLS12381KeyPair::generate(&mut thread_rng());
-        let pub_key2 = kp2.public();
+        // create 2 authorities
+        let authority1 = AuthorityIdentifier(0);
+        let authority2 = AuthorityIdentifier(1);
 
         // create certs with these key pairs
-        let mut cert1_kp1 = Certificate::new_test_empty(pub_key1.clone());
-        cert1_kp1.header.round = 1;
-        let mut cert1_kp2 = Certificate::new_test_empty(pub_key2.clone());
-        cert1_kp2.header.round = 1;
-        let mut cert2_kp1 = Certificate::new_test_empty(pub_key1.clone());
-        cert2_kp1.header.round = 2;
-        let mut cert2_kp2 = Certificate::new_test_empty(pub_key2.clone());
-        cert2_kp2.header.round = 2;
-        let mut cert3_kp1 = Certificate::new_test_empty(pub_key1.clone());
-        cert3_kp1.header.round = 3;
-        let mut cert3_kp2 = Certificate::new_test_empty(pub_key2.clone());
-        cert3_kp2.header.round = 3;
-        let mut cert4 = Certificate::new_test_empty(pub_key1.clone());
-        cert4.header.round = 4;
-        let mut cert5 = Certificate::new_test_empty(pub_key1.clone());
-        cert5.header.round = 5;
+        let mut cert1_kp1 = Certificate::new_test_empty(authority1.clone());
+        update_round(&mut cert1_kp1, 1);
+        let mut cert1_kp2 = Certificate::new_test_empty(authority2.clone());
+        update_round(&mut cert1_kp2, 1);
+        let mut cert2_kp1 = Certificate::new_test_empty(authority1.clone());
+        update_round(&mut cert2_kp1, 2);
+        let mut cert2_kp2 = Certificate::new_test_empty(authority2.clone());
+        update_round(&mut cert2_kp2, 2);
+        let mut cert3_kp1 = Certificate::new_test_empty(authority1.clone());
+        update_round(&mut cert3_kp1, 3);
+        let mut cert3_kp2 = Certificate::new_test_empty(authority2.clone());
+        update_round(&mut cert3_kp2, 3);
+        let mut cert4 = Certificate::new_test_empty(authority1.clone());
+        update_round(&mut cert4, 4);
+        let mut cert5 = Certificate::new_test_empty(authority1.clone());
+        update_round(&mut cert5, 5);
 
         // insert them into the DAG
         state.try_insert(&cert1_kp1);
@@ -538,18 +546,19 @@ mod tests {
     fn test_gc_at_depth_2() {
         let mut state = ConsensusState::new(2);
         assert_eq!(state.dag.len(), 0);
-        let kp1 = BLS12381KeyPair::generate(&mut thread_rng());
-        let pub_key1 = kp1.public();
-        let kp2 = BLS12381KeyPair::generate(&mut thread_rng());
-        let pub_key2 = kp2.public();
+
+        // create 2 authorities
+        let authority1 = AuthorityIdentifier(0);
+        let authority2 = AuthorityIdentifier(1);
+
         let mut certs = Vec::new();
         for i in 1..=20 {
-            let mut cert = Certificate::new_test_empty(pub_key1.clone());
-            cert.header.round = i;
+            let mut cert = Certificate::new_test_empty(authority1.clone());
+            update_round(&mut cert, i);
             state.try_insert(&cert);
             certs.push(cert);
-            let mut cert = Certificate::new_test_empty(pub_key2.clone());
-            cert.header.round = i;
+            let mut cert = Certificate::new_test_empty(authority2.clone());
+            update_round(&mut cert, i);
             state.try_insert(&cert);
             certs.push(cert);
         }
@@ -569,18 +578,19 @@ mod tests {
     fn test_gc_at_depth_20() {
         let mut state = ConsensusState::new(20);
         assert_eq!(state.dag.len(), 0);
-        let kp1 = BLS12381KeyPair::generate(&mut thread_rng());
-        let pub_key1 = kp1.public();
-        let kp2 = BLS12381KeyPair::generate(&mut thread_rng());
-        let pub_key2 = kp2.public();
+
+        // create 2 authorities
+        let authority1 = AuthorityIdentifier(0);
+        let authority2 = AuthorityIdentifier(1);
+
         let mut certs = Vec::new();
         for i in 1..=20 {
-            let mut cert = Certificate::new_test_empty(pub_key1.clone());
-            cert.header.round = i;
+            let mut cert = Certificate::new_test_empty(authority1);
+            update_round(&mut cert, i);
             state.try_insert(&cert);
             certs.push(cert);
-            let mut cert = Certificate::new_test_empty(pub_key2.clone());
-            cert.header.round = i;
+            let mut cert = Certificate::new_test_empty(authority2);
+            update_round(&mut cert, i);
             state.try_insert(&cert);
             certs.push(cert);
         }

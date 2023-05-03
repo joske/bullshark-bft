@@ -8,7 +8,6 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::{cmp::Ordering, collections::BTreeMap, iter};
 use sui_macros::fail_point;
-use tap::Tap;
 
 use crate::StoreResult;
 use config::AuthorityIdentifier;
@@ -52,8 +51,6 @@ impl CertificateStoreCache {
             cache: Arc::new(Mutex::new(LruCache::new(size))),
         }
     }
-
-    fn report_result(&self, is_hit: bool) {}
 }
 
 impl Cache for CertificateStoreCache {
@@ -76,7 +73,6 @@ impl Cache for CertificateStoreCache {
         guard
             .get(digest)
             .cloned()
-            .tap(|v| self.report_result(v.is_some()))
     }
 
     /// Fetches the certificates for the provided digests. This method will update the LRU records
@@ -93,8 +89,7 @@ impl Cache for CertificateStoreCache {
                     id,
                     guard
                         .get(&id)
-                        .cloned()
-                        .tap(|v| self.report_result(v.is_some())),
+                        .cloned(),
                 )
             })
             .collect()
@@ -106,7 +101,6 @@ impl Cache for CertificateStoreCache {
         let guard = self.cache.lock();
         guard
             .contains(digest)
-            .tap(|result| self.report_result(*result))
     }
 
     fn remove(&self, digest: &CertificateDigest) {
@@ -803,7 +797,7 @@ mod test {
         let mut certs = Vec::new();
         for r in &rounds {
             let mut c = cert.clone();
-            c.header.round = *r;
+            c.header_mut().update_round(*r);
             certs.push(c);
         }
 

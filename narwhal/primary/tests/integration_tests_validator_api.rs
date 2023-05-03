@@ -1,9 +1,9 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
-use arc_swap::ArcSwap;
-use config::{BlockSynchronizerParameters, Committee, Parameters, WorkerId};
+
+use config::{AuthorityIdentifier, BlockSynchronizerParameters, Committee, Parameters};
+use consensus::consensus::ConsensusRound;
 use consensus::dag::Dag;
-use crypto::PublicKey;
 use fastcrypto::{hash::Hash, traits::KeyPair as _};
 use indexmap::IndexMap;
 use narwhal_primary as primary;
@@ -49,7 +49,7 @@ async fn test_get_collections() {
     let worker_keypair = author.worker(worker_id).keypair().copy();
 
     // Make the data store.
-    let store = NodeStorage::reopen(temp_dir(), None);
+    let store = NodeStorage::reopen(temp_dir());
 
     let mut header_digests = Vec::new();
     // Blocks/Collections
@@ -120,12 +120,16 @@ async fn test_get_collections() {
         rx_consensus_round_updates,
         /* dag */
         Some(Arc::new(
-            Dag::new(&committee, rx_new_certificates, tx_shutdown.subscribe()).1,
+            Dag::new(
+                &committee,
+                rx_new_certificates,
+                tx_shutdown.subscribe(),
+            )
+            .1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
         tx_feedback,
-        None,
     );
 
     let mut tx_shutdown_worker = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
@@ -238,7 +242,7 @@ async fn test_remove_collections() {
     let worker_keypair = author.worker(worker_id).keypair().copy();
 
     // Make the data store.
-    let store = NodeStorage::reopen(temp_dir(), None);
+    let store = NodeStorage::reopen(temp_dir());
     let mut header_digests = Vec::new();
     // Blocks/Collections
     let mut collection_digests = Vec::new();
@@ -248,7 +252,14 @@ async fn test_remove_collections() {
         test_utils::test_new_certificates_channel!(CHANNEL_CAPACITY);
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
 
-    let dag = Arc::new(Dag::new(&committee, rx_new_certificates, tx_shutdown.subscribe()).1);
+    let dag = Arc::new(
+        Dag::new(
+            &committee,
+            rx_new_certificates,
+            tx_shutdown.subscribe(),
+        )
+        .1,
+    );
     // No need to populate genesis in the Dag
 
     // Generate headers
@@ -312,7 +323,6 @@ async fn test_remove_collections() {
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
         tx_feedback,
-        None,
     );
 
     // Wait for tasks to start
@@ -456,8 +466,8 @@ async fn test_read_causal_signed_certificates() {
     let authority_2 = fixture.authorities().nth(1).unwrap();
 
     // Make the data store.
-    let primary_store_1 = NodeStorage::reopen(temp_dir(), None);
-    let primary_store_2: NodeStorage = NodeStorage::reopen(temp_dir(), None);
+    let primary_store_1 = NodeStorage::reopen(temp_dir());
+    let primary_store_2: NodeStorage = NodeStorage::reopen(temp_dir());
 
     let client_1 = NetworkClient::new_from_keypair(&authority_1.network_keypair());
     let client_2 = NetworkClient::new_from_keypair(&authority_2.network_keypair());
@@ -469,7 +479,14 @@ async fn test_read_causal_signed_certificates() {
         test_utils::test_new_certificates_channel!(CHANNEL_CAPACITY);
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
 
-    let dag = Arc::new(Dag::new(&committee, rx_new_certificates, tx_shutdown.subscribe()).1);
+    let dag = Arc::new(
+        Dag::new(
+            &committee,
+            rx_new_certificates,
+            tx_shutdown.subscribe(),
+        )
+        .1,
+    );
 
     // No need to  genesis in the Dag
     let genesis_certs = Certificate::genesis(&committee);
@@ -553,7 +570,6 @@ async fn test_read_causal_signed_certificates() {
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
         tx_feedback,
-        None,
     );
 
     let (tx_new_certificates_2, rx_new_certificates_2) =
@@ -570,7 +586,6 @@ async fn test_read_causal_signed_certificates() {
         ..Parameters::default()
     };
     let keypair_2 = authority_2.keypair().copy();
-    let name_2 = keypair_2.public().clone();
 
     // Spawn Primary 2
     Primary::spawn(
@@ -591,12 +606,16 @@ async fn test_read_causal_signed_certificates() {
         rx_consensus_round_updates_2,
         /* external_consensus */
         Some(Arc::new(
-            Dag::new(&committee, rx_new_certificates_2, tx_shutdown_2.subscribe()).1,
+            Dag::new(
+                &committee,
+                rx_new_certificates_2,
+                tx_shutdown_2.subscribe(),
+            )
+            .1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown_2,
         tx_feedback_2,
-        None,
     );
 
     // Wait for tasks to start
@@ -672,8 +691,8 @@ async fn test_read_causal_unsigned_certificates() {
     let network_keypair_2 = authority_2.network_keypair().copy();
 
     // Make the data store.
-    let primary_store_1 = NodeStorage::reopen(temp_dir(), None);
-    let primary_store_2: NodeStorage = NodeStorage::reopen(temp_dir(), None);
+    let primary_store_1 = NodeStorage::reopen(temp_dir());
+    let primary_store_2: NodeStorage = NodeStorage::reopen(temp_dir());
 
     let client_1 = NetworkClient::new_from_keypair(&authority_1.network_keypair());
     let client_2 = NetworkClient::new_from_keypair(&authority_2.network_keypair());
@@ -685,7 +704,14 @@ async fn test_read_causal_unsigned_certificates() {
         test_utils::test_new_certificates_channel!(CHANNEL_CAPACITY);
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
 
-    let dag = Arc::new(Dag::new(&committee, rx_new_certificates, tx_shutdown.subscribe()).1);
+    let dag = Arc::new(
+        Dag::new(
+            &committee,
+            rx_new_certificates,
+            tx_shutdown.subscribe(),
+        )
+        .1,
+    );
 
     // No need to genesis in the Dag
     let genesis_certs = Certificate::genesis(&committee);
@@ -766,7 +792,6 @@ async fn test_read_causal_unsigned_certificates() {
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
         tx_feedback,
-        None,
     );
 
     let (tx_new_certificates_2, rx_new_certificates_2) =
@@ -797,12 +822,16 @@ async fn test_read_causal_unsigned_certificates() {
         rx_consensus_round_updates_2,
         /* external_consensus */
         Some(Arc::new(
-            Dag::new(&committee, rx_new_certificates_2, tx_shutdown_2.subscribe()).1,
+            Dag::new(
+                &committee,
+                rx_new_certificates_2,
+                tx_shutdown_2.subscribe(),
+            )
+            .1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown_2,
         tx_feedback_2,
-        None,
     );
 
     // Wait for tasks to start
@@ -900,8 +929,8 @@ async fn test_get_collections_with_missing_certificates() {
     };
 
     // AND create separate data stores for the 2 primaries
-    let store_primary_1 = NodeStorage::reopen(temp_dir(), None);
-    let store_primary_2 = NodeStorage::reopen(temp_dir(), None);
+    let store_primary_1 = NodeStorage::reopen(temp_dir());
+    let store_primary_2 = NodeStorage::reopen(temp_dir());
 
     // AND create separate networks for the 2 primaries
     let client_1 = NetworkClient::new_from_keypair(&authority_1.network_keypair());
@@ -970,12 +999,16 @@ async fn test_get_collections_with_missing_certificates() {
         rx_consensus_round_updates,
         /* external_consensus */
         Some(Arc::new(
-            Dag::new(&committee, rx_new_certificates_1, tx_shutdown.subscribe()).1,
+            Dag::new(
+                &committee,
+                rx_new_certificates_1,
+                tx_shutdown.subscribe(),
+            )
+            .1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
         tx_feedback_1,
-        None,
     );
 
     let mut tx_shutdown_worker_1 = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
@@ -1036,7 +1069,6 @@ async fn test_get_collections_with_missing_certificates() {
         NetworkModel::Asynchronous,
         &mut tx_shutdown_2,
         tx_feedback_2,
-        None,
     );
 
     let mut tx_shutdown_worker_2 = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);

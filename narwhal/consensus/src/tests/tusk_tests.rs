@@ -7,10 +7,9 @@ use super::*;
 
 use crate::consensus::ConsensusRound;
 use crate::consensus_utils::*;
-use crate::{metrics::ConsensusMetrics, Consensus, NUM_SHUTDOWN_RECEIVERS};
+use crate::{Consensus, NUM_SHUTDOWN_RECEIVERS};
 #[allow(unused_imports)]
 use fastcrypto::traits::KeyPair;
-use prometheus::Registry;
 #[cfg(test)]
 use std::collections::{BTreeSet, VecDeque};
 use test_utils::CommitteeFixture;
@@ -49,7 +48,6 @@ async fn commit_one() {
     let cert_store = make_certificate_store(&test_utils::temp_dir());
     let gc_depth = 50;
     let tusk = Tusk::new(committee.clone(), store.clone(), gc_depth);
-    let metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
 
     let _consensus_handle = Consensus::spawn(
         committee,
@@ -62,7 +60,6 @@ async fn commit_one() {
         tx_consensus_round_updates,
         tx_output,
         tusk,
-        metrics,
     );
     tokio::spawn(async move { while rx_primary.recv().await.is_some() {} });
 
@@ -116,7 +113,6 @@ async fn dead_node() {
     let cert_store = make_certificate_store(&test_utils::temp_dir());
     let gc_depth = 50;
     let tusk = Tusk::new(committee.clone(), store.clone(), gc_depth);
-    let metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
 
     let _consensus_handle = Consensus::spawn(
         committee,
@@ -129,7 +125,6 @@ async fn dead_node() {
         tx_consensus_round_updates,
         tx_output,
         tusk,
-        metrics,
     );
     tokio::spawn(async move { while rx_primary.recv().await.is_some() {} });
 
@@ -234,7 +229,6 @@ async fn not_enough_support() {
     let cert_store = make_certificate_store(&test_utils::temp_dir());
     let gc_depth = 50;
     let tusk = Tusk::new(committee.clone(), store.clone(), gc_depth);
-    let metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
 
     let _consensus_handle = Consensus::spawn(
         committee,
@@ -247,7 +241,6 @@ async fn not_enough_support() {
         tx_consensus_round_updates,
         tx_output,
         tusk,
-        metrics,
     );
     tokio::spawn(async move { while rx_primary.recv().await.is_some() {} });
 
@@ -323,7 +316,6 @@ async fn missing_leader() {
     let cert_store = make_certificate_store(&test_utils::temp_dir());
     let gc_depth = 50;
     let tusk = Tusk::new(committee.clone(), store.clone(), gc_depth);
-    let metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
 
     let _consensus_handle = Consensus::spawn(
         committee,
@@ -336,7 +328,6 @@ async fn missing_leader() {
         tx_consensus_round_updates,
         tx_output,
         tusk,
-        metrics,
     );
     tokio::spawn(async move { while rx_primary.recv().await.is_some() {} });
 
@@ -385,7 +376,6 @@ async fn restart_with_new_committee() {
         let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
         let store = make_consensus_store(&test_utils::temp_dir());
         let cert_store = make_certificate_store(&test_utils::temp_dir());
-        let metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
         let gc_depth = 50;
         let tusk = Tusk::new(committee.clone(), store.clone(), gc_depth);
 
@@ -400,7 +390,6 @@ async fn restart_with_new_committee() {
             tx_consensus_round_updates,
             tx_output,
             tusk,
-            metrics.clone(),
         );
         tokio::spawn(async move { while rx_primary.recv().await.is_some() {} });
 

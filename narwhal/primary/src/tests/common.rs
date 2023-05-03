@@ -52,17 +52,10 @@ pub fn create_db_stores() -> (HeaderStore, CertificateStore, PayloadStore) {
             certificate_map,
             certificate_digest_by_round_map,
             certificate_digest_by_origin_map,
-            CertificateStoreCache::new(NonZeroUsize::new(100).unwrap(), None),
+            CertificateStoreCache::new(NonZeroUsize::new(100).unwrap()),
         ),
         PayloadStore::new(payload_map),
     )
-}
-
-pub fn create_test_vote_store() -> Store<PublicKey, VoteInfo> {
-    // Create a new test store.
-    let rocksdb = rocks::open_cf(temp_dir(), None, &[VOTES_CF]).expect("Failed creating database");
-    let votes_map = reopen!(&rocksdb, VOTES_CF;<PublicKey, VoteInfo>);
-    Store::new(votes_map)
 }
 
 #[must_use]

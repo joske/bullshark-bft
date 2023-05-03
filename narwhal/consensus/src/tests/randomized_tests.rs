@@ -5,11 +5,9 @@ use crate::consensus::ConsensusProtocol;
 use crate::consensus::ConsensusState;
 use crate::consensus_utils::make_consensus_store;
 use crate::consensus_utils::NUM_SUB_DAGS_PER_SCHEDULE;
-use crate::metrics::ConsensusMetrics;
 use config::{Authority, AuthorityIdentifier, Committee, Stake};
 use fastcrypto::hash::Hash;
 use fastcrypto::hash::HashFunction;
-use prometheus::Registry;
 use rand::distributions::Bernoulli;
 use rand::distributions::Distribution;
 use rand::prelude::SliceRandom;
@@ -19,7 +17,6 @@ use rand::SeedableRng;
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
-use std::sync::Arc;
 use test_utils::mock_certificate_with_rand;
 use test_utils::CommitteeFixture;
 #[allow(unused_imports)]
@@ -422,12 +419,10 @@ fn generate_and_run_execution_plans(
         }
 
         // Now create a new Bullshark engine
-        let metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
-        let mut state = ConsensusState::new(metrics.clone(), gc_depth);
+        let mut state = ConsensusState::new(gc_depth);
         let mut bullshark = Bullshark::new(
             committee.clone(),
             store.clone(),
-            metrics.clone(),
             NUM_SUB_DAGS_PER_SCHEDULE,
         );
 

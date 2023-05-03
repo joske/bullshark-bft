@@ -11,6 +11,8 @@ use test_utils::{temp_dir, CommitteeFixture};
 use tokio::sync::watch;
 
 use crate::bullshark::Bullshark;
+use crate::consensus::ConsensusRound;
+use crate::consensus_utils::NUM_SUB_DAGS_PER_SCHEDULE;
 use crate::Consensus;
 use crate::NUM_SHUTDOWN_RECEIVERS;
 use types::{
@@ -32,7 +34,7 @@ async fn test_consensus_recovery_with_bullshark() {
     let _guard = setup_tracing();
 
     // GIVEN
-    let storage = NodeStorage::reopen(temp_dir(), None);
+    let storage = NodeStorage::reopen(temp_dir());
 
     let consensus_store = storage.consensus_store;
     let certificate_store = storage.certificate_store;
@@ -60,7 +62,11 @@ async fn test_consensus_recovery_with_bullshark() {
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
 
     let gc_depth = 50;
-    let bullshark = Bullshark::new(committee.clone(), consensus_store.clone(), gc_depth);
+    let bullshark = Bullshark::new(
+        committee.clone(),
+        consensus_store.clone(),
+        NUM_SUB_DAGS_PER_SCHEDULE,
+    );
 
     let consensus_handle = Consensus::spawn(
         committee.clone(),
@@ -144,12 +150,16 @@ async fn test_consensus_recovery_with_bullshark() {
     let (tx_consensus_round_updates, _rx_consensus_round_updates) =
         watch::channel(ConsensusRound::default());
 
-    let storage = NodeStorage::reopen(temp_dir(), None);
+    let storage = NodeStorage::reopen(temp_dir());
 
     let consensus_store = storage.consensus_store;
     let certificate_store = storage.certificate_store;
 
-    let bullshark = Bullshark::new(committee.clone(), consensus_store.clone(), gc_depth);
+    let bullshark = Bullshark::new(
+        committee.clone(),
+        consensus_store.clone(),
+        NUM_SUB_DAGS_PER_SCHEDULE,
+    );
 
     let consensus_handle = Consensus::spawn(
         committee.clone(),
@@ -212,7 +222,11 @@ async fn test_consensus_recovery_with_bullshark() {
     let (tx_consensus_round_updates, _rx_consensus_round_updates) =
         watch::channel(ConsensusRound::default());
 
-    let bullshark = Bullshark::new(committee.clone(), consensus_store.clone(), gc_depth);
+    let bullshark = Bullshark::new(
+        committee.clone(),
+        consensus_store.clone(),
+        NUM_SUB_DAGS_PER_SCHEDULE,
+    );
 
     let _consensus_handle = Consensus::spawn(
         committee.clone(),

@@ -1,10 +1,11 @@
+use std::sync::Arc;
+
 // Copyright (c) 2021, Facebook, Inc. and its affiliates
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 use super::*;
 
 use crate::NUM_SHUTDOWN_RECEIVERS;
-use prometheus::Registry;
 use test_utils::{create_batch_store, transaction};
 use types::MockWorkerToPrimary;
 use types::PreSubscribedBroadcastSender;
@@ -20,7 +21,6 @@ async fn make_batch() {
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_batch_maker, rx_batch_maker) = test_utils::test_channel!(1);
     let (tx_quorum_waiter, mut rx_quorum_waiter) = test_utils::test_channel!(1);
-    let node_metrics = WorkerMetrics::new(&Registry::new());
 
     // Mock the primary client to always succeed.
     let mut mock_server = MockWorkerToPrimary::new();
@@ -39,7 +39,6 @@ async fn make_batch() {
         tx_shutdown.subscribe(),
         rx_batch_maker,
         tx_quorum_waiter,
-        Arc::new(node_metrics),
         client,
         store.clone(),
     );
@@ -75,7 +74,6 @@ async fn batch_timeout() {
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_batch_maker, rx_batch_maker) = test_utils::test_channel!(1);
     let (tx_quorum_waiter, mut rx_quorum_waiter) = test_utils::test_channel!(1);
-    let node_metrics = WorkerMetrics::new(&Registry::new());
 
     // Mock the primary client to always succeed.
     let mut mock_server = MockWorkerToPrimary::new();
@@ -94,7 +92,6 @@ async fn batch_timeout() {
         tx_shutdown.subscribe(),
         rx_batch_maker,
         tx_quorum_waiter,
-        Arc::new(node_metrics),
         client,
         store.clone(),
     );

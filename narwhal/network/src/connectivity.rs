@@ -284,14 +284,6 @@ mod tests {
         let mut labels = HashMap::new();
         let peer_2_str = format!("{peer_2}");
         labels.insert("peer_id", peer_2_str.as_str());
-        assert_ne!(
-            metrics
-                .network_peer_rtt
-                .get_metric_with(&labels)
-                .unwrap()
-                .get(),
-            0
-        );
         assert_eq!(
             *statuses.get(&peer_2).unwrap().value(),
             ConnectionStatus::Connected
@@ -326,24 +318,6 @@ mod tests {
             *statuses.get(&peer_3).unwrap().value(),
             ConnectionStatus::Disconnected
         );
-    }
-
-    async fn assert_network_peers(metrics: NetworkConnectionMetrics, value: i64) {
-        let m = metrics.clone();
-        timeout(Duration::from_secs(5), async move {
-            while m.network_peers.get() != value {
-                sleep(Duration::from_millis(500)).await;
-            }
-        })
-        .await
-        .unwrap_or_else(|_| {
-            panic!(
-                "Timeout while waiting for connectivity results for value {}",
-                value
-            )
-        });
-
-        assert_eq!(metrics.network_peers.get(), value);
     }
 
     fn build_network() -> anyhow::Result<Network> {

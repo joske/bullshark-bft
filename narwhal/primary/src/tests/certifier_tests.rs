@@ -10,7 +10,6 @@ use crypto::KeyPair as DefinedKeyPair;
 use fastcrypto::traits::KeyPair;
 use network::client::NetworkClient;
 use primary::NUM_SHUTDOWN_RECEIVERS;
-use prometheus::Registry;
 use rand::{rngs::StdRng, SeedableRng};
 use std::num::NonZeroUsize;
 use test_utils::CommitteeFixture;
@@ -32,7 +31,6 @@ async fn propose_header() {
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let id = primary.id();
     let signature_service = SignatureService::new(primary.keypair().copy());
-    let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (tx_headers, rx_headers) = test_utils::test_channel!(1);
@@ -114,7 +112,6 @@ async fn propose_header() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
-        metrics.clone(),
     ));
 
     let _handle = Certifier::spawn(
@@ -126,7 +123,6 @@ async fn propose_header() {
         signature_service,
         tx_shutdown.subscribe(),
         rx_headers,
-        metrics.clone(),
         network,
     );
 
@@ -149,7 +145,6 @@ async fn propose_header_failure() {
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let authority_id = primary.id();
     let signature_service = SignatureService::new(primary.keypair().copy());
-    let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (tx_headers, rx_headers) = test_utils::test_channel!(1);
@@ -214,7 +209,6 @@ async fn propose_header_failure() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
-        metrics.clone(),
     ));
 
     let _handle = Certifier::spawn(
@@ -226,7 +220,6 @@ async fn propose_header_failure() {
         signature_service,
         tx_shutdown.subscribe(),
         rx_headers,
-        metrics.clone(),
         network,
     );
 
@@ -270,7 +263,6 @@ async fn run_vote_aggregator_with_param(
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let id: AuthorityIdentifier = primary.id();
     let signature_service = SignatureService::new(primary.keypair().copy());
-    let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (tx_headers, rx_headers) = test_utils::test_channel!(1);
@@ -347,7 +339,6 @@ async fn run_vote_aggregator_with_param(
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
-        metrics.clone(),
     ));
     let _handle = Certifier::spawn(
         id,
@@ -358,7 +349,6 @@ async fn run_vote_aggregator_with_param(
         signature_service,
         tx_shutdown.subscribe(),
         rx_headers,
-        metrics.clone(),
         network,
     );
 
@@ -389,7 +379,6 @@ async fn shutdown_core() {
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let id: AuthorityIdentifier = primary.id();
     let signature_service = SignatureService::new(primary.keypair().copy());
-    let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
 
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
@@ -418,10 +407,7 @@ async fn shutdown_core() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
-        metrics.clone(),
     ));
-
-    let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
 
     let own_address = committee
         .primary_by_id(&id)
@@ -444,7 +430,6 @@ async fn shutdown_core() {
         signature_service.clone(),
         tx_shutdown.subscribe(),
         rx_headers,
-        metrics.clone(),
         network.clone(),
     );
 

@@ -3,15 +3,12 @@
 use bytes::Bytes;
 use consensus::bullshark::Bullshark;
 use consensus::consensus::ConsensusRound;
-use consensus::metrics::ConsensusMetrics;
 use consensus::Consensus;
 use fastcrypto::hash::Hash;
 use narwhal_executor::get_restored_consensus_output;
 use narwhal_executor::MockExecutionState;
 use primary::NUM_SHUTDOWN_RECEIVERS;
-use prometheus::Registry;
 use std::collections::BTreeSet;
-use std::sync::Arc;
 use storage::NodeStorage;
 use telemetry_subscribers::TelemetryGuards;
 use test_utils::{cluster::Cluster, temp_dir, CommitteeFixture};
@@ -22,7 +19,7 @@ use types::{Certificate, PreSubscribedBroadcastSender, Round, TransactionProto};
 #[tokio::test]
 async fn test_recovery() {
     // Create storage
-    let storage = NodeStorage::reopen(temp_dir(), None);
+    let storage = NodeStorage::reopen(temp_dir());
 
     let consensus_store = storage.consensus_store;
     let certificate_store = storage.certificate_store;
@@ -58,11 +55,9 @@ async fn test_recovery() {
 
     const GC_DEPTH: Round = 50;
     const NUM_SUB_DAGS_PER_SCHEDULE: u64 = 100;
-    let metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
     let bullshark = Bullshark::new(
         committee.clone(),
         consensus_store.clone(),
-        metrics.clone(),
         NUM_SUB_DAGS_PER_SCHEDULE,
     );
 
@@ -77,7 +72,6 @@ async fn test_recovery() {
         tx_consensus_round_updates,
         tx_output,
         bullshark,
-        metrics,
     );
     tokio::spawn(async move { while rx_primary.recv().await.is_some() {} });
 

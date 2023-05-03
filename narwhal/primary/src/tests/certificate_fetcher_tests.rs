@@ -1,7 +1,9 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 use crate::primary::NUM_SHUTDOWN_RECEIVERS;
-use crate::{certificate_fetcher::CertificateFetcher, core::Core, synchronizer::Synchronizer};
+use crate::{
+    certificate_fetcher::CertificateFetcher, synchronizer::Synchronizer,
+};
 use anemo::async_trait;
 use anyhow::Result;
 use config::{AuthorityIdentifier, Epoch, WorkerId};
@@ -142,7 +144,6 @@ async fn fetch_certificates_basic() {
     let client = NetworkClient::new_from_keypair(&primary.network_keypair());
     let id = primary.id();
     let fake_primary = fixture.authorities().nth(1).unwrap();
-    let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
     let gc_depth: Round = 50;
 
     // kept empty
@@ -157,7 +158,7 @@ async fn fetch_certificates_basic() {
     let (tx_fetch_resp, rx_fetch_resp) = mpsc::channel(1000);
 
     // Create test stores.
-    let store = NodeStorage::reopen(temp_dir(), None);
+    let store = NodeStorage::reopen(temp_dir());
     let certificate_store = store.certificate_store.clone();
     let payload_store = store.payload_store.clone();
 
@@ -181,7 +182,6 @@ async fn fetch_certificates_basic() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
-        metrics.clone(),
     ));
 
     let fake_primary_addr = fake_primary.address().to_anemo_address().unwrap();
@@ -201,8 +201,6 @@ async fn fetch_certificates_basic() {
         .await
         .unwrap();
 
-    let gc_depth: Round = 50;
-
     // Make a certificate fetcher
     let _certificate_fetcher_handle = CertificateFetcher::spawn(
         id,
@@ -212,27 +210,7 @@ async fn fetch_certificates_basic() {
         rx_consensus_round_updates.clone(),
         tx_shutdown.subscribe(),
         rx_certificate_fetcher,
-        tx_certificates_loopback,
-    );
-
-    // Spawn the core.
-    let _core_handle = Core::spawn(
-        name.clone(),
-        fixture.committee(),
-        store.header_store.clone(),
-        certificate_store.clone(),
         synchronizer.clone(),
-        signature_service,
-        rx_consensus_round_updates,
-        rx_narwhal_round_updates,
-        gc_depth,
-        tx_shutdown.subscribe(),
-        rx_certificates,
-        rx_certificates_loopback,
-        rx_headers,
-        tx_consensus,
-        tx_parents,
-        client_network,
     );
 
     // Generate headers and certificates in successive rounds

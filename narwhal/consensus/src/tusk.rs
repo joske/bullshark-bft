@@ -177,9 +177,7 @@ impl Tusk {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::metrics::ConsensusMetrics;
     use arc_swap::ArcSwap;
-    use prometheus::Registry;
     use rand::Rng;
     use std::collections::BTreeSet;
     use storage::NodeStorage;
@@ -204,11 +202,9 @@ mod tests {
             test_utils::make_optimal_certificates(&committee, 1..=rounds, &genesis, &keys);
 
         let store_path = test_utils::temp_dir();
-        let store = NodeStorage::reopen(&store_path, None);
+        let store = NodeStorage::reopen(&store_path);
 
-        let metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
-
-        let mut state = ConsensusState::new(metrics, gc_depth);
+        let mut state = ConsensusState::new(gc_depth);
         let mut tusk = Tusk::new(committee, store.consensus_store, gc_depth);
         for certificate in certificates {
             tusk.process_certificate(&mut state, certificate).unwrap();
@@ -249,11 +245,9 @@ mod tests {
         let arc_committee = Arc::new(ArcSwap::from_pointee(committee));
 
         let store_path = test_utils::temp_dir();
-        let store = NodeStorage::reopen(&store_path, None);
+        let store = NodeStorage::reopen(&store_path);
 
-        let metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
-
-        let mut state = ConsensusState::new(metrics, gc_depth);
+        let mut state = ConsensusState::new(gc_depth);
         let mut tusk = Tusk::new(
             (**arc_committee.load()).clone(),
             store.consensus_store,
