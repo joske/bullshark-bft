@@ -651,6 +651,7 @@ impl Core {
             Err(
                 e @ DagError::TooOld(..)
                 | e @ DagError::VoteTooOld(..)
+                | e @ DagError::Canceled
                 | e @ DagError::InvalidEpoch { .. },
             ) => debug!("{e}"),
             Err(e) => warn!("{e}"),
