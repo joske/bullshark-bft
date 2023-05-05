@@ -3,7 +3,7 @@
 use crate::{errors::SubscriberResult, ExecutionState};
 
 use config::{Committee, SharedWorkerCache, WorkerId};
-use crypto::{NetworkPublicKey, PublicKey};
+use crypto::{Hash, NetworkPublicKey, PublicKey};
 
 use futures::stream::FuturesOrdered;
 use futures::FutureExt;
@@ -16,7 +16,6 @@ use std::{sync::Arc, time::Duration, vec};
 use tokio::sync::mpsc;
 
 use async_trait::async_trait;
-use fastcrypto::hash::Hash;
 use rand::prelude::SliceRandom;
 use rand::rngs::ThreadRng;
 use tokio::time::Instant;
@@ -441,8 +440,7 @@ impl SubscriberNetwork for SubscriberNetworkImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crypto::NetworkKeyPair;
-    use fastcrypto::hash::Hash;
+    use crypto::{Hash, NetworkKeyPair};
     use fastcrypto::traits::KeyPair;
     use rand::rngs::StdRng;
     use std::collections::HashMap;

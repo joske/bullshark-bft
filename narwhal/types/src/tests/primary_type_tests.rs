@@ -1,24 +1,19 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+use super::UnsignedHeader;
+use crate::{BatchDigest, CertificateDigest, Header, HeaderDigest};
 use config::WorkerId;
-use crypto::{KeyPair, Signature};
-use fastcrypto::{
-    hash::{Digest, Hash},
-    traits::KeyPair as _,
-};
+use crypto::{Digest, Hash, KeyPair};
 use once_cell::sync::OnceCell;
 use proptest::{collection, prelude::*, strategy::Strategy};
-use rand::{rngs::StdRng, SeedableRng};
-use signature::Signer;
-
-use crate::{BatchDigest, CertificateDigest, Header, HeaderDigest};
+use rand::{rngs::StdRng, thread_rng, SeedableRng};
 
 fn arb_keypair() -> impl Strategy<Value = KeyPair> {
     (any::<[u8; 32]>())
         .prop_map(|rand| {
             let mut rng = StdRng::from_seed(rand);
-            KeyPair::generate(&mut rng)
+            KeyPair::new(&mut rng).unwrap()
         })
         .no_shrink()
 }
@@ -38,7 +33,7 @@ fn clean_signed_header(kp: KeyPair) -> impl Strategy<Value = Header> {
 
             let parents = parents.into_iter().collect();
 
-            let header = Header {
+            let header = UnsignedHeader {
                 author: kp.public().clone(),
                 round,
                 epoch,
@@ -46,19 +41,30 @@ fn clean_signed_header(kp: KeyPair) -> impl Strategy<Value = Header> {
                 payload,
                 parents,
                 digest: OnceCell::default(),
-                signature: Signature::default(),
             };
+            let digest = Hash::digest(&header);
+            header.digest.set(digest).unwrap();
+            let pk = &kp.private();
+            let mut rng = thread_rng();
+            let signature = pk
+                .sign_bytes(Digest::from(digest).as_ref(), &mut rng)
+                .unwrap();
             Header {
-                digest: OnceCell::with_value(Hash::digest(&header)),
-                signature: kp.sign(Digest::from(Hash::digest(&header)).as_ref()),
-                ..header
+                author: header.author,
+                round: header.round,
+                epoch: header.epoch,
+                created_at: header.created_at,
+                payload: header.payload,
+                parents: header.parents,
+                digest: header.digest,
+                signature,
             }
         })
 }
 
 fn arb_signed_header(kp: KeyPair) -> impl Strategy<Value = Header> {
     (
-        clean_signed_header(kp.copy()),
+        clean_signed_header(kp.clone()),
         HeaderDigest::arbitrary(),
         any::<usize>(),
     )
@@ -67,7 +73,11 @@ fn arb_signed_header(kp: KeyPair) -> impl Strategy<Value = Header> {
             if naughtiness < 95 {
                 clean_header
             } else if naughtiness < 99 {
-                let signature = kp.sign(Digest::from(random_digest).as_ref());
+                let pk = &kp.private();
+                let mut rng = thread_rng();
+                let signature = pk
+                    .sign_bytes(Digest::from(random_digest).as_ref(), &mut rng)
+                    .unwrap();
                 // naughty: we provide a well-signed random header
                 Header {
                     digest: OnceCell::with_value(random_digest),

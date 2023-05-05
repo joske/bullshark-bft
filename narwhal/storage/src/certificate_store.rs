@@ -1,8 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
-use crypto::PublicKey;
+use crypto::{Hash, PublicKey};
 use dashmap::DashMap;
-use fastcrypto::hash::Hash;
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, VecDeque},
@@ -10,7 +9,7 @@ use std::{
     sync::Arc,
 };
 use store::{
-    rocks::{DBMap, TypedStoreError::RocksDBError},
+    rocks::{be_fix_int_ser, DBMap, TypedStoreError::RocksDBError},
     Map,
 };
 use tokio::sync::{oneshot, oneshot::Sender};
@@ -287,7 +286,11 @@ impl CertificateStore {
         // TODO: Add a more efficient seek method to typed store.
         let mut iter = self.certificate_id_by_round.iter();
         if round > 0 {
-            iter = iter.skip_to(&(round - 1, PublicKey::default()))?;
+            // Using a zeroed key here triggers a search by lexicographical ordering since there
+            // won't be an exact match. The tuple is serialized for the lookup.
+            let low_lex_addr = "aleo1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+            let key = be_fix_int_ser(&(round - 1, low_lex_addr))?;
+            iter = iter.skip_to_bytes(key)?;
         }
 
         let mut digests = Vec::new();
@@ -326,7 +329,9 @@ impl CertificateStore {
         // TODO: Add a more efficient seek method to typed store.
         let mut iter = self.certificate_id_by_round.iter();
         if round > 0 {
-            iter = iter.skip_to(&(round - 1, PublicKey::default()))?;
+            let low_lex_addr = "aleo1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+            let key = be_fix_int_ser(&(round - 1, low_lex_addr))?;
+            iter = iter.skip_to_bytes(key)?;
         }
 
         let mut result = BTreeMap::<Round, Vec<PublicKey>>::new();
@@ -440,8 +445,7 @@ impl CertificateStore {
 #[cfg(test)]
 mod test {
     use crate::certificate_store::CertificateStore;
-    use crypto::PublicKey;
-    use fastcrypto::hash::Hash;
+    use crypto::{Hash, PublicKey};
     use futures::future::join_all;
     use std::{
         collections::{BTreeSet, HashSet},
@@ -488,7 +492,9 @@ mod test {
     fn certificates(rounds: u64) -> Vec<Certificate> {
         let fixture = CommitteeFixture::builder().build();
         let committee = fixture.committee();
-        let mut current_round: Vec<_> = Certificate::genesis(&committee)
+        let primary = fixture.authorities().next().unwrap();
+        let keypair = primary.keypair();
+        let mut current_round: Vec<_> = Certificate::genesis(&committee, keypair.private())
             .into_iter()
             .map(|cert| cert.header)
             .collect();

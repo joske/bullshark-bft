@@ -1,17 +1,7 @@
 ---
-BLS12381AggregateSignature:
-  STRUCT:
-    - sig:
-        OPTION:
-          TUPLEARRAY:
-            CONTENT: U8
-            SIZE: 48
-BLS12381Signature:
-  STRUCT:
-    - sig:
-        TUPLEARRAY:
-          CONTENT: U8
-          SIZE: 48
+AggregateSignature:
+  NEWTYPESTRUCT:
+    SEQ: BYTES
 Batch:
   STRUCT:
     - transactions:
@@ -21,19 +11,20 @@ Batch:
         TYPENAME: Metadata
 BatchDigest:
   NEWTYPESTRUCT:
-    TUPLEARRAY:
-      CONTENT: U8
-      SIZE: 32
+    TYPENAME: Digest
 Certificate:
   STRUCT:
     - header:
         TYPENAME: Header
     - aggregated_signature:
-        TYPENAME: BLS12381AggregateSignature
+        TYPENAME: AggregateSignature
     - signed_authorities: BYTES
     - metadata:
         TYPENAME: Metadata
 CertificateDigest:
+  NEWTYPESTRUCT:
+    TYPENAME: Digest
+Digest:
   NEWTYPESTRUCT:
     TUPLEARRAY:
       CONTENT: U8
@@ -41,9 +32,7 @@ CertificateDigest:
 Header:
   STRUCT:
     - author:
-        TUPLEARRAY:
-          CONTENT: U8
-          SIZE: 96
+        TYPENAME: PublicKey
     - round: U64
     - epoch: U64
     - created_at: U64
@@ -57,16 +46,18 @@ Header:
     - parents:
         SEQ:
           TYPENAME: CertificateDigest
-    - signature:
-        TYPENAME: BLS12381Signature
+    - signature: BYTES
 HeaderDigest:
+  NEWTYPESTRUCT:
+    TYPENAME: Digest
+Metadata:
+  STRUCT:
+    - created_at: U64
+PublicKey:
   NEWTYPESTRUCT:
     TUPLEARRAY:
       CONTENT: U8
       SIZE: 32
-Metadata:
-  STRUCT:
-    - created_at: U64
 ReconfigureNotification:
   ENUM:
     0:
@@ -107,7 +98,5 @@ WorkerSynchronizeMessage:
         SEQ:
           TYPENAME: BatchDigest
     - target:
-        TUPLEARRAY:
-          CONTENT: U8
-          SIZE: 96
+        TYPENAME: PublicKey
 

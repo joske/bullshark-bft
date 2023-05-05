@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{serialized_batch_digest, Batch, Metadata, WorkerBatchMessage};
-use fastcrypto::{
-    encoding::{Encoding, Hex},
-    hash::Hash,
-};
+use crypto::Hash;
+use fastcrypto::encoding::{Encoding, Hex};
 use proptest::arbitrary::Arbitrary;
 use serde_test::{assert_tokens, Token};
 

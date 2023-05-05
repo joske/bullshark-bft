@@ -6,8 +6,7 @@
 
 use crate::{ConsensusError, SequenceNumber};
 use config::Committee;
-use crypto::PublicKey;
-use fastcrypto::hash::Hash;
+use crypto::{Hash, PublicKey};
 use std::{
     cmp::{max, Ordering},
     collections::{BTreeMap, HashMap},
@@ -354,7 +353,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::ConsensusState;
-    use fastcrypto::{bls12381::min_sig::BLS12381KeyPair, traits::KeyPair};
+    use crypto::KeyPair;
     use rand::thread_rng;
     use types::Certificate;
 
@@ -364,9 +363,9 @@ mod tests {
         // nothing in DAG yet
         assert_eq!(state.dag.len(), 0);
         // create 2 keypairs
-        let kp1 = BLS12381KeyPair::generate(&mut thread_rng());
+        let kp1 = KeyPair::new(&mut thread_rng()).unwrap();
         let pub_key1 = kp1.public();
-        let kp2 = BLS12381KeyPair::generate(&mut thread_rng());
+        let kp2 = KeyPair::new(&mut thread_rng()).unwrap();
         let pub_key2 = kp2.public();
 
         // create certs with these key pairs
@@ -414,9 +413,9 @@ mod tests {
     fn test_gc_at_depth_2() {
         let mut state = ConsensusState::new();
         assert_eq!(state.dag.len(), 0);
-        let kp1 = BLS12381KeyPair::generate(&mut thread_rng());
+        let kp1 = KeyPair::new(&mut thread_rng()).unwrap();
         let pub_key1 = kp1.public();
-        let kp2 = BLS12381KeyPair::generate(&mut thread_rng());
+        let kp2 = KeyPair::new(&mut thread_rng()).unwrap();
         let pub_key2 = kp2.public();
         let mut certs = Vec::new();
         for i in 1..=20 {
@@ -445,9 +444,9 @@ mod tests {
     fn test_gc_at_depth_20() {
         let mut state = ConsensusState::new();
         assert_eq!(state.dag.len(), 0);
-        let kp1 = BLS12381KeyPair::generate(&mut thread_rng());
+        let kp1 = KeyPair::new(&mut thread_rng()).unwrap();
         let pub_key1 = kp1.public();
-        let kp2 = BLS12381KeyPair::generate(&mut thread_rng());
+        let kp2 = KeyPair::new(&mut thread_rng()).unwrap();
         let pub_key2 = kp2.public();
         let mut certs = Vec::new();
         for i in 1..=20 {

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use super::*;
 use crate::NUM_SHUTDOWN_RECEIVERS;
-use fastcrypto::traits::KeyPair;
+use crypto::Digest;
 use indexmap::IndexMap;
 use test_utils::{fixture_payload, CommitteeFixture};
 use types::PreSubscribedBroadcastSender;
@@ -14,9 +14,10 @@ async fn propose_empty() {
     let committee = fixture.committee();
     let shared_worker_cache = fixture.shared_worker_cache();
     let primary = fixture.authorities().next().unwrap();
+    let keypair = primary.keypair().clone();
     let name = primary.public_key();
-    let signature_service = SignatureService::new(primary.keypair().copy());
-
+    let signature_service = SignatureService::new(*keypair.private());
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (_tx_parents, rx_parents) = test_utils::test_channel!(1);
     let (_tx_committed_own_headers, rx_committed_own_headers) = test_utils::test_channel!(1);
@@ -42,6 +43,7 @@ async fn propose_empty() {
         /* tx_core */ tx_headers,
         tx_narwhal_round_updates,
         rx_committed_own_headers,
+        genesis_certs,
     );
 
     // Ensure the proposer makes a correct empty header.
@@ -59,7 +61,7 @@ async fn propose_payload_and_repropose_after_n_seconds() {
     let primary = fixture.authorities().next().unwrap();
     let name = primary.public_key();
     let header_resend_delay = Duration::from_secs(3);
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
 
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_parents, rx_parents) = test_utils::test_channel!(1);
@@ -70,6 +72,8 @@ async fn propose_payload_and_repropose_after_n_seconds() {
 
     let max_num_of_batches = 10;
 
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
     // Spawn the proposer.
     let _proposer_handle = Proposer::spawn(
         name.clone(),
@@ -90,13 +94,14 @@ async fn propose_payload_and_repropose_after_n_seconds() {
         /* tx_core */ tx_headers,
         tx_narwhal_round_updates,
         rx_committed_own_headers,
+        genesis_certs,
     );
 
     // Send enough digests for the header payload.
     let mut name_bytes = [0u8; 32];
-    name_bytes.copy_from_slice(&name.as_ref()[..32]);
+    name_bytes.copy_from_slice(&name.to_bytes()[..32]);
 
-    let digest = BatchDigest(name_bytes);
+    let digest = BatchDigest(Digest::new(name_bytes));
     let worker_id = 0;
     let created_at_ts = 0;
     let (tx_ack, rx_ack) = tokio::sync::oneshot::channel();
@@ -181,9 +186,10 @@ async fn equivocation_protection() {
     let shared_worker_cache = fixture.shared_worker_cache();
     let primary = fixture.authorities().next().unwrap();
     let name = primary.public_key();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let keypair = primary.keypair().clone();
+    let signature_service = SignatureService::new(*keypair.private());
     let proposer_store = ProposerStore::new_for_tests();
-
+    let genesis_certs = Certificate::genesis(&committee, keypair.private());
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_parents, rx_parents) = test_utils::test_channel!(1);
     let (tx_our_digests, rx_our_digests) = test_utils::test_channel!(1);
@@ -211,13 +217,14 @@ async fn equivocation_protection() {
         /* tx_core */ tx_headers,
         tx_narwhal_round_updates,
         rx_committed_own_headers,
+        genesis_certs.clone(),
     );
 
     // Send enough digests for the header payload.
     let mut name_bytes = [0u8; 32];
-    name_bytes.copy_from_slice(&name.as_ref()[..32]);
+    name_bytes.copy_from_slice(&name.to_bytes()[..32]);
 
-    let digest = BatchDigest(name_bytes);
+    let digest = BatchDigest(Digest::new(name_bytes));
     let worker_id = 0;
     let created_at_ts = 0;
     let (tx_ack, rx_ack) = tokio::sync::oneshot::channel();
@@ -281,13 +288,14 @@ async fn equivocation_protection() {
         /* tx_core */ tx_headers,
         tx_narwhal_round_updates,
         rx_committed_own_headers,
+        genesis_certs,
     );
 
     // Send enough digests for the header payload.
     let mut name_bytes = [0u8; 32];
-    name_bytes.copy_from_slice(&name.as_ref()[..32]);
+    name_bytes.copy_from_slice(&name.to_bytes()[..32]);
 
-    let digest = BatchDigest(name_bytes);
+    let digest = BatchDigest(Digest::new(name_bytes));
     let worker_id = 0;
     let (tx_ack, rx_ack) = tokio::sync::oneshot::channel();
     tx_our_digests

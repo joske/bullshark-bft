@@ -18,7 +18,8 @@ use anemo_tower::{
 };
 use anemo_tower::{rate_limit, set_header::SetResponseHeaderLayer};
 use config::{Parameters, SharedCommittee, SharedWorkerCache, WorkerId};
-use crypto::{traits::KeyPair as _, NetworkKeyPair, NetworkPublicKey, PublicKey};
+use crypto::{NetworkKeyPair, NetworkPublicKey, PublicKey};
+use fastcrypto::traits::KeyPair;
 use multiaddr::{Multiaddr, Protocol};
 use network::epoch_filter::{AllowedEpoch, EPOCH_HEADER_KEY};
 use network::failpoints::FailpointsMakeCallbackHandler;

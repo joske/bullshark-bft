@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use arc_swap::ArcSwap;
+use crypto::{Digest, Hash};
 use dashmap::DashMap;
 use either::Either;
-use fastcrypto::hash::Digest;
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
 use thiserror::Error;
@@ -16,11 +16,9 @@ use super::{Node, NodeRef, WeakNodeRef};
 /// - `compressible`: a value-derived boolean indicating if that value is, initially, compressible
 ///
 /// The `crypto:Hash` trait bound offers the digest-ibility.
-pub trait Affiliated: fastcrypto::hash::Hash<{ crypto::DIGEST_LENGTH }> {
+pub trait Affiliated: Hash {
     /// Hash pointers to the parents of the current value
-    fn parents(
-        &self,
-    ) -> Vec<<Self as fastcrypto::hash::Hash<{ crypto::DIGEST_LENGTH }>>::TypedDigest>;
+    fn parents(&self) -> Vec<<Self as Hash>::TypedDigest>;
 
     /// Whether the current value should be marked as compressible when first inserted in a Node.
     /// Defaults to a blanket false for all values.
@@ -49,18 +47,15 @@ pub struct NodeDag<T: Affiliated> {
     // Not that we should need to ever serialize this (we'd rather rebuild the Dag from a persistent store)
     // but the way to serialize this in key order is using serde_with and an annotation of:
     // as = "FromInto<std::collections::BTreeMap<T::TypedDigest, Either<WeakNodeRef<T>, NodeRef<T>>>"
-    node_table: DashMap<
-        <T as fastcrypto::hash::Hash<{ crypto::DIGEST_LENGTH }>>::TypedDigest,
-        Either<WeakNodeRef<T>, NodeRef<T>>,
-    >,
+    node_table: DashMap<<T as Hash>::TypedDigest, Either<WeakNodeRef<T>, NodeRef<T>>>,
 }
 
 #[derive(Debug, Error, Eq, PartialEq)]
 pub enum NodeDagError {
     #[error("No vertex known by these digests: {0:?}")]
-    UnknownDigests(Vec<Digest<{ crypto::DIGEST_LENGTH }>>),
+    UnknownDigests(Vec<Digest>),
     #[error("The vertex known by this digest was dropped: {0}")]
-    DroppedDigest(Digest<{ crypto::DIGEST_LENGTH }>),
+    DroppedDigest(Digest),
 }
 
 impl<T: Affiliated> NodeDag<T> {
@@ -259,10 +254,8 @@ impl<T: Affiliated> Default for NodeDag<T> {
 mod tests {
     use std::{collections::HashSet, fmt};
 
-    use fastcrypto::{
-        encoding::{Encoding, Hex},
-        hash::{Digest, Hash},
-    };
+    use crypto::{Digest, Hash};
+    use fastcrypto::encoding::{Encoding, Hex};
     use proptest::prelude::*;
 
     use super::*;
@@ -270,7 +263,7 @@ mod tests {
     #[derive(Clone, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Copy)]
     pub struct TestDigest([u8; crypto::DIGEST_LENGTH]);
 
-    impl From<TestDigest> for Digest<{ crypto::DIGEST_LENGTH }> {
+    impl From<TestDigest> for Digest {
         fn from(hd: TestDigest) -> Self {
             Digest::new(hd.0)
         }
@@ -295,7 +288,7 @@ mod tests {
         digest: TestDigest,
     }
 
-    impl Hash<{ crypto::DIGEST_LENGTH }> for TestNode {
+    impl Hash for TestNode {
         type TypedDigest = TestDigest;
 
         fn digest(&self) -> Self::TypedDigest {
@@ -304,7 +297,7 @@ mod tests {
     }
 
     impl Affiliated for TestNode {
-        fn parents(&self) -> Vec<<Self as Hash<{ crypto::DIGEST_LENGTH }>>::TypedDigest> {
+        fn parents(&self) -> Vec<<Self as Hash>::TypedDigest> {
             self.parents.clone()
         }
 
@@ -391,7 +384,7 @@ mod tests {
                 }
             });
             let mut nu_dag = NodeDag::new();
-            let random_parents_digests: Vec<Digest<{crypto::DIGEST_LENGTH}>> = random_parents.iter().map(|digest| (*digest).into()).collect();
+            let random_parents_digests: Vec<Digest> = random_parents.iter().map(|digest| (*digest).into()).collect();
             let expected_error = NodeDagError::UnknownDigests(random_parents_digests);
             for node in nodes {
                 assert_eq!(expected_error, nu_dag.try_insert(node).err().unwrap())

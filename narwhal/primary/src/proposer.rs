@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::NetworkModel;
 use config::{Committee, Epoch, WorkerId};
-use crypto::{PublicKey, Signature};
-use fastcrypto::{hash::Hash as _, signature_service::SignatureService};
+use crypto::{Hash as _, PublicKey, SignatureService};
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use storage::ProposerStore;
@@ -50,7 +49,7 @@ pub struct Proposer {
     /// The committee information.
     committee: Committee,
     /// Service to sign headers.
-    signature_service: SignatureService<Signature, { crypto::DIGEST_LENGTH }>,
+    signature_service: SignatureService,
     /// The threshold number of batches that can trigger
     /// a header creation. When there are available at least
     /// `header_num_of_batches_threshold` batches we are ok
@@ -105,7 +104,7 @@ impl Proposer {
     pub fn spawn(
         name: PublicKey,
         committee: Committee,
-        signature_service: SignatureService<Signature, { crypto::DIGEST_LENGTH }>,
+        signature_service: SignatureService,
         proposer_store: ProposerStore,
         header_num_of_batches_threshold: usize,
         max_header_num_of_batches: usize,
@@ -119,8 +118,8 @@ impl Proposer {
         tx_headers: Sender<Header>,
         tx_narwhal_round_updates: watch::Sender<Round>,
         rx_committed_own_headers: Receiver<(Round, Vec<Round>)>,
+        genesis_certs: Vec<Certificate>,
     ) -> JoinHandle<()> {
-        let genesis = Certificate::genesis(&committee);
         tokio::spawn(async move {
             Self {
                 name,
@@ -139,7 +138,7 @@ impl Proposer {
                 tx_narwhal_round_updates,
                 proposer_store,
                 round: 0,
-                last_parents: genesis,
+                last_parents: genesis_certs,
                 last_leader: None,
                 digests: Vec::with_capacity(2 * max_header_num_of_batches),
                 proposed_headers: BTreeMap::new(),

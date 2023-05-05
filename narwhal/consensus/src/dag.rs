@@ -1,10 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use config::Committee;
-use crypto::PublicKey;
+use crypto::{Hash, PublicKey};
 use dag::node_dag::{NodeDag, NodeDagError};
-use fastcrypto::hash::Hash;
 use std::{
     borrow::Borrow,
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
@@ -102,12 +100,12 @@ enum DagCommand {
 
 impl InnerDag {
     fn new(
-        committee: &Committee,
         rx_primary: mpsc::Receiver<Certificate>,
         rx_commands: Receiver<DagCommand>,
         dag: NodeDag<Certificate>,
         vertices: RwLock<BTreeMap<(PublicKey, Round), CertificateDigest>>,
         rx_shutdown: ConditionalBroadcastReceiver,
+        genesis_certs: Vec<Certificate>,
     ) -> Self {
         let mut idg = InnerDag {
             rx_primary,
@@ -116,8 +114,8 @@ impl InnerDag {
             vertices,
             rx_shutdown,
         };
-        let genesis = Certificate::genesis(committee);
-        for cert in genesis.into_iter() {
+
+        for cert in genesis_certs.into_iter() {
             idg.insert(cert)
                 .expect("Insertion of the certificates produced by genesis should be leaves!");
         }
@@ -333,18 +331,18 @@ impl InnerDag {
 
 impl Dag {
     pub fn new(
-        committee: &Committee,
         rx_primary: mpsc::Receiver<Certificate>,
         rx_shutdown: ConditionalBroadcastReceiver,
+        genesis_certs: Vec<Certificate>,
     ) -> (JoinHandle<()>, Self) {
         let (tx_commands, rx_commands) = tokio::sync::mpsc::channel(DEFAULT_CHANNEL_SIZE);
         let mut idg = InnerDag::new(
-            committee,
             rx_primary,
             rx_commands,
             /* dag */ NodeDag::new(),
             /* vertices */ RwLock::new(BTreeMap::new()),
             rx_shutdown,
+            genesis_certs,
         );
 
         let handle = tokio::spawn(async move { idg.run().await });

@@ -6,11 +6,9 @@ use arc_swap::ArcSwap;
 use bincode::Options;
 use config::{Parameters, WorkerId};
 use consensus::dag::Dag;
-use crypto::PublicKey;
+use crypto::{Hash, PublicKey, SignatureService};
 use fastcrypto::{
     encoding::{Encoding, Hex},
-    hash::Hash,
-    signature_service::SignatureService,
     traits::KeyPair,
 };
 use itertools::Itertools;
@@ -48,7 +46,7 @@ async fn get_network_peers_from_admin_server() {
     let worker_cache = fixture.shared_worker_cache();
     let authority_1 = fixture.authorities().next().unwrap();
     let name_1 = authority_1.public_key();
-    let signer_1 = authority_1.keypair().copy();
+    let signer_1 = authority_1.keypair().clone();
 
     let worker_id = 0;
     let worker_1_keypair = authority_1.worker(worker_id).keypair().copy();
@@ -61,6 +59,9 @@ async fn get_network_peers_from_admin_server() {
     let (_tx_consensus_round_updates, rx_consensus_round_updates) = watch::channel(0);
 
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
+    let primary = fixture.authorities().next().unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&(committee).clone(), keypair.private());
 
     // Spawn Primary 1
     Primary::spawn(
@@ -80,12 +81,18 @@ async fn get_network_peers_from_admin_server() {
         rx_consensus_round_updates,
         /* dag */
         Some(Arc::new(
-            Dag::new(&committee, rx_new_certificates, tx_shutdown.subscribe()).1,
+            Dag::new(
+                rx_new_certificates,
+                tx_shutdown.subscribe(),
+                genesis_certs.clone(),
+            )
+            .1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
         tx_feedback,
         None,
+        genesis_certs.clone(),
     );
 
     // Wait for tasks to start
@@ -145,7 +152,7 @@ async fn get_network_peers_from_admin_server() {
 
     let authority_2 = fixture.authorities().nth(1).unwrap();
     let name_2 = authority_2.public_key();
-    let signer_2 = authority_2.keypair().copy();
+    let signer_2 = authority_2.keypair().clone();
 
     let primary_2_parameters = Parameters {
         batch_size: 200, // Two transactions.
@@ -157,6 +164,8 @@ async fn get_network_peers_from_admin_server() {
     let (tx_feedback_2, rx_feedback_2) = mpsc::channel(CHANNEL_CAPACITY);
     let (_tx_consensus_round_updates, rx_consensus_round_updates) = watch::channel(0);
     let mut tx_shutdown_2 = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     // Spawn Primary 2
     Primary::spawn(
@@ -176,12 +185,18 @@ async fn get_network_peers_from_admin_server() {
         rx_consensus_round_updates,
         /* dag */
         Some(Arc::new(
-            Dag::new(&committee, rx_new_certificates_2, tx_shutdown.subscribe()).1,
+            Dag::new(
+                rx_new_certificates_2,
+                tx_shutdown.subscribe(),
+                genesis_certs.clone(),
+            )
+            .1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown_2,
         tx_feedback_2,
         None,
+        genesis_certs,
     );
 
     // Wait for tasks to start
@@ -243,7 +258,7 @@ async fn test_request_vote_missing_parents() {
     let name = author.public_key();
     let worker_cache = fixture.shared_worker_cache();
     let primary = fixture.authorities().next().unwrap();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
     let network = test_utils::test_network(primary.network_keypair(), primary.address());
 
     let (header_store, certificate_store, payload_store) = create_db_stores();
@@ -251,6 +266,8 @@ async fn test_request_vote_missing_parents() {
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (_tx_consensus_round_updates, rx_consensus_round_updates) = watch::channel(1u64);
     let (tx_narwhal_round_updates, rx_narwhal_round_updates) = watch::channel(1u64);
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&fixture.committee(), keypair.private());
 
     let synchronizer = Arc::new(Synchronizer::new(
         name.clone(),
@@ -261,6 +278,7 @@ async fn test_request_vote_missing_parents() {
         tx_certificate_fetcher,
         rx_consensus_round_updates,
         None,
+        genesis_certs.clone(),
     ));
     let handler = PrimaryReceiverHandler {
         name,
@@ -274,6 +292,7 @@ async fn test_request_vote_missing_parents() {
         payload_store: payload_store.clone(),
         vote_digest_store: crate::common::create_test_vote_store(),
         rx_narwhal_round_updates,
+        genesis_certs,
     };
 
     // Make some mock certificates that are parents of our new header.
@@ -284,8 +303,7 @@ async fn test_request_vote_missing_parents() {
         let header = author
             .header_builder(&fixture.committee())
             .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 0, 0)
-            .build(author.keypair())
-            .unwrap();
+            .build(author.keypair().private());
 
         let certificate = fixture.certificate(&header);
         let digest = certificate.clone().digest();
@@ -317,8 +335,7 @@ async fn test_request_vote_missing_parents() {
                 .collect(),
         )
         .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 0, 0)
-        .build(author.keypair())
-        .unwrap();
+        .build(author.keypair().private());
     let mut request = anemo::Request::new(RequestVoteRequest {
         header: test_header.clone(),
         parents: Vec::new(),
@@ -407,7 +424,7 @@ async fn test_request_vote_missing_batches() {
     let primary = fixture.authorities().next().unwrap();
     let name = primary.public_key();
     let author = fixture.authorities().nth(2).unwrap();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
     let network = test_utils::test_network(primary.network_keypair(), primary.address());
 
     let (header_store, certificate_store, payload_store) = create_db_stores();
@@ -415,6 +432,9 @@ async fn test_request_vote_missing_batches() {
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (_tx_consensus_round_updates, rx_consensus_round_updates) = watch::channel(1u64);
     let (_tx_narwhal_round_updates, rx_narwhal_round_updates) = watch::channel(1u64);
+
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&fixture.committee(), keypair.private());
 
     let synchronizer = Arc::new(Synchronizer::new(
         name.clone(),
@@ -425,6 +445,7 @@ async fn test_request_vote_missing_batches() {
         tx_certificate_fetcher,
         rx_consensus_round_updates,
         None,
+        genesis_certs.clone(),
     ));
     let handler = PrimaryReceiverHandler {
         name: name.clone(),
@@ -438,6 +459,7 @@ async fn test_request_vote_missing_batches() {
         payload_store: payload_store.clone(),
         vote_digest_store: crate::common::create_test_vote_store(),
         rx_narwhal_round_updates,
+        genesis_certs,
     };
 
     // Make some mock certificates that are parents of our new header.
@@ -446,8 +468,7 @@ async fn test_request_vote_missing_batches() {
         let header = primary
             .header_builder(&fixture.committee())
             .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 0, 0)
-            .build(primary.keypair())
-            .unwrap();
+            .build(primary.keypair().private());
 
         let certificate = fixture.certificate(&header);
         let digest = certificate.clone().digest();
@@ -463,8 +484,7 @@ async fn test_request_vote_missing_batches() {
         .round(2)
         .parents(certificates.keys().cloned().collect())
         .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 1, 0)
-        .build(author.keypair())
-        .unwrap();
+        .build(author.keypair().private());
     let test_digests: HashSet<_> = test_header
         .payload
         .iter()
@@ -523,7 +543,7 @@ async fn test_request_vote_already_voted() {
     let primary = fixture.authorities().next().unwrap();
     let name = primary.public_key();
     let author = fixture.authorities().nth(2).unwrap();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
     let network = test_utils::test_network(primary.network_keypair(), primary.address());
 
     let (header_store, certificate_store, payload_store) = create_db_stores();
@@ -531,6 +551,9 @@ async fn test_request_vote_already_voted() {
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (_tx_consensus_round_updates, rx_consensus_round_updates) = watch::channel(1u64);
     let (_tx_narwhal_round_updates, rx_narwhal_round_updates) = watch::channel(1u64);
+
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&fixture.committee(), keypair.private());
 
     let synchronizer = Arc::new(Synchronizer::new(
         name.clone(),
@@ -541,6 +564,7 @@ async fn test_request_vote_already_voted() {
         tx_certificate_fetcher,
         rx_consensus_round_updates,
         None,
+        genesis_certs.clone(),
     ));
     let handler = PrimaryReceiverHandler {
         name: name.clone(),
@@ -554,6 +578,7 @@ async fn test_request_vote_already_voted() {
         payload_store: payload_store.clone(),
         vote_digest_store: crate::common::create_test_vote_store(),
         rx_narwhal_round_updates,
+        genesis_certs,
     };
 
     // Make some mock certificates that are parents of our new header.
@@ -562,8 +587,7 @@ async fn test_request_vote_already_voted() {
         let header = primary
             .header_builder(&fixture.committee())
             .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 0, 0)
-            .build(primary.keypair())
-            .unwrap();
+            .build(primary.keypair().private());
 
         let certificate = fixture.certificate(&header);
         let digest = certificate.clone().digest();
@@ -598,8 +622,7 @@ async fn test_request_vote_already_voted() {
         .round(2)
         .parents(certificates.keys().cloned().collect())
         .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 1, 0)
-        .build(author.keypair())
-        .unwrap();
+        .build(author.keypair().private());
     let mut request = anemo::Request::new(RequestVoteRequest {
         header: test_header.clone(),
         parents: Vec::new(),
@@ -641,8 +664,7 @@ async fn test_request_vote_already_voted() {
         .round(2)
         .parents(certificates.keys().cloned().collect())
         .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 1, 0)
-        .build(author.keypair())
-        .unwrap();
+        .build(author.keypair().private());
     let mut request = anemo::Request::new(RequestVoteRequest {
         header: test_header.clone(),
         parents: Vec::new(),
@@ -673,13 +695,16 @@ async fn test_fetch_certificates_handler() {
     let name = fixture.authorities().next().unwrap().public_key();
     let worker_cache = fixture.shared_worker_cache();
     let primary = fixture.authorities().next().unwrap();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
 
     let (header_store, certificate_store, payload_store) = create_db_stores();
     let (tx_certificates, _) = test_utils::test_channel!(1);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (_tx_consensus_round_updates, rx_consensus_round_updates) = watch::channel(0u64);
     let (_tx_narwhal_round_updates, rx_narwhal_round_updates) = watch::channel(1u64);
+
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&fixture.committee(), keypair.private());
 
     let synchronizer = Arc::new(Synchronizer::new(
         name.clone(),
@@ -690,6 +715,7 @@ async fn test_fetch_certificates_handler() {
         tx_certificate_fetcher,
         rx_consensus_round_updates.clone(),
         None,
+        genesis_certs.clone(),
     ));
     let handler = PrimaryReceiverHandler {
         name,
@@ -703,9 +729,10 @@ async fn test_fetch_certificates_handler() {
         payload_store: payload_store.clone(),
         vote_digest_store: crate::common::create_test_vote_store(),
         rx_narwhal_round_updates,
+        genesis_certs,
     };
 
-    let mut current_round: Vec<_> = Certificate::genesis(&fixture.committee())
+    let mut current_round: Vec<_> = Certificate::genesis(&fixture.committee(), keypair.private())
         .into_iter()
         .map(|cert| cert.header)
         .collect();
@@ -832,13 +859,16 @@ async fn test_process_payload_availability_success() {
     let name = author.public_key();
     let worker_cache = fixture.shared_worker_cache();
     let primary = fixture.authorities().next().unwrap();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
 
     let (header_store, certificate_store, payload_store) = create_db_stores();
     let (tx_certificates, _) = test_utils::test_channel!(1);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (_tx_consensus_round_updates, rx_consensus_round_updates) = watch::channel(0u64);
     let (_tx_narwhal_round_updates, rx_narwhal_round_updates) = watch::channel(1u64);
+
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&fixture.committee(), keypair.private());
 
     let synchronizer = Arc::new(Synchronizer::new(
         name.clone(),
@@ -849,6 +879,7 @@ async fn test_process_payload_availability_success() {
         tx_certificate_fetcher,
         rx_consensus_round_updates,
         None,
+        genesis_certs.clone(),
     ));
     let handler = PrimaryReceiverHandler {
         name,
@@ -862,6 +893,7 @@ async fn test_process_payload_availability_success() {
         payload_store: payload_store.clone(),
         vote_digest_store: crate::common::create_test_vote_store(),
         rx_narwhal_round_updates,
+        genesis_certs,
     };
 
     // GIVEN some mock certificates
@@ -872,8 +904,7 @@ async fn test_process_payload_availability_success() {
         let header = author
             .header_builder(&fixture.committee())
             .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 0, 0)
-            .build(author.keypair())
-            .unwrap();
+            .build(author.keypair().private());
 
         let certificate = fixture.certificate(&header);
         let digest = certificate.clone().digest();
@@ -973,13 +1004,16 @@ async fn test_process_payload_availability_when_failures() {
     let name = author.public_key();
     let worker_cache = fixture.shared_worker_cache();
     let primary = fixture.authorities().next().unwrap();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
 
     let (header_store, _, _) = create_db_stores();
     let (tx_certificates, _) = test_utils::test_channel!(1);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (_tx_consensus_round_updates, rx_consensus_round_updates) = watch::channel(0u64);
     let (_tx_narwhal_round_updates, rx_narwhal_round_updates) = watch::channel(1u64);
+
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee, keypair.private());
 
     let synchronizer = Arc::new(Synchronizer::new(
         name.clone(),
@@ -990,6 +1024,7 @@ async fn test_process_payload_availability_when_failures() {
         tx_certificate_fetcher,
         rx_consensus_round_updates,
         None,
+        genesis_certs.clone(),
     ));
     let handler = PrimaryReceiverHandler {
         name,
@@ -1003,6 +1038,7 @@ async fn test_process_payload_availability_when_failures() {
         payload_store: payload_store.clone(),
         vote_digest_store: crate::common::create_test_vote_store(),
         rx_narwhal_round_updates,
+        genesis_certs,
     };
 
     // AND some mock certificates
@@ -1011,8 +1047,7 @@ async fn test_process_payload_availability_when_failures() {
         let header = author
             .header_builder(&committee)
             .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 0, 0)
-            .build(author.keypair())
-            .unwrap();
+            .build(author.keypair().private());
 
         let certificate = fixture.certificate(&header);
         let digest = certificate.clone().digest();
@@ -1058,11 +1093,12 @@ async fn test_request_vote_created_at_in_future() {
         .randomize_ports(true)
         .committee_size(NonZeroUsize::new(4).unwrap())
         .build();
+    let committee = fixture.committee();
     let worker_cache = fixture.shared_worker_cache();
     let primary = fixture.authorities().next().unwrap();
     let name = primary.public_key();
     let author = fixture.authorities().nth(2).unwrap();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
     let network = test_utils::test_network(primary.network_keypair(), primary.address());
 
     let (header_store, certificate_store, payload_store) = create_db_stores();
@@ -1070,6 +1106,9 @@ async fn test_request_vote_created_at_in_future() {
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (_tx_consensus_round_updates, rx_consensus_round_updates) = watch::channel(1u64);
     let (_tx_narwhal_round_updates, rx_narwhal_round_updates) = watch::channel(1u64);
+
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     let synchronizer = Arc::new(Synchronizer::new(
         name.clone(),
@@ -1080,6 +1119,7 @@ async fn test_request_vote_created_at_in_future() {
         tx_certificate_fetcher,
         rx_consensus_round_updates,
         None,
+        genesis_certs.clone(),
     ));
     let handler = PrimaryReceiverHandler {
         name: name.clone(),
@@ -1093,6 +1133,7 @@ async fn test_request_vote_created_at_in_future() {
         payload_store: payload_store.clone(),
         vote_digest_store: crate::common::create_test_vote_store(),
         rx_narwhal_round_updates,
+        genesis_certs,
     };
 
     // Make some mock certificates that are parents of our new header.
@@ -1101,8 +1142,7 @@ async fn test_request_vote_created_at_in_future() {
         let header = primary
             .header_builder(&fixture.committee())
             .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 0, 0)
-            .build(primary.keypair())
-            .unwrap();
+            .build(primary.keypair().private());
 
         let certificate = fixture.certificate(&header);
         let digest = certificate.clone().digest();
@@ -1142,8 +1182,7 @@ async fn test_request_vote_created_at_in_future() {
         .parents(certificates.keys().cloned().collect())
         .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 1, 0)
         .created_at(created_at)
-        .build(author.keypair())
-        .unwrap();
+        .build(author.keypair().private());
 
     let mut request = anemo::Request::new(RequestVoteRequest {
         header: test_header.clone(),
@@ -1172,8 +1211,7 @@ async fn test_request_vote_created_at_in_future() {
         .parents(certificates.keys().cloned().collect())
         .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 1, 0)
         .created_at(created_at)
-        .build(author.keypair())
-        .unwrap();
+        .build(author.keypair().private());
 
     let mut request = anemo::Request::new(RequestVoteRequest {
         header: test_header.clone(),

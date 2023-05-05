@@ -20,8 +20,9 @@ use narwhal_node::worker_node::WorkerNode;
 use node::{
     execution_state::SimpleExecutionState,
     keypair_file::{
-        get_key_pair_from_rng, read_authority_keypair_from_file, read_network_keypair_from_file,
-        write_authority_keypair_to_file, write_keypair_to_file, AuthorityKeyPair,
+        get_key_pair_from_rng, get_network_key_pair_from_rng, read_authority_keypair_from_file,
+        read_network_keypair_from_file, write_authority_keypair_to_file, write_keypair_to_file,
+        AuthorityKeyPair,
     },
 };
 use std::sync::Arc;
@@ -103,7 +104,8 @@ async fn main() -> Result<(), eyre::Report> {
         Some(("generate_network_keys", sub_matches)) => {
             let _guard = setup_telemetry(tracing_level, network_tracing_level);
             let network_key_file = sub_matches.value_of("filename").unwrap();
-            let network_keypair: NetworkKeyPair = get_key_pair_from_rng(&mut rand::rngs::OsRng);
+            let network_keypair: NetworkKeyPair =
+                get_network_key_pair_from_rng(&mut rand::rngs::OsRng);
             write_keypair_to_file(&network_keypair, network_key_file).unwrap();
         }
         Some(("get_pub_key", sub_matches)) => {

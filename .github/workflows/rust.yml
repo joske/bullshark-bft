@@ -47,7 +47,7 @@ jobs:
       - uses: taiki-e/install-action@nextest
       - name: cargo test
         run: |
-          cargo nextest run --profile ci
+          cargo nextest run --release --profile ci
       - name: doctests
         run: |
           cargo test --doc

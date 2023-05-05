@@ -3,8 +3,7 @@
 #![allow(clippy::mutable_key_type)]
 
 use crate::{Batch, Certificate, CertificateDigest, Round};
-use crypto::PublicKey;
-use fastcrypto::hash::Hash;
+use crypto::{Hash, PublicKey};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -25,7 +24,7 @@ pub struct ConsensusOutput {
     pub batches: Vec<(Certificate, Vec<Batch>)>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CommittedSubDag {
     /// The sequence of committed certificates.
     pub certificates: Vec<Certificate>,

@@ -3,7 +3,6 @@
 
 use crate::{Batch, BatchDigest};
 
-use fastcrypto::hash::HashFunction;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -58,7 +57,7 @@ pub fn serialized_batch_digest<K: AsRef<[u8]>>(sbm: K) -> Result<BatchDigest, Di
         offset = new_offset;
     }
     Ok(BatchDigest::new(
-        crypto::DefaultHashFunction::digest_iterator(transactions.iter()).into(),
+        crypto::DefaultHashFunction::digest_iterator(transactions.iter()),
     ))
 }
 

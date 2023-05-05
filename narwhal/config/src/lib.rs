@@ -10,8 +10,7 @@
 #![allow(clippy::mutable_key_type)]
 
 use arc_swap::ArcSwap;
-use crypto::{NetworkPublicKey, PublicKey};
-use fastcrypto::traits::EncodeDecodeBase64;
+use crypto::{EncodeDecodeBase64, NetworkPublicKey, PublicKey};
 use multiaddr::Multiaddr;
 use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -82,10 +81,11 @@ pub trait Export: Serialize {
     fn export(&self, path: &str) -> Result<(), ConfigError> {
         let writer = || -> Result<(), std::io::Error> {
             let file = OpenOptions::new().create(true).write(true).open(path)?;
-            let mut writer = BufWriter::new(file);
+            let mut writer = BufWriter::new(&file);
             let data = serde_json::to_string_pretty(self).unwrap();
             writer.write_all(data.as_ref())?;
             writer.write_all(b"\n")?;
+            file.sync_all()?;
             Ok(())
         };
         writer().map_err(|e| ConfigError::ExportError {

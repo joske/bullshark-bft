@@ -5,7 +5,7 @@ use super::*;
 
 use crate::consensus_utils::*;
 use crate::{Consensus, NUM_SHUTDOWN_RECEIVERS};
-use fastcrypto::hash::Hash;
+use crypto::Hash;
 #[allow(unused_imports)]
 use fastcrypto::traits::KeyPair;
 #[cfg(test)]
@@ -23,9 +23,12 @@ use types::PreSubscribedBroadcastSender;
 async fn commit_one() {
     let fixture = CommitteeFixture::builder().build();
     let committee = fixture.committee();
+    let primary = fixture.authorities().nth(1).unwrap();
+    let keypair = primary.keypair().clone();
+
     // Make certificates for rounds 1 and 2.
     let keys: Vec<_> = fixture.authorities().map(|a| a.public_key()).collect();
-    let genesis = Certificate::genesis(&committee)
+    let genesis = Certificate::genesis(&committee, keypair.private())
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();
@@ -95,7 +98,9 @@ async fn dead_node() {
     keys.sort(); // Ensure we don't remove one of the leaders.
     let _ = keys.pop().unwrap();
 
-    let genesis = Certificate::genesis(&committee)
+    let primary = fixture.authorities().nth(1).unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis = Certificate::genesis(&committee, keypair.private())
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();
@@ -161,8 +166,10 @@ async fn not_enough_support() {
     let committee = fixture.committee();
     let mut keys: Vec<_> = fixture.authorities().map(|a| a.public_key()).collect();
     keys.sort();
+    let primary = fixture.authorities().nth(1).unwrap();
+    let keypair = primary.keypair().clone();
 
-    let genesis = Certificate::genesis(&committee)
+    let genesis = Certificate::genesis(&committee, keypair.private())
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();
@@ -286,7 +293,9 @@ async fn missing_leader() {
     let mut keys: Vec<_> = fixture.authorities().map(|a| a.public_key()).collect();
     keys.sort();
 
-    let genesis = Certificate::genesis(&committee)
+    let primary = fixture.authorities().nth(1).unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis = Certificate::genesis(&committee, keypair.private())
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();
@@ -369,8 +378,10 @@ async fn committed_round_after_restart() {
     let keys: Vec<_> = fixture.authorities().map(|a| a.public_key()).collect();
     let epoch = committee.epoch();
 
+    let primary = fixture.authorities().nth(1).unwrap();
+    let keypair = primary.keypair().clone();
     // Make certificates for rounds 1 to 11.
-    let genesis = Certificate::genesis(&committee)
+    let genesis = Certificate::genesis(&committee, keypair.private())
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();
@@ -482,8 +493,10 @@ async fn restart_with_new_committee() {
         );
         tokio::spawn(async move { while rx_primary.recv().await.is_some() {} });
 
+        let primary = fixture.authorities().nth(1).unwrap();
+        let keypair = primary.keypair().clone();
         // Make certificates for rounds 1 and 2.
-        let genesis = Certificate::genesis(&committee)
+        let genesis = Certificate::genesis(&committee, keypair.private())
             .iter()
             .map(|x| x.digest())
             .collect::<BTreeSet<_>>();
