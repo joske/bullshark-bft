@@ -31,7 +31,7 @@ eyre = "0.6.8"
 anemo = { git = "https://github.com/mystenlabs/anemo.git", rev = "0e0ef7054082a6f5a8921688e3d568761bc3be21" }
 anemo-tower = { git = "https://github.com/mystenlabs/anemo.git", rev = "0e0ef7054082a6f5a8921688e3d568761bc3be21" }
 anyhow = "1.0.65"
-axum = "0.6.2"
+axum = "0.6.18"
 axum-server = "0.4.2"
 tower = "0.4.13"
 fail = "0.5.1"
