@@ -48,6 +48,7 @@ structopt = "0.3.26"
 test-utils = { path = "../test-utils", package = "narwhal-test-utils" }
 
 [features]
+default= ["metrics"]
 metrics = ["consensus/metrics", "executor/metrics", "network/metrics", "primary/metrics"]
 benchmark = ["worker/benchmark", "primary/benchmark", "consensus/benchmark"]
 trace_transaction = ["worker/trace_transaction"]
