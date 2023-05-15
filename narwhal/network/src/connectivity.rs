@@ -76,8 +76,7 @@ impl ConnectionMonitor {
 
         // now report the connected peers
         for peer_id in connected_peers.iter() {
-            self.handle_peer_status_change(*peer_id, ConnectionStatus::Connected)
-                .await;
+            self.handle_peer_event(PeerEvent::NewPeer(*peer_id)).await;
         }
 
         let mut connection_stat_collection_interval =
@@ -112,14 +111,7 @@ impl ConnectionMonitor {
                     }
                 }
                 Ok(event) = subscriber.recv() => {
-                    match event {
-                        PeerEvent::NewPeer(peer_id) => {
-                            self.handle_peer_status_change(peer_id, ConnectionStatus::Connected).await;
-                        }
-                        PeerEvent::LostPeer(peer_id, _) => {
-                            self.handle_peer_status_change(peer_id, ConnectionStatus::Disconnected).await;
-                        }
-                    }
+                    self.handle_peer_event(event).await;
                 }
                 _ = wait_for_shutdown(&mut self.rx_shutdown) => {
                     return;
@@ -128,25 +120,12 @@ impl ConnectionMonitor {
         }
     }
 
-    async fn handle_peer_status_change(
-        &self,
-        peer_id: PeerId,
-        connection_status: ConnectionStatus,
-    ) {
-        if let Some(network) = self.network.upgrade() {
-            // TODO(metrics): Set `network_peers` to `network.peers().len() as i64`
-        } else {
-            return;
-        }
-
-        if let Some(ty) = self.peer_id_types.get(&peer_id) {
-            let int_status = match connection_status {
-                ConnectionStatus::Connected => 1,
-                ConnectionStatus::Disconnected => 0,
-            };
-
-            // TODO(metrics): Set `network_peer_connected` to `int_status`
-        }
+    async fn handle_peer_event(&self, peer_event: PeerEvent) {
+        let (peer_id, status, _int_status) = match peer_event {
+            PeerEvent::NewPeer(peer_id) => (peer_id, ConnectionStatus::Connected, 1),
+            PeerEvent::LostPeer(peer_id, _) => (peer_id, ConnectionStatus::Disconnected, 0),
+        };
+        self.connection_statuses.insert(peer_id, status);
 
         #[cfg(feature = "metrics")]
         {
@@ -157,14 +136,6 @@ impl ConnectionMonitor {
                 .count();
             gauge!(snarkos_metrics::network::NETWORK_PEERS, peer_count as f64);
         }
-
-        // TODO(metrics):
-        // if let PeerEvent::LostPeer(_, reason) = peer_event {
-        //     self.connection_metrics
-        //         .network_peer_disconnects
-        //         .with_label_values(&[&peer_id_str, &format!("{reason:?}")])
-        //         .inc();
-        // }
     }
 
     // TODO: Replace this with ClosureMetric
@@ -252,9 +223,10 @@ impl ConnectionMonitor {
 #[cfg(test)]
 mod tests {
     use crate::connectivity::{ConnectionMonitor, ConnectionStatus};
-    use anemo::{Network, Request, Response};
+    use anemo::{Network, Request, Response, PeerId};
     use bytes::Bytes;
-    use std::collections::HashMap;
+    use dashmap::DashMap;
+    use std::{collections::HashMap, sync::Arc};
     use std::convert::Infallible;
     use std::time::Duration;
     use tokio::time::{sleep, timeout};
@@ -262,6 +234,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_connectivity() {
+        async fn await_status(statuses: Arc<DashMap<PeerId, ConnectionStatus>>, peer_id: PeerId, status: ConnectionStatus) {
+            timeout(Duration::from_secs(5), async move {
+                while statuses.get(&peer_id).map(|x| x.value().clone()) != Some(status.clone()) {
+                    sleep(Duration::from_millis(500)).await;
+                }
+            }).await
+            .unwrap_or_else(|_| {
+                panic!("Timeout while waiting for connectivity results");
+            });
+        }
+
         // GIVEN
         let network_1 = build_network().unwrap();
         let network_2 = build_network().unwrap();
@@ -276,11 +259,9 @@ mod tests {
 
         // WHEN bring up the monitor
         let (_h, statuses) = ConnectionMonitor::spawn(network_1.downgrade(), peer_types, None);
+        await_status(statuses.clone(), peer_2, ConnectionStatus::Connected).await;
 
-        // THEN peer 2 should be already connected
-        // assert_network_peers(metrics.clone(), 1).await;
-
-        // AND we should have collected connection stats
+        // THEN we should have collected connection stats
         let mut labels = HashMap::new();
         let peer_2_str = format!("{peer_2}");
         labels.insert("peer_id", peer_2_str.as_str());
@@ -291,9 +272,9 @@ mod tests {
 
         // WHEN connect to peer 3
         let peer_3 = network_1.connect(network_3.local_addr()).await.unwrap();
+        await_status(statuses.clone(), peer_3, ConnectionStatus::Connected).await;
 
         // THEN
-        // assert_network_peers(metrics.clone(), 2).await;
         assert_eq!(
             *statuses.get(&peer_3).unwrap().value(),
             ConnectionStatus::Connected
@@ -301,9 +282,9 @@ mod tests {
 
         // AND disconnect peer 2
         network_1.disconnect(peer_2).unwrap();
+        await_status(statuses.clone(), peer_2, ConnectionStatus::Disconnected).await;
 
         // THEN
-        // assert_network_peers(metrics.clone(), 1).await;
         assert_eq!(
             *statuses.get(&peer_2).unwrap().value(),
             ConnectionStatus::Disconnected
@@ -311,9 +292,9 @@ mod tests {
 
         // AND disconnect peer 3
         network_1.disconnect(peer_3).unwrap();
+        await_status(statuses.clone(), peer_3, ConnectionStatus::Disconnected).await;
 
         // THEN
-        // assert_network_peers(metrics.clone(), 0).await;
         assert_eq!(
             *statuses.get(&peer_3).unwrap().value(),
             ConnectionStatus::Disconnected
