@@ -145,6 +145,8 @@ async fn get_network_peers_from_admin_server() {
     // Assert we returned 19 peers (3 other primaries + 4 workers + 4*3 other workers)
     assert_eq!(19, resp.len());
 
+    tokio::time::sleep(Duration::from_secs(1)).await;
+
     // Test getting all connected peers for primary 1
     let resp = reqwest::get(format!(
         "http://127.0.0.1:{}/peers",
