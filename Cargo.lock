@@ -60,17 +60,6 @@ dependencies = [
 
 [[package]]
 name = "ahash"
-version = "0.7.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcb51a0695d8f838b1ee009b3fbf66bda078cd64590202a864a8f3e8c4315c47"
-dependencies = [
- "getrandom",
- "once_cell",
- "version_check",
-]
-
-[[package]]
-name = "ahash"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c99f64d1e06488f620f932677e24bc6e2897582980441ae90a671415bd7ec2f"
@@ -2016,7 +2005,7 @@ version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43a3c133739dddd0d2990f9a4bdf8eb4b21ef50e4851ca85ab661199821d510e"
 dependencies = [
- "ahash 0.8.3",
+ "ahash",
 ]
 
 [[package]]
@@ -2522,24 +2511,13 @@ dependencies = [
 
 [[package]]
 name = "metrics"
-version = "0.20.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b9b8653cec6897f73b519a43fba5ee3d50f62fe9af80b428accdcc093b4a849"
-dependencies = [
- "ahash 0.7.6",
- "metrics-macros 0.6.0",
- "portable-atomic 0.3.19",
-]
-
-[[package]]
-name = "metrics"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa8ebbd1a9e57bbab77b9facae7f5136aea44c356943bf9a198f647da64285d6"
 dependencies = [
- "ahash 0.8.3",
- "metrics-macros 0.7.0",
- "portable-atomic 1.3.2",
+ "ahash",
+ "metrics-macros",
+ "portable-atomic",
 ]
 
 [[package]]
@@ -2552,23 +2530,12 @@ dependencies = [
  "hyper",
  "indexmap",
  "ipnet",
- "metrics 0.21.0",
+ "metrics",
  "metrics-util",
  "quanta 0.11.0",
  "thiserror",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "metrics-macros"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "731f8ecebd9f3a4aa847dfe75455e4757a45da40a7793d2f0b1f9b6ed18b23f3"
-dependencies = [
- "proc-macro2 1.0.56",
- "quote 1.0.26",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -2591,7 +2558,7 @@ dependencies = [
  "crossbeam-epoch",
  "crossbeam-utils",
  "hashbrown 0.13.2",
- "metrics 0.21.0",
+ "metrics",
  "num_cpus",
  "quanta 0.11.0",
  "sketches-ddsketch",
@@ -2780,7 +2747,7 @@ dependencies = [
  "futures",
  "indexmap",
  "match_opt",
- "metrics 0.20.1",
+ "metrics",
  "narwhal-config",
  "narwhal-crypto",
  "narwhal-dag",
@@ -2859,7 +2826,7 @@ dependencies = [
  "indexmap",
  "itertools",
  "match_opt",
- "metrics 0.20.1",
+ "metrics",
  "mockall",
  "multiaddr",
  "narwhal-config",
@@ -2902,7 +2869,7 @@ dependencies = [
  "fail",
  "fastcrypto",
  "futures",
- "metrics 0.20.1",
+ "metrics",
  "multiaddr",
  "narwhal-crypto",
  "narwhal-test-utils",
@@ -2993,7 +2960,7 @@ dependencies = [
  "governor",
  "indexmap",
  "itertools",
- "metrics 0.20.1",
+ "metrics",
  "mockall",
  "multiaddr",
  "mysten-network",
@@ -3540,12 +3507,6 @@ dependencies = [
  "opaque-debug",
  "universal-hash",
 ]
-
-[[package]]
-name = "portable-atomic"
-version = "0.3.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26f6a7b87c2e435a3241addceeeff740ff8b7e76b74c13bf9acb17fa454ea00b"
 
 [[package]]
 name = "portable-atomic"
@@ -4680,7 +4641,7 @@ name = "snarkos-node-metrics"
 version = "2.0.2"
 source = "git+https://github.com/eqlabs/snarkOS?branch=enter_bullshark_updated#6249eceedce2f5ff23c078b41d3c25c0aa62797d"
 dependencies = [
- "metrics 0.21.0",
+ "metrics",
  "metrics-exporter-prometheus",
  "tokio",
 ]

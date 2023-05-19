@@ -46,7 +46,7 @@ fastcrypto-zkp = { git = "https://github.com/MystenLabs/fastcrypto", rev = "2352
 fastcrypto-tbls = { git = "https://github.com/MystenLabs/fastcrypto", rev = "235211dc8195590f5353d38135f5ee51a267521e", package = "fastcrypto-tbls" }
 
 # metrics
-metrics = "0.20"
+metrics = "0.21"
 snarkos-metrics = { git = "https://github.com/eqlabs/snarkOS", branch = "enter_bullshark_updated", package = "snarkos-node-metrics" }
 
 # anemo dependencies
