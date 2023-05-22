@@ -4,6 +4,7 @@
 use anemo::PeerId;
 use std::collections::HashMap;
 use tokio::task::JoinHandle;
+use tracing::warn;
 
 #[cfg(feature = "metrics")]
 use snarkos_metrics::gauge;
@@ -55,32 +56,38 @@ impl ConnectionMonitor {
 
         // now report the connected peers
         let mut peer_count: usize = connected_peers.len();
+        let mut peer_counts = HashMap::<String, usize>::new();
+
         #[cfg(feature = "metrics")]
         gauge!(snarkos_metrics::network::NETWORK_PEERS, peer_count as f64);
 
         #[cfg(feature = "metrics")]
         for peer_id in connected_peers {
-            self.handle_peer_connect(peer_id);
+            self.handle_peer_connect(peer_id, &mut peer_counts);
         }
 
         while let Ok(event) = subscriber.recv().await {
+            if let Some(network) = self.network.upgrade() {
+                peer_count = network.peers().len();
+                warn!("connected peers: {:?}", &network.peers());
+            } else {
+                return;
+            }
             match event {
                 anemo::types::PeerEvent::NewPeer(peer_id) => {
                     _ = peer_id;
-                    peer_count += 1;
                     #[cfg(feature = "metrics")]
                     {
                         gauge!(snarkos_metrics::network::NETWORK_PEERS, peer_count as f64);
-                        self.handle_peer_connect(peer_id);
+                        self.handle_peer_connect(peer_id, &mut peer_counts);
                     }
                 }
                 anemo::types::PeerEvent::LostPeer(peer_id, _) => {
                     _ = peer_id;
-                    peer_count = peer_count.saturating_sub(1);
                     #[cfg(feature = "metrics")]
                     {
                         gauge!(snarkos_metrics::network::NETWORK_PEERS, peer_count as f64);
-                        self.handle_peer_disconnect(peer_id);
+                        self.handle_peer_disconnect(peer_id, &mut peer_counts);
                     }
                 }
             }
@@ -88,20 +95,26 @@ impl ConnectionMonitor {
     }
 
     #[cfg(feature = "metrics")]
-    fn handle_peer_connect(&self, peer_id: PeerId) {
+    fn handle_peer_connect(&self, peer_id: PeerId, peer_counts: &mut HashMap<String, usize>) {
         use snarkos_metrics::network::labels::PEER_ID;
 
+        warn!("added connected peer:{peer_id}");
         if let Some(ty) = self.peer_id_types.get(&peer_id) {
-            gauge!(snarkos_metrics::network::NETWORK_PEER_CONNECTED, 1.0, PEER_ID => ty.to_string());
+            *peer_counts.entry(ty.to_string()).or_insert(0) += 1;
+            let count = peer_counts.get(ty).unwrap();
+            gauge!(snarkos_metrics::network::NETWORK_PEER_CONNECTED, *count as f64, PEER_ID => ty.to_string());
         }
     }
 
     #[cfg(feature = "metrics")]
-    fn handle_peer_disconnect(&self, peer_id: PeerId) {
+    fn handle_peer_disconnect(&self, peer_id: PeerId, peer_counts: &mut HashMap<String, usize>) {
         use snarkos_metrics::network::labels::PEER_ID;
 
+        warn!("lost connected peer:{peer_id}");
         if let Some(ty) = self.peer_id_types.get(&peer_id) {
-            gauge!(snarkos_metrics::network::NETWORK_PEER_CONNECTED, 0.0, PEER_ID => ty.to_string());
+            *peer_counts.entry(ty.to_string()).or_insert(0) -= 1; // there should always be an entry if it lost connection
+            let count = peer_counts.get(ty).unwrap();
+            gauge!(snarkos_metrics::network::NETWORK_PEER_CONNECTED, *count as f64, PEER_ID => ty.to_string());
         }
     }
 }
