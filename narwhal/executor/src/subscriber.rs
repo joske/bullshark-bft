@@ -224,8 +224,6 @@ impl<Network: SubscriberNetwork> Fetcher<Network> {
             histogram!(
                 snarkos_metrics::subscribers::CERTIFICATE_LATENCY,
                 cert.metadata.created_at.elapsed().as_secs_f64(),
-                "certificate_round" => cert.round().to_string(),
-                "certificate_epoch" => cert.epoch().to_string(),
             );
 
             for (digest, (worker_id, _)) in cert.header.payload.iter() {
