@@ -115,17 +115,7 @@ pub struct Committee {
 // Every authority gets uniquely identified by the AuthorityIdentifier
 // The type can be easily swapped without needing to change anything else in the implementation.
 #[derive(
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Hash,
-    Serialize,
-    Deserialize,
+    Eq, PartialEq, Ord, PartialOrd, Clone, Copy, Debug, Default, Hash, Serialize, Deserialize,
 )]
 pub struct AuthorityIdentifier(pub u16);
 

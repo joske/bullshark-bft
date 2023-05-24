@@ -1,11 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 use super::{NetworkModel, Primary, PrimaryReceiverHandler, CHANNEL_CAPACITY};
-use crate::{
-    common::create_db_stores,
-    synchronizer::Synchronizer,
-    NUM_SHUTDOWN_RECEIVERS,
-};
+use crate::{common::create_db_stores, synchronizer::Synchronizer, NUM_SHUTDOWN_RECEIVERS};
 use bincode::Options;
 use config::{AuthorityIdentifier, Committee, Parameters, WorkerId};
 use consensus::consensus::ConsensusRound;
@@ -18,7 +14,6 @@ use fastcrypto::{
 };
 use itertools::Itertools;
 use network::client::NetworkClient;
-use tokio::sync::mpsc;
 use std::{
     borrow::Borrow,
     collections::{BTreeSet, HashMap, HashSet},
@@ -31,6 +26,7 @@ use storage::{CertificateStoreCache, PayloadToken};
 use storage::{NodeStorage, PayloadStore};
 use store::rocks::{DBMap, ReadWriteOptions};
 use test_utils::{make_optimal_signed_certificates, temp_dir, CommitteeFixture};
+use tokio::sync::mpsc;
 use tokio::{
     sync::{oneshot, watch},
     time::timeout,
@@ -63,12 +59,8 @@ async fn get_network_peers_from_admin_server() {
     let store = NodeStorage::reopen(temp_dir());
     let client_1 = NetworkClient::new_from_keypair(&authority_1.network_keypair());
 
-    let (tx_new_certificates, rx_new_certificates) = mpsc::channel(
-        CHANNEL_CAPACITY,
-    );
-    let (tx_feedback, rx_feedback) = mpsc::channel(
-        CHANNEL_CAPACITY,
-    );
+    let (tx_new_certificates, rx_new_certificates) = mpsc::channel(CHANNEL_CAPACITY);
+    let (tx_feedback, rx_feedback) = mpsc::channel(CHANNEL_CAPACITY);
     let (_tx_consensus_round_updates, rx_consensus_round_updates) =
         watch::channel(ConsensusRound::default());
 
@@ -93,12 +85,7 @@ async fn get_network_peers_from_admin_server() {
         rx_consensus_round_updates,
         /* dag */
         Some(Arc::new(
-            Dag::new(
-                &committee,
-                rx_new_certificates,
-                tx_shutdown.subscribe(),
-            )
-            .1,
+            Dag::new(&committee, rx_new_certificates, tx_shutdown.subscribe()).1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
@@ -173,12 +160,8 @@ async fn get_network_peers_from_admin_server() {
     };
 
     // TODO: Rework test-utils so that macro can be used for the channels below.
-    let (tx_new_certificates_2, rx_new_certificates_2) = mpsc::channel(
-        CHANNEL_CAPACITY,
-    );
-    let (tx_feedback_2, rx_feedback_2) = mpsc::channel(
-        CHANNEL_CAPACITY,
-    );
+    let (tx_new_certificates_2, rx_new_certificates_2) = mpsc::channel(CHANNEL_CAPACITY);
+    let (tx_feedback_2, rx_feedback_2) = mpsc::channel(CHANNEL_CAPACITY);
     let (_tx_consensus_round_updates, rx_consensus_round_updates) =
         watch::channel(ConsensusRound::default());
     let mut tx_shutdown_2 = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
@@ -202,12 +185,7 @@ async fn get_network_peers_from_admin_server() {
         rx_consensus_round_updates,
         /* dag */
         Some(Arc::new(
-            Dag::new(
-                &committee,
-                rx_new_certificates_2,
-                tx_shutdown.subscribe(),
-            )
-            .1,
+            Dag::new(&committee, rx_new_certificates_2, tx_shutdown.subscribe()).1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown_2,

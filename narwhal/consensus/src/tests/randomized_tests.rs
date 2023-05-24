@@ -420,11 +420,8 @@ fn generate_and_run_execution_plans(
 
         // Now create a new Bullshark engine
         let mut state = ConsensusState::new(gc_depth);
-        let mut bullshark = Bullshark::new(
-            committee.clone(),
-            store.clone(),
-            NUM_SUB_DAGS_PER_SCHEDULE,
-        );
+        let mut bullshark =
+            Bullshark::new(committee.clone(), store.clone(), NUM_SUB_DAGS_PER_SCHEDULE);
 
         let mut inserted_certificates = HashSet::new();
 

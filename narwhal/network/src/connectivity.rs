@@ -223,23 +223,28 @@ impl ConnectionMonitor {
 #[cfg(test)]
 mod tests {
     use crate::connectivity::{ConnectionMonitor, ConnectionStatus};
-    use anemo::{Network, Request, Response, PeerId};
+    use anemo::{Network, PeerId, Request, Response};
     use bytes::Bytes;
     use dashmap::DashMap;
-    use std::{collections::HashMap, sync::Arc};
     use std::convert::Infallible;
     use std::time::Duration;
+    use std::{collections::HashMap, sync::Arc};
     use tokio::time::{sleep, timeout};
     use tower::util::BoxCloneService;
 
     #[tokio::test]
     async fn test_connectivity() {
-        async fn await_status(statuses: Arc<DashMap<PeerId, ConnectionStatus>>, peer_id: PeerId, status: ConnectionStatus) {
+        async fn await_status(
+            statuses: Arc<DashMap<PeerId, ConnectionStatus>>,
+            peer_id: PeerId,
+            status: ConnectionStatus,
+        ) {
             timeout(Duration::from_secs(5), async move {
                 while statuses.get(&peer_id).map(|x| x.value().clone()) != Some(status.clone()) {
                     sleep(Duration::from_millis(500)).await;
                 }
-            }).await
+            })
+            .await
             .unwrap_or_else(|_| {
                 panic!("Timeout while waiting for connectivity results");
             });

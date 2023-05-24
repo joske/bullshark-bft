@@ -194,14 +194,7 @@ async fn test_rounds_return_successful_response() {
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
 
     // AND setup the DAG
-    let dag = Arc::new(
-        Dag::new(
-            &committee,
-            rx_new_certificates,
-            tx_shutdown.subscribe(),
-        )
-        .1,
-    );
+    let dag = Arc::new(Dag::new(&committee, rx_new_certificates, tx_shutdown.subscribe()).1);
 
     Primary::spawn(
         author.authority().clone(),
@@ -292,14 +285,7 @@ async fn test_node_read_causal_signed_certificates() {
         test_utils::test_new_certificates_channel!(CHANNEL_CAPACITY);
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
 
-    let dag = Arc::new(
-        Dag::new(
-            &committee,
-            rx_new_certificates,
-            tx_shutdown.subscribe(),
-        )
-        .1,
-    );
+    let dag = Arc::new(Dag::new(&committee, rx_new_certificates, tx_shutdown.subscribe()).1);
 
     // No need to populate genesis in the Dag
     let genesis_certs = Certificate::genesis(&committee);
@@ -419,12 +405,7 @@ async fn test_node_read_causal_signed_certificates() {
         rx_consensus_round_updates_2,
         /* external_consensus */
         Some(Arc::new(
-            Dag::new(
-                &committee,
-                rx_new_certificates_2,
-                tx_shutdown.subscribe(),
-            )
-            .1,
+            Dag::new(&committee, rx_new_certificates_2, tx_shutdown.subscribe()).1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown_2,

@@ -166,17 +166,7 @@ impl BatchV1 {
 }
 
 #[derive(
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    Default,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    Arbitrary,
+    Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary,
 )]
 pub struct BatchDigest(pub [u8; crypto::DIGEST_LENGTH]);
 
@@ -428,17 +418,7 @@ impl HeaderV1 {
 }
 
 #[derive(
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    Default,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    Arbitrary,
+    Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary,
 )]
 pub struct HeaderDigest([u8; crypto::DIGEST_LENGTH]);
 
@@ -1022,17 +1002,7 @@ impl CertificateV1 {
 }
 
 #[derive(
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    Default,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    Arbitrary,
+    Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary,
 )]
 
 pub struct CertificateDigest([u8; crypto::DIGEST_LENGTH]);

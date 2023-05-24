@@ -70,9 +70,7 @@ impl Cache for CertificateStoreCache {
     /// and mark it as "last accessed".
     fn read(&self, digest: &CertificateDigest) -> Option<Certificate> {
         let mut guard = self.cache.lock();
-        guard
-            .get(digest)
-            .cloned()
+        guard.get(digest).cloned()
     }
 
     /// Fetches the certificates for the provided digests. This method will update the LRU records
@@ -84,14 +82,7 @@ impl Cache for CertificateStoreCache {
         let mut guard = self.cache.lock();
         digests
             .into_iter()
-            .map(move |id| {
-                (
-                    id,
-                    guard
-                        .get(&id)
-                        .cloned(),
-                )
-            })
+            .map(move |id| (id, guard.get(&id).cloned()))
             .collect()
     }
 
@@ -99,8 +90,7 @@ impl Cache for CertificateStoreCache {
     /// it will not count as a "last access" for the provided digest.
     fn contains(&self, digest: &CertificateDigest) -> bool {
         let guard = self.cache.lock();
-        guard
-            .contains(digest)
+        guard.contains(digest)
     }
 
     fn remove(&self, digest: &CertificateDigest) {

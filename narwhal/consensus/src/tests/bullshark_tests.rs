@@ -582,8 +582,7 @@ async fn submitting_equivocating_certificate_should_error() {
 
     let store = make_consensus_store(&test_utils::temp_dir());
     let mut state = ConsensusState::new(gc_depth);
-    let mut bullshark =
-        Bullshark::new(committee.clone(), store, NUM_SUB_DAGS_PER_SCHEDULE);
+    let mut bullshark = Bullshark::new(committee.clone(), store, NUM_SUB_DAGS_PER_SCHEDULE);
 
     // Populate DAG with all the certificates
     for certificate in certificates.clone() {
@@ -907,8 +906,7 @@ async fn slow_node() {
     // Create Bullshark consensus engine
     let store = make_consensus_store(&test_utils::temp_dir());
     let mut state = ConsensusState::new(GC_DEPTH);
-    let mut bullshark =
-        Bullshark::new(committee.clone(), store, NUM_SUB_DAGS_PER_SCHEDULE);
+    let mut bullshark = Bullshark::new(committee.clone(), store, NUM_SUB_DAGS_PER_SCHEDULE);
 
     // Now start feeding the certificates per round up to 8. We expect to have
     // triggered a commit up to round 6 and gc round 1 & 2.

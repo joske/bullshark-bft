@@ -1,9 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 use crate::primary::NUM_SHUTDOWN_RECEIVERS;
-use crate::{
-    certificate_fetcher::CertificateFetcher, synchronizer::Synchronizer,
-};
+use crate::{certificate_fetcher::CertificateFetcher, synchronizer::Synchronizer};
 use anemo::async_trait;
 use anyhow::Result;
 use config::{AuthorityIdentifier, Epoch, WorkerId};
