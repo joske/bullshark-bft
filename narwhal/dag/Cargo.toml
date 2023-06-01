@@ -8,7 +8,6 @@ edition = "2021"
 
 [dependencies]
 arc-swap = "1.5.1"
-fastcrypto = { git = "https://github.com/MystenLabs/fastcrypto", rev = "235211dc8195590f5353d38135f5ee51a267521e" }
 dashmap = "5.4.0"
 either = "1.8.0"
 itertools = "0.10.5"
@@ -16,6 +15,7 @@ once_cell = "1.16"
 rayon = "1.5.3"
 serde = "1.0.144"
 thiserror = "1.0.35"
+hex = "0.4.3"
 
 crypto = { path = "../crypto", package = "narwhal-crypto" }
 

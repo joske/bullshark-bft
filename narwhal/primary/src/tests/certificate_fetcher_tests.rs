@@ -6,7 +6,6 @@ use anemo::async_trait;
 use anyhow::Result;
 use config::{Epoch, WorkerId};
 use crypto::{Hash, PublicKey, Signature, SignatureService};
-use fastcrypto::traits::KeyPair;
 use indexmap::IndexMap;
 use itertools::Itertools;
 use once_cell::sync::OnceCell;
@@ -194,7 +193,7 @@ async fn fetch_certificates_basic() {
         }));
     let fake_server_network = anemo::Network::bind(fake_primary_addr.clone())
         .server_name("narwhal")
-        .private_key(fake_primary.network_keypair().copy().private().0.to_bytes())
+        .private_key(fake_primary.network_keypair().copy().private().to_bytes())
         .start(fake_route)
         .unwrap();
     let client_network = test_utils::test_network(primary.network_keypair(), primary.address());

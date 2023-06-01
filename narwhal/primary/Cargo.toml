@@ -36,9 +36,10 @@ tonic = "0.8.2"
 tower = { version = "0.4.13", features = ["full"] }
 tracing = "0.1.36"
 tap = "1.0.1"
+eyre = "0.6"
+hex = "0.4.3"
 
 consensus = { path = "../consensus", package = "narwhal-consensus" }
-fastcrypto = { git = "https://github.com/MystenLabs/fastcrypto", rev = "235211dc8195590f5353d38135f5ee51a267521e", features = ["copy_key"] }
 crypto = { path = "../crypto", package = "narwhal-crypto" }
 network = { path = "../network", package = "narwhal-network" }
 types = { path = "../types", package = "narwhal-types" }

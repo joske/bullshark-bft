@@ -8,7 +8,6 @@ use config::{
     WorkerId, WorkerIndex, WorkerInfo,
 };
 use crypto::{Hash, KeyPair, NetworkKeyPair, NetworkPublicKey, PublicKey};
-use fastcrypto::traits::{AllowedRng, KeyPair as _};
 use indexmap::IndexMap;
 use multiaddr::Multiaddr;
 use rand::{
@@ -162,7 +161,7 @@ impl PrimaryToPrimaryMockServer {
         let routes = anemo::Router::new().add_rpc_service(service);
         let network = anemo::Network::bind(addr)
             .server_name("narwhal")
-            .private_key(network_keypair.private().0.to_bytes())
+            .private_key(network_keypair.private().to_bytes())
             .start(routes)
             .unwrap();
         info!("starting network on: {}", network.local_addr());
@@ -236,7 +235,7 @@ impl PrimaryToWorkerMockServer {
         let routes = anemo::Router::new().add_rpc_service(service);
         let network = anemo::Network::bind(addr)
             .server_name("narwhal")
-            .private_key(keypair.private().0.to_bytes())
+            .private_key(keypair.private().to_bytes())
             .start(routes)
             .unwrap();
         info!("starting network on: {}", network.local_addr());
@@ -288,7 +287,7 @@ impl WorkerToWorkerMockServer {
         let routes = anemo::Router::new().add_rpc_service(service);
         let network = anemo::Network::bind(addr)
             .server_name("narwhal")
-            .private_key(keypair.private().0.to_bytes())
+            .private_key(keypair.private().to_bytes())
             .start(routes)
             .unwrap();
         info!("starting network on: {}", network.local_addr());
@@ -781,7 +780,7 @@ impl AuthorityFixture {
     pub fn new_network(&self, router: anemo::Router) -> anemo::Network {
         anemo::Network::bind(network::multiaddr_to_address(&self.address).unwrap())
             .server_name("narwhal")
-            .private_key(self.network_keypair().private().0.to_bytes())
+            .private_key(self.network_keypair().private().to_bytes())
             .start(router)
             .unwrap()
     }
@@ -806,14 +805,14 @@ impl AuthorityFixture {
     }
 
     pub fn network_public_key(&self) -> NetworkPublicKey {
-        self.network_keypair.public().clone()
+        self.network_keypair.public()
     }
 
     pub fn authority(&self) -> Authority {
         Authority {
             stake: self.stake,
             primary_address: self.address.clone(),
-            network_key: self.network_keypair.public().clone(),
+            network_key: self.network_keypair.public(),
         }
     }
 
@@ -858,7 +857,7 @@ impl AuthorityFixture {
 
     fn generate<R, P>(mut rng: R, number_of_workers: NonZeroUsize, mut get_port: P) -> Self
     where
-        R: AllowedRng,
+        R: rand_core::RngCore + rand_core::CryptoRng,
         P: FnMut(&str) -> u16,
     {
         let keypair = KeyPair::new(&mut rng).unwrap();
@@ -905,18 +904,18 @@ impl WorkerFixture {
     pub fn new_network(&self, router: anemo::Router) -> anemo::Network {
         anemo::Network::bind(network::multiaddr_to_address(&self.info().worker_address).unwrap())
             .server_name("narwhal")
-            .private_key(self.keypair().private().0.to_bytes())
+            .private_key(self.keypair().private().to_bytes())
             .start(router)
             .unwrap()
     }
 
-    fn generate<R, P>(rng: R, id: WorkerId, mut get_port: P) -> Self
+    fn generate<R, P>(mut rng: R, id: WorkerId, mut get_port: P) -> Self
     where
-        R: rand::RngCore + rand::CryptoRng,
+        R: rand_core::RngCore + rand_core::CryptoRng,
         P: FnMut(&str) -> u16,
     {
-        let keypair = NetworkKeyPair::generate(&mut StdRng::from_rng(rng).unwrap());
-        let worker_name = keypair.public().clone();
+        let keypair = NetworkKeyPair::generate(&mut rng);
+        let worker_name = keypair.public();
         let host = "127.0.0.1";
         let worker_address = format!("/ip4/{}/udp/{}", host, get_port(host))
             .parse()
@@ -939,7 +938,7 @@ impl WorkerFixture {
 
 pub fn test_network(keypair: NetworkKeyPair, address: &Multiaddr) -> anemo::Network {
     let address = network::multiaddr_to_address(address).unwrap();
-    let network_key = keypair.private().0.to_bytes();
+    let network_key = keypair.private().to_bytes();
     anemo::Network::bind(address)
         .server_name("narwhal")
         .private_key(network_key)

@@ -18,6 +18,7 @@ indexmap = { version = "1.9.2", features = ["serde"] }
 itertools = "0.10.5"
 multiaddr = "0.17.0"
 rand = "0.8.5"
+rand_core = "0.6"
 serde = { version = "1.0.144", features = ["derive"] }
 tempfile = "3.4.0"
 thiserror = "1.0.35"
@@ -27,7 +28,6 @@ tonic = "0.8.2"
 tracing = "0.1.36"
 
 config = { path = "../config", package = "narwhal-config" }
-fastcrypto = { git = "https://github.com/MystenLabs/fastcrypto", rev = "235211dc8195590f5353d38135f5ee51a267521e" }
 crypto = { path = "../crypto", package = "narwhal-crypto" }
 executor = { path = "../executor", package = "narwhal-executor" }
 node = { path = "../node", package = "narwhal-node" }

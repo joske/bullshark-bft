@@ -19,7 +19,6 @@ use anemo_tower::{
 use anemo_tower::{rate_limit, set_header::SetResponseHeaderLayer};
 use config::{Parameters, SharedCommittee, SharedWorkerCache, WorkerId};
 use crypto::{NetworkKeyPair, NetworkPublicKey, PublicKey};
-use fastcrypto::traits::KeyPair;
 use multiaddr::{Multiaddr, Protocol};
 use network::epoch_filter::{AllowedEpoch, EPOCH_HEADER_KEY};
 use network::failpoints::FailpointsMakeCallbackHandler;
@@ -221,7 +220,7 @@ impl Worker {
         loop {
             let network_result = anemo::Network::bind(addr.clone())
                 .server_name("narwhal")
-                .private_key(worker.keypair.copy().private().0.to_bytes())
+                .private_key(worker.keypair.copy().private().to_bytes())
                 .config(anemo_config.clone())
                 .outbound_request_layer(outbound_layer.clone())
                 .start(service.clone());

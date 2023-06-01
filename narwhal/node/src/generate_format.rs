@@ -3,7 +3,6 @@ use clap::{clap_derive::ValueEnum, Parser};
 // SPDX-License-Identifier: Apache-2.0
 use config::{Authority, Committee, Epoch, WorkerIndex, WorkerInfo};
 use crypto::{Hash, KeyPair, NetworkKeyPair};
-use fastcrypto::traits::KeyPair as _;
 use multiaddr::Multiaddr;
 use rand::{prelude::StdRng, thread_rng, SeedableRng};
 use serde_reflection::{Registry, Result, Samples, Tracer, TracerConfig};
@@ -53,7 +52,7 @@ fn get_registry() -> Result<Registry> {
                     Authority {
                         stake: 1,
                         primary_address,
-                        network_key: network_key.public().clone(),
+                        network_key: network_key.public(),
                     },
                 )
             })
@@ -78,7 +77,7 @@ fn get_registry() -> Result<Registry> {
         .parents(certificates.iter().map(|x| x.digest()).collect())
         .build(private);
 
-    let worker_pk = network_keys[0].public().clone();
+    let worker_pk = network_keys[0].public();
     let certificate = Certificate::new_unsigned(&committee, header.clone(), vec![]).unwrap();
     let signature = private
         .sign_bytes(certificate.digest().as_ref(), &mut thread_rng())

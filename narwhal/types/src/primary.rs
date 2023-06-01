@@ -24,7 +24,6 @@ use rand::{
 use roaring::RoaringBitmap;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use snarkvm_console::prelude::ToBytes;
 use std::time::{Duration, SystemTime};
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
@@ -361,7 +360,7 @@ impl Hash for UnsignedHeader {
         let mut hasher = crypto::DefaultHashFunction::new();
         // SAFETY: this conversion can't fail, the result is just a side-effect of the `ToBytes`
         // trait design in snarkVM.
-        hasher.update(&self.author.to_bytes_le().unwrap());
+        hasher.update(&self.author.to_bytes());
         hasher.update(self.round.to_le_bytes());
         hasher.update(self.epoch.to_le_bytes());
         hasher.update(self.created_at.to_le_bytes());
@@ -384,7 +383,7 @@ impl Hash for Header {
         let mut hasher = crypto::DefaultHashFunction::new();
         // SAFETY: this conversion can't fail, the result is just a side-effect of the `ToBytes`
         // trait design in snarkVM.
-        hasher.update(&self.author.to_bytes_le().unwrap());
+        hasher.update(&self.author.to_bytes());
         hasher.update(self.round.to_le_bytes());
         hasher.update(self.epoch.to_le_bytes());
         hasher.update(self.created_at.to_le_bytes());
@@ -566,7 +565,7 @@ impl Hash for UnsignedVote {
         hasher.update(self.epoch.to_le_bytes());
         // SAFETY: this conversion can't fail, the result is just a side-effect of the `ToBytes`
         // trait design in snarkVM.
-        hasher.update(&self.origin.to_bytes_le().unwrap());
+        hasher.update(&self.origin.to_bytes());
         // TODO(nkls): why is the author not hashed here?
         VoteDigest(hasher.finalize())
     }
@@ -582,7 +581,7 @@ impl Hash for Vote {
         hasher.update(self.epoch.to_le_bytes());
         // SAFETY: this conversion can't fail, the result is just a side-effect of the `ToBytes`
         // trait design in snarkVM.
-        hasher.update(&self.origin.to_bytes_le().unwrap());
+        hasher.update(&self.origin.to_bytes());
         VoteDigest(hasher.finalize())
     }
 }
@@ -901,7 +900,7 @@ impl Hash for Certificate {
         hasher.update(self.epoch().to_le_bytes());
         // SAFETY: this conversion can't fail, the result is just a side-effect of the `ToBytes`
         // trait design in snarkVM.
-        hasher.update(&self.origin().to_bytes_le().unwrap());
+        hasher.update(&self.origin().to_bytes());
         CertificateDigest(hasher.finalize())
     }
 }

@@ -4,7 +4,6 @@ use arc_swap::ArcSwap;
 use config::{BlockSynchronizerParameters, Committee, Parameters, WorkerId};
 use consensus::dag::Dag;
 use crypto::{Hash, PublicKey};
-use fastcrypto::traits::KeyPair as _;
 use indexmap::IndexMap;
 use narwhal_primary as primary;
 use narwhal_primary::NUM_SHUTDOWN_RECEIVERS;

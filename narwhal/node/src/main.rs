@@ -13,7 +13,6 @@ use clap::{crate_name, crate_version, App, AppSettings, ArgMatches, SubCommand};
 use config::{Committee, Import, Parameters, WorkerCache, WorkerId};
 use crypto::{KeyPair, NetworkKeyPair};
 use eyre::Context;
-use fastcrypto::traits::KeyPair as _;
 use narwhal_node as node;
 use narwhal_node::primary_node::PrimaryNode;
 use narwhal_node::worker_node::WorkerNode;
@@ -40,7 +39,7 @@ async fn main() -> Result<(), eyre::Report> {
         .args_from_usage("-v... 'Sets the level of verbosity'")
         .subcommand(
             SubCommand::with_name("generate_keys")
-                .about("Save an encoded bls12381 keypair (Base64 encoded `privkey`) to file")
+                .about("Save an encoded bls12377 keypair (Base64 encoded `privkey`) to file")
                 .args_from_usage("--filename=<FILE> 'The file where to save the encoded authority key pair'"),
         )
         .subcommand(

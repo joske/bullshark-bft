@@ -15,7 +15,6 @@ use std::{array::TryFromSliceError, ops::Deref};
 use crate::{BlockError, BlockErrorKind, CertificateDigest, Transaction};
 use bytes::Bytes;
 use crypto::{Digest, PublicKey};
-use snarkvm_console::prelude::ToBytes;
 
 pub use narwhal::{
     collection_error::CollectionErrorType,
@@ -49,7 +48,7 @@ impl From<PublicKey> for PublicKeyProto {
         PublicKeyProto {
             // SAFETY: this conversion can't fail, the result is just a side-effect of the `ToBytes`
             // trait design in snarkVM.
-            bytes: Bytes::from(pub_key.to_bytes_le().unwrap().to_vec()),
+            bytes: Bytes::from(pub_key.to_bytes().to_vec()),
         }
     }
 }

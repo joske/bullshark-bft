@@ -6,7 +6,6 @@ use bytes::Bytes;
 use config::Parameters;
 use consensus::dag::Dag;
 use crypto::{Hash, PublicKey};
-use fastcrypto::traits::KeyPair as _;
 use narwhal_primary as primary;
 use narwhal_primary::NUM_SHUTDOWN_RECEIVERS;
 use primary::{NetworkModel, Primary, CHANNEL_CAPACITY};

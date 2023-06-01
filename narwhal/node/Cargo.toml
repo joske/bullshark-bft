@@ -20,6 +20,7 @@ clap = { version = "3.2.23", features = ["derive", "cargo"] }
 futures = "0.3.24"
 multiaddr = "0.17.0"
 rand = "0.8.5"
+rand_core = "0.6.4"
 thiserror = "1.0.35"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1.10"
@@ -34,7 +35,6 @@ itertools = "0.10.5"
 anyhow = { version = "1.0.64", features = ["backtrace"] }
 config = { path = "../config", package = "narwhal-config" }
 consensus = { path = "../consensus", package = "narwhal-consensus" }
-fastcrypto = { git = "https://github.com/MystenLabs/fastcrypto", rev = "235211dc8195590f5353d38135f5ee51a267521e" }
 crypto = { path = "../crypto", package = "narwhal-crypto" }
 executor = { path = "../executor", package = "narwhal-executor" }
 network = { path = "../network", package = "narwhal-network" }

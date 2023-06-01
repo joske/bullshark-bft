@@ -70,10 +70,7 @@ WorkerIndex:
         TYPENAME: WorkerInfo
 WorkerInfo:
   STRUCT:
-    - name:
-        TUPLEARRAY:
-          CONTENT: U8
-          SIZE: 32
+    - name: STR
     - transactions: BYTES
     - worker_address: BYTES
 WorkerOthersBatchMessage:

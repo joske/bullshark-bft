@@ -22,9 +22,9 @@ tokio-util = { version = "0.7.4", features = ["codec"] }
 tonic = "0.8.2"
 tower = "0.4.13"
 tracing = "0.1.36"
+hex = "0.4.3"
 
 config = { path = "../config", package = "narwhal-config" }
-fastcrypto = { git = "https://github.com/MystenLabs/fastcrypto", rev = "235211dc8195590f5353d38135f5ee51a267521e" }
 crypto = { path = "../crypto", package = "narwhal-crypto" }
 network = { path = "../network", package = "narwhal-network" }
 types = { path = "../types", package = "narwhal-types" }

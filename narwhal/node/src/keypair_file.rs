@@ -2,16 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::anyhow;
-use crypto::{EncodeDecodeBase64, KeyPair};
-pub use fastcrypto::traits::KeyPair as KeypairTraits;
-use fastcrypto::{
-    ed25519::Ed25519KeyPair,
-    traits::{EncodeDecodeBase64 as _, VerifyingKey},
-};
-use rand::{rngs::StdRng, SeedableRng};
+use crypto::{EncodeDecodeBase64, KeyPair, NetworkKeyPair};
 
 pub type AuthorityKeyPair = KeyPair;
-pub type NetworkKeyPair = Ed25519KeyPair;
 
 /// Write Base64 encoded `flag || privkey` to file.
 pub fn write_keypair_to_file<P: AsRef<std::path::Path>>(
@@ -64,10 +57,9 @@ pub fn get_key_pair_from_rng<R: Rng + CryptoRng>(rng: &mut R) -> KeyPair {
 }
 
 /// Generate a keypair from the specified RNG (useful for testing with seedable rngs).
-pub fn get_network_key_pair_from_rng<KP: KeypairTraits, R>(csprng: &mut R) -> KP
+pub fn get_network_key_pair_from_rng<R>(csprng: &mut R) -> NetworkKeyPair
 where
-    R: rand::CryptoRng + rand::RngCore,
-    <KP as KeypairTraits>::PubKey: VerifyingKey,
+    R: rand_core::CryptoRng + rand_core::RngCore,
 {
-    KP::generate(&mut StdRng::from_rng(csprng).unwrap())
+    NetworkKeyPair::generate(csprng)
 }

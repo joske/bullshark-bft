@@ -5,7 +5,6 @@ use super::*;
 use crate::common::create_db_stores;
 
 use crate::primary;
-use fastcrypto::traits::KeyPair;
 use primary::NUM_SHUTDOWN_RECEIVERS;
 use test_utils::CommitteeFixture;
 use tokio::time::Duration;
@@ -20,7 +19,7 @@ async fn propose_header() {
     let committee = fixture.committee();
     let worker_cache = fixture.shared_worker_cache();
     let primary = fixture.authorities().last().unwrap();
-    let network_key = primary.network_keypair().copy().private().0.to_bytes();
+    let network_key = primary.network_keypair().copy().private().to_bytes();
     let name = primary.public_key();
     let signature_service = SignatureService::new(*primary.keypair().private());
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
@@ -134,7 +133,7 @@ async fn propose_header_failure() {
     let committee = fixture.committee();
     let worker_cache = fixture.shared_worker_cache();
     let primary = fixture.authorities().last().unwrap();
-    let network_key = primary.network_keypair().copy().private().0.to_bytes();
+    let network_key = primary.network_keypair().copy().private().to_bytes();
     let name = primary.public_key();
     let signature_service = SignatureService::new(*primary.keypair().private());
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
@@ -229,7 +228,7 @@ async fn process_certificates() {
     let committee = fixture.committee();
     let worker_cache = fixture.shared_worker_cache();
     let primary = fixture.authorities().last().unwrap();
-    let network_key = primary.network_keypair().copy().private().0.to_bytes();
+    let network_key = primary.network_keypair().copy().private().to_bytes();
     let name = primary.public_key();
     let signature_service = SignatureService::new(*primary.keypair().private());
 
@@ -331,7 +330,7 @@ async fn recover_core() {
     let committee = fixture.committee();
     let worker_cache = fixture.shared_worker_cache();
     let primary = fixture.authorities().last().unwrap();
-    let network_key = primary.network_keypair().copy().private().0.to_bytes();
+    let network_key = primary.network_keypair().copy().private().to_bytes();
     let name = primary.public_key();
     let signature_service = SignatureService::new(*primary.keypair().private());
 
@@ -457,7 +456,7 @@ async fn recover_core_partial_certs() {
     let committee = fixture.committee();
     let worker_cache = fixture.shared_worker_cache();
     let primary = fixture.authorities().last().unwrap();
-    let network_key = primary.network_keypair().copy().private().0.to_bytes();
+    let network_key = primary.network_keypair().copy().private().to_bytes();
     let name = primary.public_key();
     let signature_service = SignatureService::new(*primary.keypair().private());
 
@@ -588,7 +587,7 @@ async fn recover_core_expecting_header_of_previous_round() {
     let committee = fixture.committee();
     let worker_cache = fixture.shared_worker_cache();
     let primary = fixture.authorities().last().unwrap();
-    let network_key = primary.network_keypair().copy().private().0.to_bytes();
+    let network_key = primary.network_keypair().copy().private().to_bytes();
     let name = primary.public_key();
     let signature_service = SignatureService::new(*primary.keypair().private());
 
@@ -719,7 +718,7 @@ async fn shutdown_core() {
     let committee = fixture.committee();
     let worker_cache = fixture.shared_worker_cache();
     let primary = fixture.authorities().next().unwrap();
-    let network_key = primary.network_keypair().copy().private().0.to_bytes();
+    let network_key = primary.network_keypair().copy().private().to_bytes();
     let name = primary.public_key();
     let signature_service = SignatureService::new(*primary.keypair().private());
 

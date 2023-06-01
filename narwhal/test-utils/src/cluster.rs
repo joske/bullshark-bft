@@ -5,7 +5,6 @@ use arc_swap::ArcSwap;
 use config::{Parameters, SharedCommittee, SharedWorkerCache, WorkerId};
 use crypto::{KeyPair, NetworkKeyPair, PublicKey};
 use executor::SerializedTransaction;
-use fastcrypto::traits::KeyPair as _;
 use itertools::Itertools;
 use multiaddr::Multiaddr;
 use node::execution_state::SimpleExecutionState;
