@@ -963,7 +963,7 @@ impl PrimaryToPrimary for PrimaryReceiverHandler {
         let mut fetch_queue = BinaryHeap::new();
         for (origin, rounds) in &skip_rounds {
             if rounds.len() > 50 {
-                warn!(
+                debug!(
                     "{} rounds are available locally for origin {}. elapsed = {}ms",
                     rounds.len(),
                     origin,

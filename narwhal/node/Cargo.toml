@@ -31,7 +31,7 @@ url = "2.3.1"
 axum = "0.6.18"
 itertools = "0.10.5"
 
-anyhow = { version = "1.0.64", features = ["backtrace"] }
+anyhow = { version = "1.0.64" }
 config = { path = "../config", package = "narwhal-config" }
 consensus = { path = "../consensus", package = "narwhal-consensus" }
 fastcrypto = { git = "https://github.com/MystenLabs/fastcrypto", rev = "235211dc8195590f5353d38135f5ee51a267521e" }
