@@ -201,7 +201,7 @@ impl ConsensusState {
         #[cfg(feature = "metrics")]
         gauge!(
             snarkos_metrics::consensus::LAST_COMMITTED_ROUND,
-            self.last_committed_round as f64
+            self.last_round.committed_round as f64
         );
 
         let elapsed = certificate.metadata().created_at.elapsed().as_secs_f64();
