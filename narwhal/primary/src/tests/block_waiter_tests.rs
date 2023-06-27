@@ -6,8 +6,8 @@ use crate::{
     BlockWaiter,
 };
 use anemo::PeerId;
-use crypto::traits::KeyPair as _;
-use fastcrypto::hash::Hash;
+use crypto::Hash;
+use fastcrypto::traits::KeyPair;
 use mockall::*;
 use std::sync::Arc;
 use test_utils::{
@@ -33,11 +33,10 @@ async fn test_successfully_retrieve_block() {
         author
             .header_builder(&committee)
             .payload(fixture_payload(2))
-            .build()
-            .unwrap(),
+            .build(author.keypair().private()),
     );
     let certificate = fixture.certificate(&header);
-    let digest = certificate.digest();
+    let digest = CertificateDigest::default();
 
     let network = test_network(primary.network_keypair(), primary.address());
 
@@ -189,7 +188,7 @@ async fn test_successfully_retrieve_multiple_blocks() {
         // sort the batches to make sure that the response is the expected one.
         batches.sort_by(|a, b| a.digest.cmp(&b.digest));
 
-        let header = Header::V1(builder.build().unwrap());
+        let header = Header::V1(builder.build(author.keypair().private()).unwrap());
 
         let certificate = fixture.certificate(&header);
         certificates.push(certificate.clone());
@@ -274,7 +273,7 @@ async fn test_return_error_when_certificate_is_missing() {
 
     // AND create a certificate but don't store it
     let certificate = Certificate::default();
-    let digest = certificate.digest();
+    let digest = CertificateDigest::default();
 
     // AND mock the responses of the BlockSynchronizer
     let mut mock_handler = MockHandler::new();
@@ -316,7 +315,7 @@ async fn test_return_error_when_certificate_is_missing_when_get_blocks() {
 
     // AND create a certificate but don't store it
     let certificate = Certificate::default();
-    let digest = certificate.digest();
+    let digest = CertificateDigest::default();
 
     // AND mock the responses of the BlockSynchronizer
     let mut mock_handler = MockHandler::new();

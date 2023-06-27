@@ -6,10 +6,9 @@ use bincode::Options;
 use config::{AuthorityIdentifier, Committee, Parameters, WorkerId};
 use consensus::consensus::ConsensusRound;
 use consensus::dag::Dag;
+use crypto::{Hash, PublicKey, SignatureService};
 use fastcrypto::{
     encoding::{Encoding, Hex},
-    hash::Hash,
-    signature_service::SignatureService,
     traits::KeyPair,
 };
 use itertools::Itertools;
@@ -50,7 +49,7 @@ async fn get_network_peers_from_admin_server() {
     let committee = fixture.committee();
     let worker_cache = fixture.worker_cache();
     let authority_1 = fixture.authorities().next().unwrap();
-    let signer_1 = authority_1.keypair().copy();
+    let signer_1 = authority_1.keypair().clone();
 
     let worker_id = 0;
     let worker_1_keypair = authority_1.worker(worker_id).keypair().copy();
@@ -65,6 +64,9 @@ async fn get_network_peers_from_admin_server() {
         watch::channel(ConsensusRound::default());
 
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
+
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     // Spawn Primary 1
     Primary::spawn(
@@ -85,7 +87,7 @@ async fn get_network_peers_from_admin_server() {
         rx_consensus_round_updates,
         /* dag */
         Some(Arc::new(
-            Dag::new(&committee, rx_new_certificates, tx_shutdown.subscribe()).1,
+            Dag::new(&committee, rx_new_certificates, tx_shutdown.subscribe(), genesis_certs.clone()).1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
@@ -151,7 +153,7 @@ async fn get_network_peers_from_admin_server() {
     assert_eq!(1, resp.len());
 
     let authority_2 = fixture.authorities().nth(1).unwrap();
-    let signer_2 = authority_2.keypair().copy();
+    let signer_2 = authority_2.keypair().clone();
     let client_2 = NetworkClient::new_from_keypair(&authority_2.network_keypair());
 
     let primary_2_parameters = Parameters {
@@ -165,6 +167,8 @@ async fn get_network_peers_from_admin_server() {
     let (_tx_consensus_round_updates, rx_consensus_round_updates) =
         watch::channel(ConsensusRound::default());
     let mut tx_shutdown_2 = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     // Spawn Primary 2
     Primary::spawn(
@@ -185,7 +189,7 @@ async fn get_network_peers_from_admin_server() {
         rx_consensus_round_updates,
         /* dag */
         Some(Arc::new(
-            Dag::new(&committee, rx_new_certificates_2, tx_shutdown.subscribe()).1,
+            Dag::new(&committee, rx_new_certificates_2, tx_shutdown.subscribe(), genesis_certs.clone()).1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown_2,
@@ -253,7 +257,7 @@ async fn test_request_vote_send_missing_parents() {
     let target_id = target.id();
     let author_id = author.id();
     let worker_cache = fixture.worker_cache();
-    let signature_service = SignatureService::new(target.keypair().copy());
+    let signature_service = SignatureService::new(target.keypair().clone());
     let network = test_utils::test_network(target.network_keypair(), target.address());
     let client = NetworkClient::new_from_keypair(&target.network_keypair());
 
@@ -265,6 +269,8 @@ async fn test_request_vote_send_missing_parents() {
         watch::channel(ConsensusRound::new(1, 0));
     let (tx_narwhal_round_updates, rx_narwhal_round_updates) = watch::channel(1u64);
     let (_tx_synchronizer_network, rx_synchronizer_network) = oneshot::channel();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     let synchronizer = Arc::new(Synchronizer::new(
         target_id,
@@ -280,6 +286,7 @@ async fn test_request_vote_send_missing_parents() {
         rx_consensus_round_updates,
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
     let handler = PrimaryReceiverHandler {
         authority_id: target_id,
@@ -292,6 +299,7 @@ async fn test_request_vote_send_missing_parents() {
         payload_store: payload_store.clone(),
         vote_digest_store: VoteDigestStore::new_for_tests(),
         rx_narwhal_round_updates,
+        genesis_certs,
     };
 
     // Make some mock certificates that are parents of our new header.
@@ -401,7 +409,7 @@ async fn test_request_vote_accept_missing_parents() {
     let target_id = target.id();
     let author_id = author.id();
     let worker_cache = fixture.worker_cache();
-    let signature_service = SignatureService::new(target.keypair().copy());
+    let signature_service = SignatureService::new(target.keypair().clone());
     let network = test_utils::test_network(target.network_keypair(), target.address());
     let client = NetworkClient::new_from_keypair(&target.network_keypair());
 
@@ -413,6 +421,9 @@ async fn test_request_vote_accept_missing_parents() {
         watch::channel(ConsensusRound::new(1, 0));
     let (tx_narwhal_round_updates, rx_narwhal_round_updates) = watch::channel(1u64);
     let (_tx_synchronizer_network, rx_synchronizer_network) = oneshot::channel();
+
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     let synchronizer = Arc::new(Synchronizer::new(
         target_id,
@@ -428,6 +439,7 @@ async fn test_request_vote_accept_missing_parents() {
         rx_consensus_round_updates,
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
     let handler = PrimaryReceiverHandler {
         authority_id: target_id,
@@ -440,6 +452,7 @@ async fn test_request_vote_accept_missing_parents() {
         payload_store: payload_store.clone(),
         vote_digest_store: VoteDigestStore::new_for_tests(),
         rx_narwhal_round_updates,
+        genesis_certs,
     };
 
     // Make some mock certificates that are parents of our new header.
@@ -541,7 +554,7 @@ async fn test_request_vote_missing_batches() {
     let primary = fixture.authorities().next().unwrap();
     let authority_id = primary.id();
     let author = fixture.authorities().nth(2).unwrap();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
     let network = test_utils::test_network(primary.network_keypair(), primary.address());
     let client = NetworkClient::new_from_keypair(&primary.network_keypair());
 
@@ -553,6 +566,9 @@ async fn test_request_vote_missing_batches() {
         watch::channel(ConsensusRound::new(1, 0));
     let (_tx_narwhal_round_updates, rx_narwhal_round_updates) = watch::channel(1u64);
     let (_tx_synchronizer_network, rx_synchronizer_network) = oneshot::channel();
+
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&fixture.committee(), keypair.private());
 
     let synchronizer = Arc::new(Synchronizer::new(
         authority_id,
@@ -568,6 +584,7 @@ async fn test_request_vote_missing_batches() {
         rx_consensus_round_updates,
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
     let handler = PrimaryReceiverHandler {
         authority_id,
@@ -580,6 +597,7 @@ async fn test_request_vote_missing_batches() {
         payload_store: payload_store.clone(),
         vote_digest_store: VoteDigestStore::new_for_tests(),
         rx_narwhal_round_updates,
+        genesis_certs,
     };
 
     // Make some mock certificates that are parents of our new header.
@@ -589,7 +607,7 @@ async fn test_request_vote_missing_batches() {
             primary
                 .header_builder(&fixture.committee())
                 .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 0, 0)
-                .build()
+                .build(author.keypair().private())
                 .unwrap(),
         );
 
@@ -671,7 +689,7 @@ async fn test_request_vote_already_voted() {
     let primary = fixture.authorities().next().unwrap();
     let id = primary.id();
     let author = fixture.authorities().nth(2).unwrap();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
     let network = test_utils::test_network(primary.network_keypair(), primary.address());
     let client = NetworkClient::new_from_keypair(&primary.network_keypair());
 
@@ -683,6 +701,9 @@ async fn test_request_vote_already_voted() {
         watch::channel(ConsensusRound::new(1, 0));
     let (_tx_narwhal_round_updates, rx_narwhal_round_updates) = watch::channel(1u64);
     let (_tx_synchronizer_network, rx_synchronizer_network) = oneshot::channel();
+
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&fixture.committee(), keypair.private());
 
     let synchronizer = Arc::new(Synchronizer::new(
         id,
@@ -698,6 +719,7 @@ async fn test_request_vote_already_voted() {
         rx_consensus_round_updates,
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
 
     let handler = PrimaryReceiverHandler {
@@ -711,6 +733,7 @@ async fn test_request_vote_already_voted() {
         payload_store: payload_store.clone(),
         vote_digest_store: VoteDigestStore::new_for_tests(),
         rx_narwhal_round_updates,
+        genesis_certs,
     };
 
     // Make some mock certificates that are parents of our new header.
@@ -720,7 +743,7 @@ async fn test_request_vote_already_voted() {
             primary
                 .header_builder(&fixture.committee())
                 .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 0, 0)
-                .build()
+                .build(author.keypair().private())
                 .unwrap(),
         );
 
@@ -838,7 +861,7 @@ async fn test_fetch_certificates_handler() {
     let id = fixture.authorities().next().unwrap().id();
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().next().unwrap();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
     let client = NetworkClient::new_from_keypair(&primary.network_keypair());
 
     let (header_store, certificate_store, payload_store) = create_db_stores();
@@ -849,6 +872,9 @@ async fn test_fetch_certificates_handler() {
         watch::channel(ConsensusRound::default());
     let (_tx_narwhal_round_updates, rx_narwhal_round_updates) = watch::channel(1u64);
     let (_tx_synchronizer_network, rx_synchronizer_network) = oneshot::channel();
+
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&fixture.committee(), keypair.private());
 
     let synchronizer = Arc::new(Synchronizer::new(
         id,
@@ -864,6 +890,7 @@ async fn test_fetch_certificates_handler() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
     let handler = PrimaryReceiverHandler {
         authority_id: id,
@@ -876,6 +903,7 @@ async fn test_fetch_certificates_handler() {
         payload_store: payload_store.clone(),
         vote_digest_store: VoteDigestStore::new_for_tests(),
         rx_narwhal_round_updates,
+        genesis_certs
     };
 
     let mut current_round: Vec<_> = Certificate::genesis(&fixture.committee())
@@ -1005,7 +1033,7 @@ async fn test_process_payload_availability_success() {
     let id = author.id();
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().next().unwrap();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
     let client = NetworkClient::new_from_keypair(&primary.network_keypair());
 
     let (header_store, certificate_store, payload_store) = create_db_stores();
@@ -1054,7 +1082,7 @@ async fn test_process_payload_availability_success() {
             author
                 .header_builder(&fixture.committee())
                 .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 0, 0)
-                .build()
+                .build(author.keypair().private())
                 .unwrap(),
         );
 
@@ -1157,7 +1185,7 @@ async fn test_process_payload_availability_when_failures() {
     let id = author.id();
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().next().unwrap();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
     let client = NetworkClient::new_from_keypair(&primary.network_keypair());
 
     let (header_store, _, _) = create_db_stores();
@@ -1168,6 +1196,9 @@ async fn test_process_payload_availability_when_failures() {
         watch::channel(ConsensusRound::default());
     let (_tx_narwhal_round_updates, rx_narwhal_round_updates) = watch::channel(1u64);
     let (_tx_synchronizer_network, rx_synchronizer_network) = oneshot::channel();
+
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&fixture.committee(), keypair.private());
 
     let synchronizer = Arc::new(Synchronizer::new(
         id,
@@ -1183,6 +1214,7 @@ async fn test_process_payload_availability_when_failures() {
         rx_consensus_round_updates,
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
     let handler = PrimaryReceiverHandler {
         authority_id: id,
@@ -1195,6 +1227,7 @@ async fn test_process_payload_availability_when_failures() {
         payload_store: payload_store.clone(),
         vote_digest_store: VoteDigestStore::new_for_tests(),
         rx_narwhal_round_updates,
+        genesis_certs,
     };
 
     // AND some mock certificates
@@ -1256,7 +1289,7 @@ async fn test_request_vote_created_at_in_future() {
     let primary = fixture.authorities().next().unwrap();
     let id = primary.id();
     let author = fixture.authorities().nth(2).unwrap();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
     let network = test_utils::test_network(primary.network_keypair(), primary.address());
     let client = NetworkClient::new_from_keypair(&primary.network_keypair());
 
@@ -1268,6 +1301,9 @@ async fn test_request_vote_created_at_in_future() {
         watch::channel(ConsensusRound::new(1, 0));
     let (_tx_narwhal_round_updates, rx_narwhal_round_updates) = watch::channel(1u64);
     let (_tx_synchronizer_network, rx_synchronizer_network) = oneshot::channel();
+
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&fixture.committee(), keypair.private());
 
     let synchronizer = Arc::new(Synchronizer::new(
         id,
@@ -1283,6 +1319,7 @@ async fn test_request_vote_created_at_in_future() {
         rx_consensus_round_updates,
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
     let handler = PrimaryReceiverHandler {
         authority_id: id,
@@ -1295,6 +1332,7 @@ async fn test_request_vote_created_at_in_future() {
         payload_store: payload_store.clone(),
         vote_digest_store: VoteDigestStore::new_for_tests(),
         rx_narwhal_round_updates,
+        genesis_certs
     };
 
     // Make some mock certificates that are parents of our new header.

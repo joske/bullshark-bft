@@ -5,7 +5,8 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use anemo::{PeerId, Request};
 use async_trait::async_trait;
-use crypto::{traits::KeyPair, NetworkKeyPair, NetworkPublicKey};
+use crypto::{NetworkKeyPair, NetworkPublicKey};
+use fastcrypto::traits::KeyPair;
 use mysten_common::sync::notify_once::NotifyOnce;
 use parking_lot::RwLock;
 use tokio::{select, time::sleep};

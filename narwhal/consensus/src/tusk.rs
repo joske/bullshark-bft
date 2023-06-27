@@ -6,7 +6,7 @@ use crate::{
     utils, ConsensusError, Outcome,
 };
 use config::{Committee, Stake};
-use fastcrypto::hash::Hash;
+use crypto::Hash;
 use std::{collections::HashMap, sync::Arc};
 use storage::ConsensusStore;
 use tracing::{debug, error_span};

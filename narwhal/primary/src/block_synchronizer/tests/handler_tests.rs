@@ -8,7 +8,7 @@ use crate::{
     common::create_db_stores,
     BlockHeader, MockBlockSynchronizer,
 };
-use fastcrypto::hash::Hash;
+use crypto::Hash;
 use std::{collections::HashSet, time::Duration};
 use test_utils::{fixture_payload, CommitteeFixture};
 use tokio::sync::mpsc;
@@ -37,8 +37,7 @@ async fn test_get_and_synchronize_block_headers_when_fetched_from_storage() {
         author
             .header_builder(&committee)
             .payload(fixture_payload(1))
-            .build()
-            .unwrap(),
+            .build(author.keypair().private()),
     );
     let certificate = fixture.certificate(&header);
 
@@ -97,8 +96,7 @@ async fn test_get_and_synchronize_block_headers_when_fetched_from_peers() {
         author
             .header_builder(&committee)
             .payload(fixture_payload(1))
-            .build()
-            .unwrap(),
+            .build(author.keypair().private()),
     );
     let cert_stored = fixture.certificate(&header);
     certificate_store.write(cert_stored.clone()).unwrap();
@@ -108,8 +106,7 @@ async fn test_get_and_synchronize_block_headers_when_fetched_from_peers() {
         author
             .header_builder(&committee)
             .payload(fixture_payload(2))
-            .build()
-            .unwrap(),
+            .build(author.keypair().private()),
     );
     let cert_missing = fixture.certificate(&header);
 
@@ -200,8 +197,7 @@ async fn test_get_and_synchronize_block_headers_timeout_on_causal_completion() {
         author
             .header_builder(&committee)
             .payload(fixture_payload(1))
-            .build()
-            .unwrap(),
+            .build(author.keypair().private()),
     );
     let cert_stored = fixture.certificate(&header);
     certificate_store.write(cert_stored.clone()).unwrap();
@@ -211,8 +207,7 @@ async fn test_get_and_synchronize_block_headers_timeout_on_causal_completion() {
         author
             .header_builder(&committee)
             .payload(fixture_payload(2))
-            .build()
-            .unwrap(),
+            .build(author.keypair().private()),
     );
     let cert_missing = fixture.certificate(&header);
 
@@ -285,8 +280,7 @@ async fn test_synchronize_block_payload() {
         author
             .header_builder(&committee)
             .payload(fixture_payload(1))
-            .build()
-            .unwrap(),
+            .build(author.keypair().private()),
     );
     let cert_stored = fixture.certificate(&header);
     for (digest, (worker_id, _)) in cert_stored.clone().header().payload() {
@@ -298,8 +292,7 @@ async fn test_synchronize_block_payload() {
         author
             .header_builder(&committee)
             .payload(fixture_payload(2))
-            .build()
-            .unwrap(),
+            .build(author.keypair().private()),
     );
     let cert_missing = fixture.certificate(&header);
 

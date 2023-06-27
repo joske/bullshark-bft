@@ -22,7 +22,7 @@ async fn propose_header() {
     let primary = fixture.authorities().last().unwrap();
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let name = primary.public_key();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(primary.keypair().private());
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (_tx_certificates, rx_certificates) = test_utils::test_channel!(3);
@@ -50,7 +50,7 @@ async fn propose_header() {
     for primary in fixture.authorities().filter(|a| a.public_key() != name) {
         let address = committee.primary(&primary.public_key()).unwrap();
         let name = primary.public_key();
-        let signature_service = SignatureService::new(primary.keypair().copy());
+        let signature_service = SignatureService::new(primary.keypair().private());
         let vote = Vote::new(&proposed_header, &name, &signature_service).await;
         let mut mock_server = MockPrimaryToPrimary::new();
         let mut mock_seq = mockall::Sequence::new();
@@ -86,6 +86,9 @@ async fn propose_header() {
             .unwrap();
     }
 
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
+
     // Spawn the core.
     let synchronizer = Arc::new(Synchronizer::new(
         name.clone(),
@@ -96,6 +99,7 @@ async fn propose_header() {
         tx_certificate_fetcher,
         rx_consensus_round_updates.clone(),
         None,
+        genesis_certs,
     ));
     let _core_handle = Core::spawn(
         name,
@@ -133,7 +137,7 @@ async fn propose_header_failure() {
     let primary = fixture.authorities().last().unwrap();
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let name = primary.public_key();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(primary.keypair().private());
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (_tx_certificates, rx_certificates) = test_utils::test_channel!(3);
@@ -180,6 +184,9 @@ async fn propose_header_failure() {
             .unwrap();
     }
 
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
+
     // Spawn the core.
     let synchronizer = Arc::new(Synchronizer::new(
         name.clone(),
@@ -190,6 +197,7 @@ async fn propose_header_failure() {
         tx_certificate_fetcher,
         rx_consensus_round_updates.clone(),
         None,
+        genesis_certs,
     ));
     let _core_handle = Core::spawn(
         name,
@@ -225,7 +233,7 @@ async fn process_certificates() {
     let primary = fixture.authorities().last().unwrap();
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let name = primary.public_key();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(primary.keypair().private());
 
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
@@ -239,6 +247,8 @@ async fn process_certificates() {
 
     // Create test stores.
     let (header_store, certificate_store, payload_store) = create_db_stores();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     // Make a synchronizer for the core.
     let synchronizer = Arc::new(Synchronizer::new(
@@ -250,6 +260,7 @@ async fn process_certificates() {
         tx_certificate_fetcher,
         rx_consensus_round_updates.clone(),
         None,
+        genesis_certs,
     ));
 
     let own_address = network::multiaddr_to_address(&committee.primary(&name).unwrap()).unwrap();
@@ -324,7 +335,7 @@ async fn recover_core() {
     let primary = fixture.authorities().last().unwrap();
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let name = primary.public_key();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(primary.keypair().private());
 
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
@@ -338,6 +349,8 @@ async fn recover_core() {
 
     // Create test stores.
     let (header_store, certificate_store, payload_store) = create_db_stores();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     // Make a synchronizer for the core.
     let synchronizer = Arc::new(Synchronizer::new(
@@ -349,6 +362,7 @@ async fn recover_core() {
         tx_certificate_fetcher,
         rx_consensus_round_updates.clone(),
         None,
+        genesis_certs,
     ));
 
     let own_address = network::multiaddr_to_address(&committee.primary(&name).unwrap()).unwrap();
@@ -447,7 +461,7 @@ async fn recover_core_partial_certs() {
     let primary = fixture.authorities().last().unwrap();
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let name = primary.public_key();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(primary.keypair().private());
 
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
@@ -461,6 +475,8 @@ async fn recover_core_partial_certs() {
 
     // Create test stores.
     let (header_store, certificate_store, payload_store) = create_db_stores();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     // Make a synchronizer for the core.
     let synchronizer = Arc::new(Synchronizer::new(
@@ -472,6 +488,7 @@ async fn recover_core_partial_certs() {
         tx_certificate_fetcher,
         rx_consensus_round_updates.clone(),
         None,
+        genesis_certs,
     ));
 
     let own_address = network::multiaddr_to_address(&committee.primary(&name).unwrap()).unwrap();
@@ -575,7 +592,7 @@ async fn recover_core_expecting_header_of_previous_round() {
     let primary = fixture.authorities().last().unwrap();
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let name = primary.public_key();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(primary.keypair().private());
 
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
@@ -589,6 +606,8 @@ async fn recover_core_expecting_header_of_previous_round() {
 
     // Create test stores.
     let (header_store, certificate_store, payload_store) = create_db_stores();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     // Make a synchronizer for the core.
     let synchronizer = Arc::new(Synchronizer::new(
@@ -600,6 +619,7 @@ async fn recover_core_expecting_header_of_previous_round() {
         tx_certificate_fetcher,
         rx_consensus_round_updates.clone(),
         None,
+        genesis_certs,
     ));
 
     let own_address = network::multiaddr_to_address(&committee.primary(&name).unwrap()).unwrap();
@@ -703,7 +723,7 @@ async fn shutdown_core() {
     let primary = fixture.authorities().next().unwrap();
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let name = primary.public_key();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(primary.keypair().private());
 
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
@@ -717,6 +737,8 @@ async fn shutdown_core() {
 
     // Create test stores.
     let (header_store, certificate_store, payload_store) = create_db_stores();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     // Make a synchronizer for the core.
     let synchronizer = Arc::new(Synchronizer::new(
@@ -728,6 +750,7 @@ async fn shutdown_core() {
         tx_certificate_fetcher,
         rx_consensus_round_updates.clone(),
         None,
+        genesis_certs,
     ));
 
     let own_address = network::multiaddr_to_address(&committee.primary(&name).unwrap()).unwrap();

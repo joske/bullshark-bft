@@ -5,7 +5,6 @@
 
 use config::AuthorityIdentifier;
 use crypto::KeyPair;
-use fastcrypto::traits::KeyPair as _;
 use rand::{
     rngs::{OsRng, StdRng},
     SeedableRng,
@@ -23,9 +22,13 @@ fn test_empty_certificate_verification() {
     // You should not be allowed to create a certificate that does not satisfying quorum requirements
     assert!(Certificate::new_unverified(&committee, header.clone(), Vec::new()).is_err());
 
+    let primary = fixture.authorities().nth(1).unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee, keypair.private());
+
     let certificate = Certificate::new_unsigned(&committee, header, Vec::new()).unwrap();
     assert!(certificate
-        .verify(&committee, &fixture.worker_cache())
+        .verify(&committee, &fixture.worker_cache(), genesis_certs.as_slice())
         .is_err());
 }
 
@@ -34,19 +37,22 @@ fn test_valid_certificate_verification() {
     let fixture = CommitteeFixture::builder().build();
     let committee = fixture.committee();
     let header = fixture.header();
+    let primary = fixture.authorities().nth(1).unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee, keypair.private());
 
     let mut signatures = Vec::new();
 
     // 3 Signers satisfies the 2F + 1 signed stake requirement
     for authority in fixture.authorities().take(3) {
         let vote = authority.vote(&header);
-        signatures.push((vote.author(), vote.signature().clone()));
+        signatures.push((vote.author(), vote.signature()));
     }
 
     let certificate = Certificate::new_unverified(&committee, header, signatures).unwrap();
 
     assert!(certificate
-        .verify(&committee, &fixture.worker_cache())
+        .verify(&committee, &fixture.worker_cache(), genesis_certs.as_slice())
         .is_ok());
 }
 
@@ -55,13 +61,16 @@ fn test_certificate_insufficient_signatures() {
     let fixture = CommitteeFixture::builder().build();
     let committee = fixture.committee();
     let header = fixture.header();
+    let primary = fixture.authorities().nth(1).unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee, keypair.private());
 
     let mut signatures = Vec::new();
 
     // 2 Signatures. This is less than 2F + 1 (3).
     for authority in fixture.authorities().take(2) {
         let vote = authority.vote(&header);
-        signatures.push((vote.author(), vote.signature().clone()));
+        signatures.push((vote.author(), vote.signature()));
     }
 
     assert!(Certificate::new_unverified(&committee, header.clone(), signatures.clone()).is_err());
@@ -69,7 +78,7 @@ fn test_certificate_insufficient_signatures() {
     let certificate = Certificate::new_unsigned(&committee, header, signatures).unwrap();
 
     assert!(certificate
-        .verify(&committee, &fixture.worker_cache())
+        .verify(&committee, &fixture.worker_cache(), genesis_certs.as_slice())
         .is_err());
 }
 
@@ -78,6 +87,9 @@ fn test_certificate_validly_repeated_public_keys() {
     let fixture = CommitteeFixture::builder().build();
     let committee = fixture.committee();
     let header = fixture.header();
+    let primary = fixture.authorities().nth(1).unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee, keypair.private());
 
     let mut signatures = Vec::new();
 
@@ -85,8 +97,8 @@ fn test_certificate_validly_repeated_public_keys() {
     for authority in fixture.authorities().take(3) {
         let vote = authority.vote(&header);
         // We double every (pk, signature) pair - these should be ignored when forming the certificate.
-        signatures.push((vote.author(), vote.signature().clone()));
-        signatures.push((vote.author(), vote.signature().clone()));
+        signatures.push((vote.author(), vote.signature()));
+        signatures.push((vote.author(), vote.signature()));
     }
 
     let certificate_res = Certificate::new_unverified(&committee, header, signatures);
@@ -94,7 +106,7 @@ fn test_certificate_validly_repeated_public_keys() {
     let certificate = certificate_res.unwrap();
 
     assert!(certificate
-        .verify(&committee, &fixture.worker_cache())
+        .verify(&committee, &fixture.worker_cache(), genesis_certs.as_slice())
         .is_ok());
 }
 
@@ -103,6 +115,9 @@ fn test_unknown_signature_in_certificate() {
     let fixture = CommitteeFixture::builder().build();
     let committee = fixture.committee();
     let header = fixture.header();
+    let primary = fixture.authorities().nth(1).unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee, keypair.private());
 
     let mut signatures = Vec::new();
 
@@ -112,11 +127,11 @@ fn test_unknown_signature_in_certificate() {
         signatures.push((vote.author(), vote.signature().clone()));
     }
 
-    let malicious_key = KeyPair::generate(&mut StdRng::from_rng(OsRng).unwrap());
+    let malicious_key = KeyPair::new(&mut StdRng::from_rng(OsRng).unwrap()).unwrap();
     let malicious_id: AuthorityIdentifier = AuthorityIdentifier(50u16);
 
-    let vote = Vote::new_with_signer(&header, &malicious_id, &malicious_key);
-    signatures.push((vote.author(), vote.signature().clone()));
+    let vote = Vote::new_with_signer(&header, &malicious_id, malicious_key.private());
+    signatures.push((vote.author(), vote.signature()));
 
     assert!(Certificate::new_unverified(&committee, header, signatures).is_err());
 }
@@ -124,7 +139,7 @@ fn test_unknown_signature_in_certificate() {
 proptest::proptest! {
     #[test]
     fn test_certificate_verification(
-        committee_size in 4..35_usize
+        committee_size in 4..35
     ) {
         let fixture = CommitteeFixture::builder()
             .committee_size(NonZeroUsize::new(committee_size).unwrap())
@@ -132,19 +147,23 @@ proptest::proptest! {
         let committee = fixture.committee();
         let header = fixture.header();
 
+        let primary = fixture.authorities().nth(1).unwrap();
+        let keypair = primary.keypair().clone();
+        let genesis_certs = Certificate::genesis(&committee, keypair.private());
+
         let mut signatures = Vec::new();
 
         let quorum_threshold = committee.quorum_threshold() as usize;
 
         for authority in fixture.authorities().take(quorum_threshold) {
             let vote = authority.vote(&header);
-            signatures.push((vote.author(), vote.signature().clone()));
+            signatures.push((vote.author(), vote.signature()));
         }
 
         let certificate = Certificate::new_unverified(&committee, header, signatures).unwrap();
 
         assert!(certificate
-            .verify(&committee, &fixture.worker_cache())
+            .verify(&committee, &fixture.worker_cache(), genesis_certs.as_slice())
             .is_ok());
     }
 }

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use config::WorkerId;
-use fastcrypto::hash::Hash;
+use crypto::Hash;
 use futures::stream::FuturesUnordered;
 use futures::{Future, StreamExt};
 use network::{client::NetworkClient, WorkerToPrimaryClient};

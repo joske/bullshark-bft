@@ -4,7 +4,6 @@
 use arc_swap::ArcSwap;
 use config::{Committee, Stake};
 use crypto::PublicKey;
-use fastcrypto::traits::ToFromBytes;
 use mysten_network::Multiaddr;
 use std::collections::BTreeMap;
 use std::sync::Arc;

@@ -7,7 +7,7 @@
 use crate::utils::gc_round;
 use crate::{ConsensusError, Outcome, SequenceNumber};
 use config::{AuthorityIdentifier, Committee};
-use fastcrypto::hash::Hash;
+use crypto::{KeyPair, Hash};
 use std::{
     cmp::{max, Ordering},
     collections::{BTreeMap, BTreeSet, HashMap},

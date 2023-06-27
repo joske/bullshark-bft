@@ -14,7 +14,8 @@ use std::{array::TryFromSliceError, ops::Deref};
 
 use crate::{BlockError, BlockErrorKind, CertificateDigest, Transaction};
 use bytes::Bytes;
-use crypto::PublicKey;
+use crypto::{PublicKey, Digest};
+use snarkvm_console::prelude::ToBytes;
 
 pub use narwhal::{
     collection_error::CollectionErrorType,
@@ -46,7 +47,7 @@ pub use narwhal::{
 impl From<PublicKey> for PublicKeyProto {
     fn from(pub_key: PublicKey) -> Self {
         PublicKeyProto {
-            bytes: Bytes::from(pub_key.as_ref().to_vec()),
+            bytes: Bytes::from(pub_key.to_bytes_le().unwrap().to_vec()),
         }
     }
 }
@@ -88,6 +89,7 @@ impl TryFrom<CertificateDigestProto> for CertificateDigest {
     type Error = TryFromSliceError;
 
     fn try_from(digest: CertificateDigestProto) -> Result<Self, Self::Error> {
-        Ok(CertificateDigest::new(digest.digest.deref().try_into()?))
+        let bytes: [u8; 32] = digest.digest.deref().try_into()?;
+        Ok(CertificateDigest::new(Digest::new(bytes)))
     }
 }

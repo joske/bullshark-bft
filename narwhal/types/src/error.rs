@@ -4,7 +4,7 @@
 use crate::{CertificateDigest, HeaderDigest, Round, TimestampMs, VoteDigest};
 use anemo::PeerId;
 use config::Epoch;
-use fastcrypto::hash::Digest;
+use crypto::Digest;
 use mysten_common::sync::notify_once::NotifyOnce;
 use std::sync::Arc;
 use store::StoreError;
@@ -89,13 +89,13 @@ pub enum DagError {
     HeaderRequiresQuorum(HeaderDigest),
 
     #[error("Message {0} (round {1}) too old for GC round {2}")]
-    TooOld(Digest<{ crypto::DIGEST_LENGTH }>, Round, Round),
+    TooOld(Digest, Round, Round),
 
     #[error("Message {0} (round {1}) is too new for this primary at round {2}")]
-    TooNew(Digest<{ crypto::DIGEST_LENGTH }>, Round, Round),
+    TooNew(Digest, Round, Round),
 
     #[error("Vote {0} (round {1}) too old for round {2}")]
-    VoteTooOld(Digest<{ crypto::DIGEST_LENGTH }>, Round, Round),
+    VoteTooOld(Digest, Round, Round),
 
     #[error("Invalid epoch (expected {expected}, received {received})")]
     InvalidEpoch { expected: Epoch, received: Epoch },

@@ -5,7 +5,7 @@ use anemo::{types::response::StatusCode, Network};
 use anyhow::Result;
 use async_trait::async_trait;
 use config::{AuthorityIdentifier, Committee, WorkerCache, WorkerId};
-use fastcrypto::hash::Hash;
+use crypto::Hash;
 use futures::{stream::FuturesUnordered, StreamExt};
 use itertools::Itertools;
 use network::{client::NetworkClient, WorkerToPrimaryClient};

@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{CommitteeUpdateError, ConfigError, Epoch, Stake};
-use crypto::traits::EncodeDecodeBase64;
-use crypto::{NetworkPublicKey, PublicKey, PublicKeyBytes};
+use crypto::{NetworkPublicKey, PublicKey, EncodeDecodeBase64};
 use mysten_network::Multiaddr;
 use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
@@ -22,7 +21,7 @@ pub struct Authority {
     /// The authority's main PublicKey which is used to verify the content they sign.
     protocol_key: PublicKey,
     /// The authority's main PublicKey expressed as pure bytes
-    protocol_key_bytes: PublicKeyBytes,
+    protocol_key_bytes: Vec<u8>,
     /// The voting power of this authority.
     stake: Stake,
     /// The network address of the primary.
@@ -46,7 +45,7 @@ impl Authority {
         primary_address: Multiaddr,
         network_key: NetworkPublicKey,
     ) -> Self {
-        let protocol_key_bytes = PublicKeyBytes::from(&protocol_key);
+        let protocol_key_bytes = protocol_key.to_bytes();
 
         Self {
             id: Default::default(),
@@ -74,7 +73,7 @@ impl Authority {
         &self.protocol_key
     }
 
-    pub fn protocol_key_bytes(&self) -> &PublicKeyBytes {
+    pub fn protocol_key_bytes(&self) -> &[u8] {
         assert!(self.initialised);
         &self.protocol_key_bytes
     }

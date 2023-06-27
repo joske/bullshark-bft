@@ -74,6 +74,7 @@ pub(crate) struct CertificateFetcher {
     targets: BTreeMap<AuthorityIdentifier, Round>,
     /// Keeps the handle to the (at most one) inflight fetch certificates task.
     fetch_certificates_task: JoinSet<()>,
+    genesis_certs: Vec<Certificate>,
 }
 
 /// Thread-safe internal state of CertificateFetcher shared with its fetch task.
@@ -84,6 +85,7 @@ struct CertificateFetcherState {
     network: anemo::Network,
     /// Accepts Certificates into local storage.
     synchronizer: Arc<Synchronizer>,
+    genesis_certs: Vec<Certificate>,
 }
 
 impl CertificateFetcher {
@@ -97,11 +99,13 @@ impl CertificateFetcher {
         rx_shutdown: ConditionalBroadcastReceiver,
         rx_certificate_fetcher: Receiver<Certificate>,
         synchronizer: Arc<Synchronizer>,
+        genesis_certs: Vec<Certificate>,
     ) -> JoinHandle<()> {
         let state = Arc::new(CertificateFetcherState {
             authority_id,
             network,
             synchronizer,
+            genesis_certs: genesis_certs.clone(),
         });
 
         tokio::spawn(async move {
@@ -114,6 +118,7 @@ impl CertificateFetcher {
                 rx_certificate_fetcher,
                 targets: BTreeMap::new(),
                 fetch_certificates_task: JoinSet::new(),
+                genesis_certs,
             }
             .run()
             .await;
@@ -252,6 +257,7 @@ impl CertificateFetcher {
 
         let state = self.state.clone();
         let committee = self.committee.clone();
+        let genesis_certs = self.genesis_certs.clone();
 
         debug!(
             "Starting task to fetch missing certificates: max target {}, gc round {:?}",
@@ -262,7 +268,7 @@ impl CertificateFetcher {
             // TODO(metrics): Increment `certificate_fetcher_inflight_fetch`
 
             let now = Instant::now();
-            match run_fetch_task(state.clone(), committee, gc_round, written_rounds).await {
+            match run_fetch_task(state.clone(), committee, gc_round, written_rounds, genesis_certs).await {
                 Ok(_) => {
                     debug!(
                         "Finished task to fetch certificates successfully, elapsed = {}s",
@@ -290,6 +296,7 @@ async fn run_fetch_task(
     committee: Committee,
     gc_round: Round,
     written_rounds: BTreeMap<AuthorityIdentifier, BTreeSet<Round>>,
+    genesis_certs: Vec<Certificate>,
 ) -> DagResult<()> {
     // Send request to fetch certificates.
     let request = FetchCertificatesRequest::default()
@@ -302,7 +309,7 @@ async fn run_fetch_task(
 
     // Process and store fetched certificates.
     let num_certs_fetched = response.certificates.len();
-    process_certificates_helper(response, &state.synchronizer).await?;
+    process_certificates_helper(response, &state.synchronizer, genesis_certs).await?;
 
     // TODO(metrics): Increment `certificate_fetcher_num_certificates_processed` by `num_certs_fetched as u64`
 
@@ -394,6 +401,7 @@ async fn fetch_certificates_helper(
 async fn process_certificates_helper(
     response: FetchCertificatesResponse,
     synchronizer: &Synchronizer,
+    genesis_certs: Vec<Certificate>,
 ) -> DagResult<()> {
     trace!("Start sending fetched certificates to processing");
     if response.certificates.len() > MAX_CERTIFICATES_TO_FETCH {
@@ -411,12 +419,13 @@ async fn process_certificates_helper(
         .chunks(VERIFY_CERTIFICATES_BATCH_SIZE)
         .map(|certs| {
             let certs = certs.to_vec();
+            let genesis_certs = genesis_certs.clone();
             let sync = synchronizer.clone();
             // Use threads dedicated to computation heavy work.
             spawn_blocking(move || {
                 let now = Instant::now();
                 for c in &certs {
-                    sync.sanitize_certificate(c)?;
+                    sync.sanitize_certificate(c, genesis_certs.clone())?;
                 }
                 // TODO(metrics): Increment `certificate_fetcher_total_verification_us` by `now.elapsed().as_micros() as u64`
                 Ok::<Vec<Certificate>, DagError>(certs)

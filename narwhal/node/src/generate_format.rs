@@ -1,13 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 use config::{CommitteeBuilder, Epoch, WorkerIndex, WorkerInfo};
-use crypto::{KeyPair, NetworkKeyPair};
-use fastcrypto::{
-    hash::Hash,
-    traits::{KeyPair as _, Signer},
-};
+use crypto::{Hash, KeyPair, NetworkKeyPair};
+use fastcrypto::traits::KeyPair as _;
 use mysten_network::Multiaddr;
-use rand::{prelude::StdRng, SeedableRng};
+use rand::{prelude::StdRng, thread_rng, SeedableRng};
 use serde_reflection::{Registry, Result, Samples, Tracer, TracerConfig};
 use std::{fs::File, io::Write};
 use structopt::{clap::arg_enum, StructOpt};
@@ -30,19 +27,20 @@ fn get_registry() -> Result<Registry> {
     let (keys, network_keys): (Vec<_>, Vec<_>) = (0..4)
         .map(|_| {
             (
-                KeyPair::generate(&mut rng),
+                KeyPair::new(&mut rng),
                 NetworkKeyPair::generate(&mut rng),
             )
         })
         .unzip();
 
-    let kp = keys[0].copy();
+    let kp = keys[0].as_ref().unwrap().clone();
+    let private = kp.private();
     let pk = kp.public().clone();
 
     tracer.trace_value(&mut samples, &pk)?;
 
     let msg = b"Hello world!";
-    let signature = kp.sign(msg);
+    let signature = private.sign_bytes(msg, &mut thread_rng()).unwrap();
     tracer.trace_value(&mut samples, &signature)?;
 
     let mut committee_builder = CommitteeBuilder::new(Epoch::default());
@@ -50,7 +48,7 @@ fn get_registry() -> Result<Registry> {
         let primary_address: Multiaddr = format!("/ip4/127.0.0.1/udp/{}", 100 + i).parse().unwrap();
 
         committee_builder = committee_builder.add_authority(
-            kp.public().clone(),
+            kp.as_ref().unwrap().public(),
             1,
             primary_address,
             network_key.public().clone(),
@@ -59,7 +57,7 @@ fn get_registry() -> Result<Registry> {
 
     let committee = committee_builder.build();
 
-    let certificates: Vec<Certificate> = Certificate::genesis(&committee);
+    let certificates: Vec<Certificate> = Certificate::genesis(&committee, private.clone());
 
     // Find the author id inside the committee
     let authority = committee.authority_by_key(kp.public()).unwrap();
@@ -73,17 +71,16 @@ fn get_registry() -> Result<Registry> {
         .round(1)
         .payload(
             (0..4u32)
-                .map(|wid| (BatchDigest([0u8; 32]), (wid, 0u64)))
+                .map(|wid| (BatchDigest::default(), (wid, 0u64)))
                 .collect(),
         )
         .parents(certificates.iter().map(|x| x.digest()).collect())
-        .build()
-        .unwrap();
+        .build(private);
 
     let worker_pk = network_keys[0].public().clone();
     let certificate =
         Certificate::new_unsigned(&committee, Header::V1(header.clone()), vec![]).unwrap();
-    let signature = keys[0].sign(certificate.digest().as_ref());
+    let signature = private.sign_bytes(certificate.digest().as_ref(), &mut thread_rng()).unwrap();
     let certificate = Certificate::new_unsigned(
         &committee,
         Header::V1(header.clone()),
@@ -111,16 +108,16 @@ fn get_registry() -> Result<Registry> {
     tracer.trace_value(&mut samples, &worker_index)?;
 
     let our_batch = WorkerOurBatchMessage {
-        digest: BatchDigest([0u8; 32]),
+        digest: BatchDigest::default(),
         worker_id: 0,
         metadata: Metadata { created_at: 0 },
     };
     let others_batch = WorkerOthersBatchMessage {
-        digest: BatchDigest([0u8; 32]),
+        digest: BatchDigest::default(),
         worker_id: 0,
     };
     let sync = WorkerSynchronizeMessage {
-        digests: vec![BatchDigest([0u8; 32])],
+        digests: vec![BatchDigest::default()],
         target: authority.id(),
         is_certified: true,
     };

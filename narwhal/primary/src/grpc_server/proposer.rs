@@ -3,7 +3,6 @@
 use config::{AuthorityIdentifier, Committee};
 use consensus::dag::Dag;
 use crypto::PublicKey;
-use fastcrypto::traits::ToFromBytes;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use types::{

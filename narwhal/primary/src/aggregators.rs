@@ -4,10 +4,9 @@
 
 use config::{AuthorityIdentifier, Committee, Stake};
 use crypto::{
-    to_intent_message, AggregateSignature, NarwhalAuthorityAggregateSignature,
-    NarwhalAuthoritySignature, Signature,
+    to_intent_message, NarwhalAuthorityAggregateSignature,
+    NarwhalAuthoritySignature, Signature, Hash, Digest,
 };
-use fastcrypto::hash::{Digest, Hash};
 use std::collections::HashSet;
 use tracing::warn;
 use types::{
@@ -56,9 +55,8 @@ impl VotesAggregator {
             let cert = Certificate::new_unverified(committee, header.clone(), self.votes.clone())?;
             let (_, pks) = cert.signed_by(committee);
 
-            let certificate_digest: Digest<{ crypto::DIGEST_LENGTH }> = Digest::from(cert.digest());
-            match AggregateSignature::try_from(cert.aggregated_signature())
-                .map_err(|_| DagError::InvalidSignature)?
+            let certificate_digest: Digest = cert.digest().into();
+            match cert.aggregated_signature()
                 .verify_secure(&to_intent_message(certificate_digest), &pks[..])
             {
                 Err(err) => {
@@ -72,7 +70,6 @@ impl VotesAggregator {
                         let pk = committee.authority_safe(id).protocol_key();
                         if sig
                             .verify_secure(&to_intent_message(certificate_digest), pk)
-                            .is_err()
                         {
                             warn!("Invalid signature on header from authority: {}", id);
                             self.weight -= committee.stake(pk);

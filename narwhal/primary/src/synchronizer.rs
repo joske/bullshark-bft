@@ -2,11 +2,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 use anemo::{rpc::Status, Network, Request, Response};
-use config::{AuthorityIdentifier, Committee, Epoch, WorkerCache};
+use config::{AuthorityIdentifier, Epoch, WorkerCache, Committee};
 use consensus::consensus::ConsensusRound;
 use consensus::dag::Dag;
-use crypto::NetworkPublicKey;
-use fastcrypto::hash::Hash as _;
+use crypto::{Hash, PublicKey, NetworkPublicKey, PrivateKey};
 use futures::{stream::FuturesOrdered, StreamExt};
 use mysten_common::sync::notify_once::NotifyOnce;
 use network::{
@@ -269,9 +268,10 @@ impl Synchronizer {
         rx_consensus_round_updates: watch::Receiver<ConsensusRound>,
         rx_synchronizer_network: oneshot::Receiver<Network>,
         dag: Option<Arc<Dag>>,
+        genesis_certs: Vec<Certificate>,
     ) -> Self {
         let committee: &Committee = &committee;
-        let genesis = Self::make_genesis(committee);
+        let genesis = genesis_certs.into_iter().map(|x| (x.digest(), x)).collect();
         let highest_processed_round = certificate_store.highest_round_number();
         let highest_created_certificate = certificate_store.last_round(authority_id).unwrap();
         let gc_round = rx_consensus_round_updates.borrow().gc_round;
@@ -500,8 +500,8 @@ impl Synchronizer {
         Ok(())
     }
 
-    fn make_genesis(committee: &Committee) -> HashMap<CertificateDigest, Certificate> {
-        Certificate::genesis(committee)
+    fn make_genesis(committee: &Committee, signer: &PrivateKey) -> HashMap<CertificateDigest, Certificate> {
+        Certificate::genesis(committee, signer)
             .into_iter()
             .map(|x| (x.digest(), x))
             .collect()
@@ -509,7 +509,7 @@ impl Synchronizer {
 
     /// Checks if the certificate is valid and can potentially be accepted into the DAG.
     // TODO: produce a different type after sanitize, e.g. VerifiedCertificate.
-    pub fn sanitize_certificate(&self, certificate: &Certificate) -> DagResult<()> {
+    pub fn sanitize_certificate(&self, certificate: &Certificate, genesis_certs: Vec<Certificate>) -> DagResult<()> {
         ensure!(
             self.inner.committee.epoch() == certificate.epoch(),
             DagError::InvalidEpoch {
@@ -525,7 +525,7 @@ impl Synchronizer {
         );
         // Verify the certificate (and the embedded header).
         certificate
-            .verify(&self.inner.committee, &self.inner.worker_cache)
+            .verify(&self.inner.committee, &self.inner.worker_cache, genesis_certs)
             .map_err(DagError::from)
     }
 
@@ -551,7 +551,7 @@ impl Synchronizer {
             }
         }
         if sanitize {
-            self.sanitize_certificate(&certificate)?;
+            self.sanitize_certificate(&certificate, self.inner.genesis.values().map(Clone::clone).collect::<Vec<_>>())?;
         }
 
         debug!(

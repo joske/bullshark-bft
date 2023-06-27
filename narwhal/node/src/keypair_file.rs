@@ -3,15 +3,19 @@
 
 use anyhow::anyhow;
 pub use fastcrypto::traits::KeyPair as KeypairTraits;
+use crypto::{EncodeBase64, KeyPair};
 use fastcrypto::{
-    bls12381::min_sig::BLS12381KeyPair,
     ed25519::Ed25519KeyPair,
-    traits::{EncodeDecodeBase64, VerifyingKey},
+    traits::{EncodeDecodeBase64 as _, VerifyingKey},
 };
-use rand::{rngs::StdRng, SeedableRng};
+use rand::{rngs::StdRng, Rng, CryptoRng, SeedableRng};
 
-pub type AuthorityKeyPair = BLS12381KeyPair;
+pub type AuthorityKeyPair = KeyPair;
 pub type NetworkKeyPair = Ed25519KeyPair;
+
+pub fn get_key_pair_from_rng<R: Rng + CryptoRng>(rng: &mut R) -> KeyPair {
+    KeyPair::new(rng).unwrap()
+}
 
 /// Write Base64 encoded `flag || privkey` to file.
 pub fn write_keypair_to_file<P: AsRef<std::path::Path>>(
@@ -57,7 +61,7 @@ pub fn read_network_keypair_from_file<P: AsRef<std::path::Path>>(
 }
 
 /// Generate a keypair from the specified RNG (useful for testing with seedable rngs).
-pub fn get_key_pair_from_rng<KP: KeypairTraits, R>(csprng: &mut R) -> KP
+pub fn get_network_key_pair_from_rng<KP: KeypairTraits, R>(csprng: &mut R) -> KP
 where
     R: rand::CryptoRng + rand::RngCore,
     <KP as KeypairTraits>::PubKey: VerifyingKey,

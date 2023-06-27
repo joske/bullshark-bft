@@ -43,8 +43,8 @@ async fn simple_primary_worker_node_start_stop() {
     let primary_node = PrimaryNode::new(parameters.clone(), true);
     primary_node
         .start(
-            key_pair.copy(),
-            network_key_pair.copy(),
+            key_pair.clone(),
+            network_key_pair.clone(),
             committee.clone(),
             worker_cache.clone(),
             client.clone(),
@@ -60,7 +60,7 @@ async fn simple_primary_worker_node_start_stop() {
     workers
         .start(
             key_pair.public().clone(),
-            vec![(0, authority.worker(0).keypair().copy())],
+            vec![(0, authority.worker(0).keypair().clone())],
             committee,
             worker_cache,
             client,
@@ -124,7 +124,7 @@ async fn primary_node_restart() {
     let primary_node = PrimaryNode::new(parameters.clone(), true);
     primary_node
         .start(
-            key_pair.copy(),
+            key_pair.clone(),
             network_key_pair.copy(),
             committee.clone(),
             worker_cache.clone(),
@@ -145,7 +145,7 @@ async fn primary_node_restart() {
     // AND start again the node
     primary_node
         .start(
-            key_pair.copy(),
+            key_pair.clone(),
             network_key_pair.copy(),
             committee.clone(),
             worker_cache.clone(),

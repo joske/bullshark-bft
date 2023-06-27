@@ -28,13 +28,8 @@ use async_trait::async_trait;
 use config::{Authority, AuthorityIdentifier, Committee, Parameters, WorkerCache};
 use consensus::consensus::ConsensusRound;
 use consensus::dag::Dag;
-use crypto::traits::EncodeDecodeBase64;
-use crypto::{KeyPair, NetworkKeyPair, NetworkPublicKey, Signature};
-use fastcrypto::{
-    hash::Hash,
-    signature_service::SignatureService,
-    traits::{KeyPair as _, ToFromBytes},
-};
+use crypto::{EncodeDecodeBase64, Hash, KeyPair, NetworkKeyPair, NetworkPublicKey, PublicKey, SignatureService};
+use fastcrypto::traits::{KeyPair as _, ToFromBytes};
 use futures::{stream::FuturesUnordered, StreamExt};
 use mysten_network::{multiaddr::Protocol, Multiaddr};
 use network::failpoints::FailpointsMakeCallbackHandler;
@@ -119,6 +114,7 @@ impl Primary {
         network_model: NetworkModel,
         tx_shutdown: &mut PreSubscribedBroadcastSender,
         tx_committed_certificates: Sender<(Round, Vec<Certificate>)>,
+        genesis_certs: Vec<Certificate>,
     ) -> Vec<JoinHandle<()>> {
         // Write the parameters to the logs.
         parameters.tracing();
@@ -156,9 +152,10 @@ impl Primary {
             rx_consensus_round_updates.clone(),
             rx_synchronizer_network,
             dag.clone(),
+            genesis_certs.clone(),
         ));
 
-        let signature_service = SignatureService::new(signer);
+        let signature_service = SignatureService::new(*signer.private());
 
         // Spawn the network receiver listening to messages from the other primaries.
         let address = authority.primary_address();
@@ -176,6 +173,7 @@ impl Primary {
             payload_store: payload_store.clone(),
             vote_digest_store,
             rx_narwhal_round_updates,
+            genesis_certs: genesis_certs.clone(),
         })
         // Allow only one inflight RequestVote RPC at a time per peer.
         // This is required for correctness.
@@ -422,6 +420,7 @@ impl Primary {
             tx_shutdown.subscribe(),
             rx_certificate_fetcher,
             synchronizer.clone(),
+            genesis_certs.clone(),
         );
 
         // When the `Synchronizer` collects enough parent certificates, the `Proposer` generates
@@ -442,6 +441,7 @@ impl Primary {
             tx_headers,
             tx_narwhal_round_updates,
             rx_committed_own_headers,
+            genesis_certs.clone(),
         );
 
         let mut handles = vec![
@@ -488,6 +488,7 @@ impl Primary {
                 payload_store.clone(),
                 certificate_store.clone(),
                 parameters.clone(),
+                genesis_certs.clone(),
             );
 
             // Retrieves a block's data by contacting the worker nodes that contain the
@@ -579,7 +580,7 @@ struct PrimaryReceiverHandler {
     worker_cache: WorkerCache,
     synchronizer: Arc<Synchronizer>,
     /// Service to sign headers.
-    signature_service: SignatureService<Signature, { crypto::INTENT_MESSAGE_LENGTH }>,
+    signature_service: SignatureService,
     header_store: HeaderStore,
     certificate_store: CertificateStore,
     payload_store: PayloadStore,
@@ -587,6 +588,7 @@ struct PrimaryReceiverHandler {
     vote_digest_store: VoteDigestStore,
     /// Get a signal when the round changes.
     rx_narwhal_round_updates: watch::Receiver<Round>,
+    genesis_certs: Vec<Certificate>,
 }
 
 #[allow(clippy::result_large_err)]

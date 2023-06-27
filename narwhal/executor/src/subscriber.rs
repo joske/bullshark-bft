@@ -3,7 +3,7 @@
 use crate::{errors::SubscriberResult, ExecutionState};
 
 use config::{AuthorityIdentifier, Committee, WorkerCache, WorkerId};
-use crypto::NetworkPublicKey;
+use crypto::{Hash, NetworkPublicKey, PublicKey};
 
 use futures::stream::FuturesOrdered;
 use futures::StreamExt;
@@ -16,7 +16,6 @@ use std::collections::HashSet;
 use std::{sync::Arc, time::Duration, vec};
 use types::FetchBatchesRequest;
 
-use fastcrypto::hash::Hash;
 use tokio::{
     sync::mpsc::{channel, Receiver, Sender},
     task::JoinHandle,

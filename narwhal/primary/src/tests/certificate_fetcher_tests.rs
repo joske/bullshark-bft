@@ -5,7 +5,8 @@ use crate::{certificate_fetcher::CertificateFetcher, synchronizer::Synchronizer}
 use anemo::async_trait;
 use anyhow::Result;
 use config::{AuthorityIdentifier, Epoch, WorkerId};
-use fastcrypto::{hash::Hash, traits::KeyPair};
+use crypto::{Hash, PublicKey, Signature, SignatureService};
+use fastcrypto::traits::KeyPair;
 use indexmap::IndexMap;
 use itertools::Itertools;
 use network::client::NetworkClient;
@@ -134,7 +135,7 @@ struct BadHeader {
     pub metadata: Metadata,
 }
 
-#[tokio::test(flavor = "current_thread", start_paused = true)]
+#[tokio::test]
 async fn fetch_certificates_basic() {
     let fixture = CommitteeFixture::builder().randomize_ports(true).build();
     let worker_cache = fixture.worker_cache();
@@ -142,6 +143,8 @@ async fn fetch_certificates_basic() {
     let client = NetworkClient::new_from_keypair(&primary.network_keypair());
     let id = primary.id();
     let fake_primary = fixture.authorities().nth(1).unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&fixture.committee(), keypair.private());
     let gc_depth: Round = 50;
 
     // kept empty
@@ -180,6 +183,7 @@ async fn fetch_certificates_basic() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
 
     let fake_primary_addr = fake_primary.address().to_anemo_address().unwrap();
@@ -212,7 +216,7 @@ async fn fetch_certificates_basic() {
     );
 
     // Generate headers and certificates in successive rounds
-    let genesis_certs: Vec<_> = Certificate::genesis(&fixture.committee());
+    let genesis_certs: Vec<_> = Certificate::genesis(&fixture.committee(), keypair.private());
     for cert in genesis_certs.iter() {
         certificate_store
             .write(cert.clone())

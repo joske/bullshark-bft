@@ -10,8 +10,7 @@ use std::{
 use anemo::Network;
 use anyhow::bail;
 use async_trait::async_trait;
-use crypto::NetworkPublicKey;
-use fastcrypto::hash::Hash;
+use crypto::{NetworkPublicKey, Hash};
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use itertools::Itertools;
 use network::WorkerRpc;

@@ -68,7 +68,7 @@ impl Cluster {
             let authority = AuthorityDetails::new(
                 id,
                 authority_fixture.id(),
-                authority_fixture.keypair().copy(),
+                authority_fixture.keypair().clone(),
                 authority_fixture.network_keypair().copy(),
                 authority_fixture.worker_keypairs(),
                 params.with_available_ports(),
@@ -355,7 +355,7 @@ impl PrimaryNodeDetails {
 
         self.node
             .start(
-                self.key_pair.copy(),
+                (*self.key_pair).clone(),
                 self.network_key_pair.copy(),
                 self.committee.clone(),
                 self.worker_cache.clone(),

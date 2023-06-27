@@ -6,7 +6,7 @@ use crate::{
     utils, ConsensusError, Outcome,
 };
 use config::{AuthorityIdentifier, Committee, Stake};
-use fastcrypto::hash::Hash;
+use crypto::Hash;
 use std::sync::Arc;
 use storage::ConsensusStore;
 use tokio::time::Instant;

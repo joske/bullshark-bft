@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::NetworkModel;
 use config::{AuthorityIdentifier, Committee, Epoch, WorkerId};
-use fastcrypto::hash::Hash as _;
+use crypto::{Hash as _, PublicKey, SignatureService};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, VecDeque};
 use storage::ProposerStore;
@@ -95,6 +95,8 @@ pub struct Proposer {
     /// Committed headers channel on which we get updates on which of
     /// our own headers have been committed.
     rx_committed_own_headers: Receiver<(Round, Vec<Round>)>,
+
+    genesis_certs: Vec<Certificate>,
 }
 
 impl Proposer {
@@ -116,8 +118,8 @@ impl Proposer {
         tx_headers: Sender<Header>,
         tx_narwhal_round_updates: watch::Sender<Round>,
         rx_committed_own_headers: Receiver<(Round, Vec<Round>)>,
+        genesis_certs: Vec<Certificate>,
     ) -> JoinHandle<()> {
-        let genesis = Certificate::genesis(&committee);
         tokio::spawn(async move {
             Self {
                 authority_id,
@@ -136,11 +138,12 @@ impl Proposer {
                 proposer_store,
                 round: 0,
                 last_round_timestamp: None,
-                last_parents: genesis,
+                last_parents: genesis_certs.clone(),
                 last_leader: None,
                 digests: VecDeque::with_capacity(2 * max_header_num_of_batches),
                 proposed_headers: BTreeMap::new(),
                 rx_committed_own_headers,
+                genesis_certs,
             }
             .run()
             .await;

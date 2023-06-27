@@ -9,7 +9,7 @@
 )]
 #![allow(clippy::mutable_key_type)]
 
-use crypto::{traits::EncodeDecodeBase64, NetworkPublicKey, PublicKey};
+use crypto::{EncodeDecodeBase64, NetworkPublicKey, PublicKey};
 use mysten_network::Multiaddr;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
@@ -80,10 +80,11 @@ pub trait Export: Serialize {
     fn export(&self, path: &str) -> Result<(), ConfigError> {
         let writer = || -> Result<(), std::io::Error> {
             let file = OpenOptions::new().create(true).write(true).open(path)?;
-            let mut writer = BufWriter::new(file);
+            let mut writer = BufWriter::new(&file);
             let data = serde_json::to_string_pretty(self).unwrap();
             writer.write_all(data.as_ref())?;
             writer.write_all(b"\n")?;
+            file.sync_all()?;
             Ok(())
         };
         writer().map_err(|e| ConfigError::ExportError {

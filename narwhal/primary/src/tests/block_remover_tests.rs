@@ -4,8 +4,8 @@ use crate::{block_remover::BlockRemover, common::create_db_stores, NUM_SHUTDOWN_
 use anemo::PeerId;
 use config::{Committee, WorkerId};
 use consensus::dag::Dag;
-use crypto::traits::KeyPair;
-use fastcrypto::hash::Hash;
+use crypto::{Hash, PrivateKey};
+use fastcrypto::traits::KeyPair;
 use futures::future::join_all;
 use std::{borrow::Borrow, collections::HashMap, sync::Arc, time::Duration};
 use test_utils::CommitteeFixture;
@@ -30,10 +30,12 @@ async fn test_successful_blocks_delete() {
     let primary = fixture.authorities().nth(1).unwrap();
     let id = primary.id();
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     // AND a Dag with genesis populated
-    let dag = Arc::new(Dag::new(&committee, rx_consensus, tx_shutdown.subscribe()).1);
-    populate_genesis(&dag, &committee).await;
+    let dag = Arc::new(Dag::new(&committee, rx_consensus, tx_shutdown.subscribe(), genesis_certs.clone()).1);
+    populate_genesis(&dag, &committee, author.keypair().private()).await;
 
     let network = test_utils::test_network(primary.network_keypair(), primary.address());
     let block_remover = BlockRemover::new(
@@ -66,8 +68,7 @@ async fn test_successful_blocks_delete() {
                 .header_builder(&committee)
                 .with_payload_batch(batch_1.clone(), worker_id_0, 0)
                 .with_payload_batch(batch_2.clone(), worker_id_1, 0)
-                .build()
-                .unwrap(),
+                .build(author.keypair().private()),
         );
 
         let certificate = fixture.certificate(&header);
@@ -191,9 +192,12 @@ async fn test_failed_blocks_delete() {
     let author = fixture.authorities().next().unwrap();
     let primary = fixture.authorities().nth(1).unwrap();
     let id = primary.id();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
+
     // AND a Dag with genesis populated
-    let dag = Arc::new(Dag::new(&committee, rx_consensus, tx_shutdown.subscribe()).1);
-    populate_genesis(&dag, &committee).await;
+    let dag = Arc::new(Dag::new(&committee, rx_consensus, tx_shutdown.subscribe(), genesis_certs.clone()).1);
+    populate_genesis(&dag, &committee, keypair.private()).await;
 
     let network = test_utils::test_network(primary.network_keypair(), primary.address());
     let block_remover = BlockRemover::new(
@@ -226,8 +230,7 @@ async fn test_failed_blocks_delete() {
                 .header_builder(&committee)
                 .with_payload_batch(batch_1.clone(), worker_id_0, 0)
                 .with_payload_batch(batch_2.clone(), worker_id_1, 0)
-                .build()
-                .unwrap(),
+                .build(author.keypair().private()),
         );
 
         let certificate = fixture.certificate(&header);
@@ -317,9 +320,9 @@ async fn test_failed_blocks_delete() {
     assert_eq!(total_deleted, 0);
 }
 
-async fn populate_genesis<K: Borrow<Dag>>(dag: &K, committee: &Committee) {
+async fn populate_genesis<K: Borrow<Dag>>(dag: &K, committee: &Committee, signer: &PrivateKey) {
     assert!(join_all(
-        Certificate::genesis(committee)
+        Certificate::genesis(committee, signer)
             .iter()
             .map(|cert| dag.borrow().insert(cert.clone())),
     )

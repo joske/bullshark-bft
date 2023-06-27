@@ -5,7 +5,7 @@
 use crate::{Batch, Certificate, CertificateAPI, CertificateDigest, HeaderAPI, Round, TimestampMs};
 use config::{AuthorityIdentifier, Committee};
 use enum_dispatch::enum_dispatch;
-use fastcrypto::hash::Hash;
+use crypto::{Hash, PublicKey};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -23,7 +23,7 @@ pub struct ConsensusOutput {
     pub batches: Vec<(Certificate, Vec<Batch>)>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CommittedSubDag {
     /// The sequence of committed certificates.
     pub certificates: Vec<Certificate>,

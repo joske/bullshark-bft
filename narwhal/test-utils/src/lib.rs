@@ -8,13 +8,10 @@ use config::{
     Stake, WorkerCache, WorkerId, WorkerIndex, WorkerInfo,
 };
 use crypto::{
-    to_intent_message, KeyPair, NarwhalAuthoritySignature, NetworkKeyPair, NetworkPublicKey,
-    PublicKey, Signature,
+    Hash, KeyPair, NetworkKeyPair, NetworkPublicKey, PublicKey,
+    to_intent_message, NarwhalAuthoritySignature, Signature,
 };
-use fastcrypto::{
-    hash::Hash as _,
-    traits::{AllowedRng, KeyPair as _},
-};
+use fastcrypto::traits::{AllowedRng, KeyPair as _};
 use indexmap::IndexMap;
 use mysten_network::Multiaddr;
 use once_cell::sync::OnceCell;
@@ -104,7 +101,7 @@ macro_rules! test_new_certificates_channel {
 ////////////////////////////////////////////////////////////////
 
 pub fn random_key() -> KeyPair {
-    KeyPair::generate(&mut thread_rng())
+    KeyPair::new(&mut thread_rng()).unwrap()
 }
 
 ////////////////////////////////////////////////////////////////
@@ -608,8 +605,7 @@ pub fn mock_certificate_with_rand<R: RngCore + ?Sized>(
         .epoch(0)
         .parents(parents)
         .payload(fixture_payload_with_rand(1, rand))
-        .build()
-        .unwrap();
+        .build();
     let certificate = Certificate::new_unsigned(committee, Header::V1(header), Vec::new()).unwrap();
     (certificate.digest(), certificate)
 }
@@ -641,8 +637,8 @@ pub fn mock_certificate_with_epoch(
         .epoch(epoch)
         .parents(parents)
         .payload(fixture_payload(1))
-        .build()
-        .unwrap();
+        .build();
+    // TODO: sign: KeyPair::new(&mut rand::thread_rng()).unwrap().private()
     let certificate = Certificate::new_unsigned(committee, Header::V1(header), Vec::new()).unwrap();
     (certificate.digest(), certificate)
 }
@@ -655,6 +651,7 @@ pub fn mock_signed_certificate(
     parents: BTreeSet<CertificateDigest>,
     committee: &Committee,
 ) -> (CertificateDigest, Certificate) {
+    let author = signers.iter().find(|(id, _kp)| id == &origin).unwrap();
     let header_builder = HeaderV1Builder::default()
         .author(origin)
         .payload(fixture_payload(1))
@@ -662,14 +659,15 @@ pub fn mock_signed_certificate(
         .epoch(0)
         .parents(parents);
 
-    let header = header_builder.build().unwrap();
+    let header = header_builder.build(); // TODO: sign with author's key
 
     let cert =
         Certificate::new_unsigned(committee, Header::V1(header.clone()), Vec::new()).unwrap();
 
     let mut votes = Vec::new();
+    let rng = &mut rand::thread_rng();
     for (name, signer) in signers {
-        let sig = Signature::new_secure(&to_intent_message(cert.header().digest()), signer);
+        let sig = Signature::new_secure(&to_intent_message(cert.header().digest()), signer.private());
         votes.push((*name, sig))
     }
     let cert = Certificate::new_unverified(committee, Header::V1(header), votes).unwrap();
@@ -876,8 +874,7 @@ impl CommitteeFixture {
                     .epoch(0)
                     .parents(parents.clone())
                     .with_payload_batch(fixture_batch_with_transactions(10), 0, 0)
-                    .build()
-                    .unwrap();
+                    .build();
                 Header::V1(header)
             })
             .collect();
@@ -980,8 +977,7 @@ impl AuthorityFixture {
         let header = self
             .header_builder(committee)
             .payload(Default::default())
-            .build()
-            .unwrap();
+            .build();
         Header::V1(header)
     }
 
@@ -990,8 +986,7 @@ impl AuthorityFixture {
             .header_builder(committee)
             .payload(Default::default())
             .round(round)
-            .build()
-            .unwrap();
+            .build();
         Header::V1(header)
     }
 
@@ -1001,7 +996,7 @@ impl AuthorityFixture {
             .round(1)
             .epoch(committee.epoch())
             .parents(
-                Certificate::genesis(committee)
+                Certificate::genesis(committee, self.keypair().private())
                     .iter()
                     .map(|x| x.digest())
                     .collect(),
@@ -1009,7 +1004,7 @@ impl AuthorityFixture {
     }
 
     pub fn vote(&self, header: &Header) -> Vote {
-        Vote::new_with_signer(header, &self.id(), &self.keypair)
+        Vote::new_with_signer(header, &self.id(), &self.keypair.private())
     }
 
     fn generate<R, P>(mut rng: R, number_of_workers: NonZeroUsize, mut get_port: P) -> Self
@@ -1017,7 +1012,7 @@ impl AuthorityFixture {
         R: AllowedRng,
         P: FnMut(&str) -> u16,
     {
-        let keypair = KeyPair::generate(&mut rng);
+        let keypair = KeyPair::new(&mut rng).unwrap();
         let network_keypair = NetworkKeyPair::generate(&mut rng);
         let host = "127.0.0.1";
         let address: Multiaddr = format!("/ip4/{}/udp/{}", host, get_port(host))

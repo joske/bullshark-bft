@@ -5,7 +5,7 @@ use config::Committee;
 use consensus::consensus::ConsensusRound;
 use consensus::dag::Dag;
 use consensus::utils::gc_round;
-use fastcrypto::{hash::Hash, traits::KeyPair};
+use crypto::Hash;
 use futures::{stream::FuturesUnordered, StreamExt};
 use itertools::Itertools;
 use network::client::NetworkClient;
@@ -553,7 +553,10 @@ async fn deliver_certificate_using_dag() {
     let (_tx_synchronizer_network, rx_synchronizer_network) = oneshot::channel();
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
 
-    let dag = Arc::new(Dag::new(&committee, rx_consensus, tx_shutdown.subscribe()).1);
+    let primary = fixture.authorities().next().unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
+    let dag = Arc::new(Dag::new(&committee, rx_consensus, tx_shutdown.subscribe(), genesis_certs.clone()).1);
 
     let synchronizer = Synchronizer::new(
         name,
@@ -569,6 +572,7 @@ async fn deliver_certificate_using_dag() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         Some(dag.clone()),
+        genesis_certs.clone(),
     );
 
     // create some certificates in a complete DAG form
@@ -580,7 +584,7 @@ async fn deliver_certificate_using_dag() {
 
     let keys = fixture
         .authorities()
-        .map(|a| (a.id(), a.keypair().copy()))
+        .map(|a| (a.id(), a.keypair().clone()))
         .take(3)
         .collect::<Vec<_>>();
     let (mut certificates, _next_parents) =
@@ -620,6 +624,9 @@ async fn deliver_certificate_using_store() {
         watch::channel(ConsensusRound::default());
     let (_tx_synchronizer_network, rx_synchronizer_network) = oneshot::channel();
 
+    let primary = fixture.authorities().next().unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
     let synchronizer = Synchronizer::new(
         name,
         fixture.committee(),
@@ -634,10 +641,10 @@ async fn deliver_certificate_using_store() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     );
 
     // create some certificates in a complete DAG form
-    let genesis_certs = Certificate::genesis(&committee);
     let genesis = genesis_certs
         .iter()
         .map(|x| x.digest())
@@ -645,7 +652,7 @@ async fn deliver_certificate_using_store() {
 
     let keys = fixture
         .authorities()
-        .map(|a| (a.id(), a.keypair().copy()))
+        .map(|a| (a.id(), a.keypair().clone()))
         .take(3)
         .collect::<Vec<_>>();
     let (mut certificates, _next_parents) =
@@ -685,6 +692,9 @@ async fn deliver_certificate_not_found_parents() {
         watch::channel(ConsensusRound::default());
     let (_tx_synchronizer_network, rx_synchronizer_network) = oneshot::channel();
 
+    let primary = fixture.authorities().next().unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
     let synchronizer = Synchronizer::new(
         name,
         fixture.committee(),
@@ -699,10 +709,10 @@ async fn deliver_certificate_not_found_parents() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     );
 
     // create some certificates in a complete DAG form
-    let genesis_certs = Certificate::genesis(&committee);
     let genesis = genesis_certs
         .iter()
         .map(|x| x.digest())
@@ -710,7 +720,7 @@ async fn deliver_certificate_not_found_parents() {
 
     let keys = fixture
         .authorities()
-        .map(|a| (a.id(), a.keypair().copy()))
+        .map(|a| (a.id(), a.keypair().clone()))
         .take(3)
         .collect::<Vec<_>>();
     let (mut certificates, _next_parents) =
@@ -754,6 +764,10 @@ async fn sync_batches_drops_old() {
         watch::channel(ConsensusRound::new(1, 0));
     let (_tx_synchronizer_network, rx_synchronizer_network) = oneshot::channel();
 
+    let primary = fixture.authorities().next().unwrap();
+    let keypair = primary.keypair().clone();
+    let committee = fixture.committee();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
     let synchronizer = Arc::new(Synchronizer::new(
         primary.id(),
         fixture.committee(),
@@ -768,6 +782,7 @@ async fn sync_batches_drops_old() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
 
     let mut certificates = HashMap::new();
@@ -776,8 +791,7 @@ async fn sync_batches_drops_old() {
             author
                 .header_builder(&fixture.committee())
                 .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 0, 0)
-                .build()
-                .unwrap(),
+                .build(author.keypair().private()),
         );
 
         let certificate = fixture.certificate(&header);
@@ -795,8 +809,7 @@ async fn sync_batches_drops_old() {
             .round(2)
             .parents(certificates.keys().cloned().collect())
             .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 1, 0)
-            .build()
-            .unwrap(),
+            .build(author.keypair().private())
     );
 
     tokio::task::spawn(async move {

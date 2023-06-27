@@ -4,8 +4,7 @@
 use crate::{aggregators::VotesAggregator, synchronizer::Synchronizer};
 
 use config::{AuthorityIdentifier, Committee};
-use crypto::{NetworkPublicKey, Signature};
-use fastcrypto::signature_service::SignatureService;
+use crypto::{NetworkPublicKey, Signature, SignatureService};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use network::anemo_ext::NetworkExt;
@@ -46,7 +45,7 @@ pub struct Certifier {
     /// Handles synchronization with other nodes and our workers.
     synchronizer: Arc<Synchronizer>,
     /// Service to sign headers.
-    signature_service: SignatureService<Signature, { crypto::INTENT_MESSAGE_LENGTH }>,
+    signature_service: SignatureService,
     /// Receiver for shutdown.
     rx_shutdown: ConditionalBroadcastReceiver,
     /// Receives our newly created headers from the `Proposer`.
@@ -72,7 +71,7 @@ impl Certifier {
         header_store: HeaderStore,
         certificate_store: CertificateStore,
         synchronizer: Arc<Synchronizer>,
-        signature_service: SignatureService<Signature, { crypto::INTENT_MESSAGE_LENGTH }>,
+        signature_service: SignatureService,
         rx_shutdown: ConditionalBroadcastReceiver,
         rx_headers: mpsc::Receiver<Header>,
         primary_network: anemo::Network,
@@ -236,7 +235,7 @@ impl Certifier {
         committee: Committee,
         header_store: HeaderStore,
         certificate_store: CertificateStore,
-        signature_service: SignatureService<Signature, { crypto::INTENT_MESSAGE_LENGTH }>,
+        signature_service: SignatureService,
         network: anemo::Network,
         header: Header,
         mut cancel: oneshot::Receiver<()>,

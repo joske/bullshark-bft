@@ -2,6 +2,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 use super::*;
+use crypto::Digest;
 use crate::NUM_SHUTDOWN_RECEIVERS;
 use indexmap::IndexMap;
 use test_utils::{fixture_payload, CommitteeFixture};
@@ -92,7 +93,7 @@ async fn propose_payload_and_repropose_after_n_seconds() {
     let r: Vec<u8> = (0..32).map(|_v| rand::random::<u8>()).collect();
     b.copy_from_slice(r.as_slice());
 
-    let digest = BatchDigest(b);
+    let digest = BatchDigest(Digest::new(b));
     let worker_id = 0;
     let created_at_ts = 0;
     let (tx_ack, rx_ack) = tokio::sync::oneshot::channel();
@@ -212,7 +213,7 @@ async fn equivocation_protection() {
     let r: Vec<u8> = (0..32).map(|_v| rand::random::<u8>()).collect();
     b.copy_from_slice(r.as_slice());
 
-    let digest = BatchDigest(b);
+    let digest = BatchDigest(Digest::new(b));
     let worker_id = 0;
     let created_at_ts = 0;
     let (tx_ack, rx_ack) = tokio::sync::oneshot::channel();
@@ -282,7 +283,7 @@ async fn equivocation_protection() {
     let r: Vec<u8> = (0..32).map(|_v| rand::random::<u8>()).collect();
     b.copy_from_slice(r.as_slice());
 
-    let digest = BatchDigest(b);
+    let digest = BatchDigest(Digest::new(b));
     let worker_id = 0;
     let (tx_ack, rx_ack) = tokio::sync::oneshot::channel();
     tx_our_digests
