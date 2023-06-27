@@ -1363,7 +1363,7 @@ impl DBOptions {
     pub fn optimize_for_read(mut self, block_cache_size_mb: usize) -> DBOptions {
         let mut block_options = BlockBasedOptions::default();
         block_options
-            .set_block_cache(&Cache::new_lru_cache(block_cache_size_mb * 1024 * 1024).unwrap());
+            .set_block_cache(&Cache::new_lru_cache(block_cache_size_mb * 1024 * 1024));
         // Set a bloomfilter with 1% false positive rate.
         block_options.set_bloom_filter(10.0, false);
         self.options.set_block_based_table_factory(&block_options);
@@ -1493,7 +1493,7 @@ pub fn default_db_options() -> DBOptions {
     // https://github.com/facebook/rocksdb/blob/11cb6af6e5009c51794641905ca40ce5beec7fee/options/options.cc#L611-L621
     let mut block_options = BlockBasedOptions::default();
     // Configure a 64MiB block cache.
-    block_options.set_block_cache(&Cache::new_lru_cache(64 << 20).unwrap());
+    block_options.set_block_cache(&Cache::new_lru_cache(64 << 20));
     // Set a bloomfilter with 1% false positive rate.
     block_options.set_bloom_filter(10.0, false);
 
