@@ -48,7 +48,7 @@ fn get_registry() -> Result<Registry> {
         let primary_address: Multiaddr = format!("/ip4/127.0.0.1/udp/{}", 100 + i).parse().unwrap();
 
         committee_builder = committee_builder.add_authority(
-            kp.as_ref().unwrap().public(),
+            kp.as_ref().unwrap().public().clone(),
             1,
             primary_address,
             network_key.public().clone(),
@@ -57,7 +57,7 @@ fn get_registry() -> Result<Registry> {
 
     let committee = committee_builder.build();
 
-    let certificates: Vec<Certificate> = Certificate::genesis(&committee, private.clone());
+    let certificates: Vec<Certificate> = Certificate::genesis(&committee, private);
 
     // Find the author id inside the committee
     let authority = committee.authority_by_key(kp.public()).unwrap();
@@ -75,7 +75,7 @@ fn get_registry() -> Result<Registry> {
                 .collect(),
         )
         .parents(certificates.iter().map(|x| x.digest()).collect())
-        .build(private);
+        .build();
 
     let worker_pk = network_keys[0].public().clone();
     let certificate =

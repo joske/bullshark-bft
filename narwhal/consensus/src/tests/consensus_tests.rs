@@ -4,6 +4,7 @@
 #![allow(clippy::mutable_key_type)]
 
 use std::collections::BTreeSet;
+use crypto::Hash;
 use storage::NodeStorage;
 use telemetry_subscribers::TelemetryGuards;
 use test_utils::{temp_dir, CommitteeFixture};
@@ -44,7 +45,9 @@ async fn test_consensus_recovery_with_bullshark() {
 
     // AND make certificates for rounds 1 to 7 (inclusive)
     let ids: Vec<_> = fixture.authorities().map(|a| a.id()).collect();
-    let genesis = Certificate::genesis(&committee)
+    let primary = fixture.authorities().nth(1).unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis = Certificate::genesis(&committee, keypair.private())
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();

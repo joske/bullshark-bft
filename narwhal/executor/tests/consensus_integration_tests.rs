@@ -27,10 +27,12 @@ async fn test_recovery() {
     // Setup consensus
     let fixture = CommitteeFixture::builder().build();
     let committee = fixture.committee();
+    let primary = fixture.authorities().nth(1).unwrap();
+    let keypair = primary.keypair().clone();
 
     // Make certificates for rounds 1 and 2.
     let ids: Vec<_> = fixture.authorities().map(|a| a.id()).collect();
-    let genesis = Certificate::genesis(&committee)
+    let genesis = Certificate::genesis(&committee, keypair.private())
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();

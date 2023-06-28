@@ -487,7 +487,7 @@ mod tests {
 
         let authorities = (0..num_of_authorities)
             .map(|_i| {
-                let keypair = KeyPair::generate(&mut rng);
+                let keypair = KeyPair::new(&mut rng).unwrap();
                 let network_keypair = NetworkKeyPair::generate(&mut rng);
 
                 let a = Authority::new(
