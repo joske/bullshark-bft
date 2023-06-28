@@ -260,8 +260,7 @@ impl RequestBatchesNetwork for RequestBatchesNetworkImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crypto::NetworkKeyPair;
-    use fastcrypto::hash::Hash;
+    use crypto::{NetworkKeyPair, Hash};
     use fastcrypto::traits::KeyPair;
     use itertools::Itertools;
     use rand::rngs::StdRng;

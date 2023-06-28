@@ -379,7 +379,7 @@ async fn get_network_peers_from_admin_server() {
     // Spawn Primary 1
     Primary::spawn(
         authority_1.authority().clone(),
-        signer_1,
+        authority_1.keypair().clone(),
         authority_1.network_keypair().copy(),
         committee.clone(),
         worker_cache.clone(),
@@ -477,7 +477,7 @@ async fn get_network_peers_from_admin_server() {
     assert!(expected_peer_ids.iter().all(|e| resp.contains(e)));
 
     let authority_2 = fixture.authorities().nth(1).unwrap();
-    let signer_2 = authority_2.keypair().copy();
+    let signer_2 = authority_2.keypair().clone();
     let client_2 = NetworkClient::new_from_keypair(&authority_2.network_keypair());
 
     let worker_2_keypair = authority_2.worker(worker_id).keypair().copy();

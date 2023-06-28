@@ -4,7 +4,7 @@
 use super::*;
 
 use crate::TrivialTransactionValidator;
-use fastcrypto::hash::Hash;
+use crypto::Hash;
 use test_utils::CommitteeFixture;
 use types::{MockWorkerToWorker, WorkerToWorkerServer};
 
