@@ -8,13 +8,14 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use consensus::consensus::ConsensusRound;
 use consensus::dag::Dag;
+use crypto::Hash;
 use fastcrypto::{
     encoding::{Encoding, Hex},
-    hash::Hash,
 };
 use futures::stream::FuturesOrdered;
 use futures::StreamExt;
 use primary::{NetworkModel, Primary, CHANNEL_CAPACITY, NUM_SHUTDOWN_RECEIVERS};
+use types::Certificate;
 use std::time::Duration;
 use storage::NodeStorage;
 use store::rocks;
@@ -360,11 +361,12 @@ async fn get_network_peers_from_admin_server() {
     let committee = fixture.committee();
     let worker_cache = fixture.worker_cache();
     let authority_1 = fixture.authorities().next().unwrap();
-    let signer_1 = authority_1.keypair().copy();
+    let signer_1 = authority_1.keypair().private();
     let client_1 = NetworkClient::new_from_keypair(&authority_1.network_keypair());
 
     let worker_id = 0;
     let worker_1_keypair = authority_1.worker(worker_id).keypair().copy();
+    let genesis_certs = Certificate::genesis(&committee.clone(), signer_1);
 
     // Make the data store.
     let store = NodeStorage::reopen(temp_dir());
@@ -395,11 +397,12 @@ async fn get_network_peers_from_admin_server() {
         rx_consensus_round_updates,
         /* dag */
         Some(Arc::new(
-            Dag::new(&committee, rx_new_certificates, tx_shutdown.subscribe()).1,
+            Dag::new(rx_new_certificates, tx_shutdown.subscribe(), genesis_certs.clone()).1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
         tx_feedback,
+        genesis_certs,
     );
 
     // Wait for tasks to start
@@ -488,6 +491,8 @@ async fn get_network_peers_from_admin_server() {
         watch::channel(ConsensusRound::default());
 
     let mut tx_shutdown_2 = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
+    let keypair = authority_1.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     // Spawn Primary 2
     Primary::spawn(
@@ -508,11 +513,12 @@ async fn get_network_peers_from_admin_server() {
         rx_consensus_round_updates,
         /* dag */
         Some(Arc::new(
-            Dag::new(&committee, rx_new_certificates_2, tx_shutdown.subscribe()).1,
+            Dag::new(rx_new_certificates_2, tx_shutdown.subscribe(), genesis_certs.clone()).1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown_2,
         tx_feedback_2,
+        genesis_certs,
     );
 
     // Wait for tasks to start

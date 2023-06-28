@@ -358,8 +358,7 @@ mod tests {
             .created_at(50)
             .payload(IndexMap::new())
             .parents(BTreeSet::new())
-            .build()
-            .unwrap();
+            .build();
 
         let certificate =
             Certificate::new_unsigned(&committee, Header::V1(header), Vec::new()).unwrap();
@@ -394,8 +393,7 @@ mod tests {
             .created_at(newer_timestamp)
             .payload(IndexMap::new())
             .parents(BTreeSet::new())
-            .build()
-            .unwrap();
+            .build();
 
         let certificate =
             Certificate::new_unsigned(&committee, Header::V1(header), Vec::new()).unwrap();
@@ -421,8 +419,7 @@ mod tests {
             .created_at(older_timestamp)
             .payload(IndexMap::new())
             .parents(BTreeSet::new())
-            .build()
-            .unwrap();
+            .build();
 
         let certificate =
             Certificate::new_unsigned(&committee, Header::V1(header), Vec::new()).unwrap();

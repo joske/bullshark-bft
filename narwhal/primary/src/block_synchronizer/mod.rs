@@ -769,7 +769,7 @@ impl BlockSynchronizer {
             let certificates = &response.body().certificates;
             let mut found_invalid_certificate = false;
             for certificate in certificates {
-                if let Err(err) = certificate.verify(&committee, &worker_cache, genesis_certs.clone()) {
+                if let Err(err) = certificate.verify(&committee, &worker_cache, genesis_certs.as_slice()) {
                     error!(
                         "Ignoring certificates from peer {response_peer:?}: certificate verification failed for digest {} with error {err:?}",
                         certificate.digest(),

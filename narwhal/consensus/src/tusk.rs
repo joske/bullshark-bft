@@ -194,7 +194,9 @@ mod tests {
         let committee = fixture.committee();
         let keys: Vec<_> = fixture.authorities().map(|a| a.id()).collect();
 
-        let genesis = Certificate::genesis(&committee)
+        let primary = fixture.authorities().next().unwrap();
+        let keypair = primary.keypair().clone();
+        let genesis = Certificate::genesis(&committee, keypair.private())
             .iter()
             .map(|x| x.digest())
             .collect::<BTreeSet<_>>();
@@ -235,7 +237,9 @@ mod tests {
         let committee = fixture.committee();
         let keys: Vec<_> = fixture.authorities().map(|a| a.id()).collect();
 
-        let genesis = Certificate::genesis(&committee)
+        let primary = fixture.authorities().next().unwrap();
+        let keypair = primary.keypair().clone();
+        let genesis = Certificate::genesis(&committee, keypair.private())
             .iter()
             .map(|x| x.digest())
             .collect::<BTreeSet<_>>();

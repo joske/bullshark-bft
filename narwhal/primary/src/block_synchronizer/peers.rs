@@ -184,11 +184,7 @@ impl<Value: Hash + Clone> Peers<Value> {
 #[cfg(test)]
 mod tests {
     use crate::block_synchronizer::peers::Peers;
-    use crypto::NetworkKeyPair;
-    use fastcrypto::{
-        hash::{Digest, Hash, HashFunction},
-        traits::KeyPair as _,
-    };
+    use crypto::{Hash, KeyPair, NetworkKeyPair};
     use rand::{
         rngs::{SmallRng, StdRng},
         SeedableRng,

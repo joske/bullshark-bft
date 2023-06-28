@@ -4,7 +4,7 @@
 use criterion::{
     criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode, Throughput,
 };
-use fastcrypto::hash::Hash;
+use crypto::Hash;
 use narwhal_types::Certificate;
 use std::collections::BTreeSet;
 use test_utils::{make_optimal_certificates, CommitteeFixture};
@@ -20,9 +20,11 @@ pub fn verify_certificates(c: &mut Criterion) {
             .build();
         let committee = fixture.committee();
         let ids: Vec<_> = fixture.authorities().map(|a| a.id()).collect();
+        let primary = fixture.authorities().next().unwrap();
+        let keypair = primary.keypair().clone();
 
         // process certificates for rounds, check we don't grow the dag too much
-        let genesis = Certificate::genesis(&committee)
+        let genesis = Certificate::genesis(&committee, keypair.private())
             .iter()
             .map(|x| x.digest())
             .collect::<BTreeSet<_>>();

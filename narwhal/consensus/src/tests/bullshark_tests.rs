@@ -9,9 +9,9 @@ use crate::consensus::ConsensusRound;
 use crate::consensus_utils::NUM_SUB_DAGS_PER_SCHEDULE;
 use crate::consensus_utils::*;
 use crate::{Consensus, NUM_SHUTDOWN_RECEIVERS};
-use fastcrypto::hash::Hash;
+use crypto::Hash;
 #[allow(unused_imports)]
-use fastcrypto::traits::KeyPair;
+use fastcrypto::traits::KeyPair as _;
 #[cfg(test)]
 use std::collections::{BTreeSet, VecDeque};
 use test_utils::CommitteeFixture;
@@ -27,9 +27,11 @@ use types::{CertificateAPI, HeaderAPI, PreSubscribedBroadcastSender};
 async fn commit_one() {
     let fixture = CommitteeFixture::builder().build();
     let committee = fixture.committee();
+    let authority = fixture.authorities().next().unwrap();
+    let genesis_certs = Certificate::genesis(&committee, authority.keypair().private());
     // Make certificates for rounds 1 and 2.
     let ids: Vec<_> = fixture.authorities().map(|a| a.id()).collect();
-    let genesis = Certificate::genesis(&committee)
+    let genesis = genesis_certs
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();
@@ -100,6 +102,7 @@ async fn dead_node() {
     // Make the certificates.
     let fixture = CommitteeFixture::builder().build();
     let committee: Committee = fixture.committee();
+    let authority = fixture.authorities().next().unwrap();
     let mut ids: Vec<_> = committee
         .authorities()
         .map(|authority| authority.id())
@@ -108,7 +111,7 @@ async fn dead_node() {
     // remove the last authority - 4
     let dead_node = ids.pop().unwrap();
 
-    let genesis = Certificate::genesis(&committee)
+    let genesis = Certificate::genesis(&committee, authority.keypair().private())
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();
@@ -205,7 +208,8 @@ async fn not_enough_support() {
     let mut ids: Vec<_> = fixture.authorities().map(|a| a.id()).collect();
     ids.sort();
 
-    let genesis = Certificate::genesis(&committee)
+    let authority = fixture.authorities().next().unwrap();
+    let genesis = Certificate::genesis(&committee, authority.keypair().private())
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();
@@ -349,7 +353,8 @@ async fn missing_leader() {
     let mut ids: Vec<_> = fixture.authorities().map(|a| a.id()).collect();
     ids.sort();
 
-    let genesis = Certificate::genesis(&committee)
+    let authority = fixture.authorities().next().unwrap();
+    let genesis = Certificate::genesis(&committee, authority.keypair().private())
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();
@@ -437,7 +442,8 @@ async fn committed_round_after_restart() {
     let epoch = committee.epoch();
 
     // Make certificates for rounds 1 to 11.
-    let genesis = Certificate::genesis(&committee)
+    let authority = fixture.authorities().next().unwrap();
+    let genesis = Certificate::genesis(&committee, authority.keypair().private())
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();
@@ -528,7 +534,8 @@ async fn delayed_certificates_are_rejected() {
     let gc_depth = 10;
 
     // Make certificates for rounds 1 to 11.
-    let genesis = Certificate::genesis(&committee)
+    let authority = fixture.authorities().next().unwrap();
+    let genesis = Certificate::genesis(&committee, authority.keypair().private())
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();
@@ -573,7 +580,8 @@ async fn submitting_equivocating_certificate_should_error() {
     let gc_depth = 10;
 
     // Make certificates for rounds 1 to 11.
-    let genesis = Certificate::genesis(&committee)
+    let authority = fixture.authorities().next().unwrap();
+    let genesis = Certificate::genesis(&committee, authority.keypair().private())
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();
@@ -629,7 +637,8 @@ async fn reset_consensus_scores_on_every_schedule_change() {
     let gc_depth = 10;
 
     // Make certificates for rounds 1 to 50.
-    let genesis = Certificate::genesis(&committee)
+    let authority = fixture.authorities().next().unwrap();
+    let genesis = Certificate::genesis(&committee, authority.keypair().private())
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();
@@ -689,6 +698,7 @@ async fn restart_with_new_committee() {
     let fixture = CommitteeFixture::builder().build();
     let mut committee: Committee = fixture.committee();
     let ids: Vec<_> = fixture.authorities().map(|a| a.id()).collect();
+    let authority = fixture.authorities().next().unwrap();
 
     // Run for a few epochs.
     for epoch in 0..5 {
@@ -720,7 +730,7 @@ async fn restart_with_new_committee() {
         tokio::spawn(async move { while rx_primary.recv().await.is_some() {} });
 
         // Make certificates for rounds 1 and 2.
-        let genesis = Certificate::genesis(&committee)
+        let genesis = Certificate::genesis(&committee, authority.keypair().private())
             .iter()
             .map(|x| x.digest())
             .collect::<BTreeSet<_>>();
@@ -779,6 +789,7 @@ async fn garbage_collection_basic() {
 
     let fixture = CommitteeFixture::builder().build();
     let committee: Committee = fixture.committee();
+    let authority = fixture.authorities().next().unwrap();
 
     // We create certificates for rounds 1 to 7. For the authorities 1 to 3 the references
     // to previous rounds between them are fully connected - meaning that we always add all the parents
@@ -792,7 +803,7 @@ async fn garbage_collection_basic() {
         .map(|authority| authority.id())
         .collect();
     let slow_node = ids[3];
-    let genesis = Certificate::genesis(&committee);
+    let genesis = Certificate::genesis(&committee, authority.keypair().private());
 
     let slow_nodes = vec![(slow_node, 0.0_f64)];
     let (certificates, _round_5_certificates) = test_utils::make_certificates_with_slow_nodes(
@@ -879,7 +890,8 @@ async fn slow_node() {
         .map(|authority| authority.id())
         .collect();
     let slow_node = ids[3];
-    let genesis = Certificate::genesis(&committee);
+    let authority = fixture.authorities().next().unwrap();
+    let genesis = Certificate::genesis(&committee, authority.keypair().private());
 
     let slow_nodes = vec![(slow_node, 0.0_f64)];
     let (certificates, round_8_certificates) = test_utils::make_certificates_with_slow_nodes(
@@ -1009,7 +1021,8 @@ async fn not_enough_support_and_missing_leaders_and_gc() {
     let keys_with_dead_node = ids[0..=2].to_vec();
     let slow_node = ids[3];
     let slow_nodes = vec![(slow_node, 0.0_f64)];
-    let genesis = Certificate::genesis(&committee);
+    let authority = fixture.authorities().next().unwrap();
+    let genesis = Certificate::genesis(&committee, authority.keypair().private());
 
     let (mut certificates, round_2_certificates) = test_utils::make_certificates_with_slow_nodes(
         &committee,

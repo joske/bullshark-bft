@@ -525,7 +525,7 @@ impl Synchronizer {
         );
         // Verify the certificate (and the embedded header).
         certificate
-            .verify(&self.inner.committee, &self.inner.worker_cache, genesis_certs)
+            .verify(&self.inner.committee, &self.inner.worker_cache, genesis_certs.as_slice())
             .map_err(DagError::from)
     }
 

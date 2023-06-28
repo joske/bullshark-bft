@@ -3,7 +3,6 @@
 
 #![allow(clippy::mutable_key_type)]
 
-use fastcrypto::hash::Hash;
 use std::collections::BTreeSet;
 use storage::NodeStorage;
 use telemetry_subscribers::TelemetryGuards;

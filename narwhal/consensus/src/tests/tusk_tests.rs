@@ -280,10 +280,11 @@ async fn not_enough_support() {
 async fn missing_leader() {
     let fixture = CommitteeFixture::builder().build();
     let committee = fixture.committee();
+    let authority_1 = fixture.authorities().next().unwrap();
     let mut ids: Vec<_> = fixture.authorities().map(|a| a.id()).collect();
     ids.sort();
 
-    let genesis = Certificate::genesis(&committee)
+    let genesis = Certificate::genesis(&committee, authority_1.keypair().private())
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();
@@ -364,6 +365,9 @@ async fn restart_with_new_committee() {
     let mut committee: Committee = fixture.committee();
     let ids: Vec<_> = fixture.authorities().map(|a| a.id()).collect();
 
+    let authority_1 = fixture.authorities().next().unwrap();
+    let genesis_certs = Certificate::genesis(&committee, authority_1.keypair().private());
+
     // Run for a few epochs.
     for epoch in 0..5 {
         // Spawn the consensus engine and sink the primary channel.
@@ -394,7 +398,7 @@ async fn restart_with_new_committee() {
         tokio::spawn(async move { while rx_primary.recv().await.is_some() {} });
 
         // Make certificates for rounds 1 to 4.
-        let genesis = Certificate::genesis(&committee)
+        let genesis = genesis_certs
             .iter()
             .map(|x| x.digest())
             .collect::<BTreeSet<_>>();

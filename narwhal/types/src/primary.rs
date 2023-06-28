@@ -845,7 +845,7 @@ impl Certificate {
         }
     }
 
-    pub fn verify(&self, committee: &Committee, worker_cache: &WorkerCache, genesis_certs: Vec<Certificate>) -> DagResult<()> {
+    pub fn verify(&self, committee: &Committee, worker_cache: &WorkerCache, genesis_certs: &[Certificate]) -> DagResult<()> {
         match self {
             Certificate::V1(certificate) => certificate.verify(committee, worker_cache, genesis_certs),
         }
@@ -1069,7 +1069,7 @@ impl CertificateV1 {
 
     /// Verifies the validity of the certificate.
     /// TODO: Output a different type, similar to Sui VerifiedCertificate.
-    pub fn verify(&self, committee: &Committee, worker_cache: &WorkerCache, genesis_certs: Vec<Certificate>) -> DagResult<()> {
+    pub fn verify(&self, committee: &Committee, worker_cache: &WorkerCache, genesis_certs: &[Certificate]) -> DagResult<()> {
         // Ensure the header is from the correct epoch.
         ensure!(
             self.epoch() == committee.epoch(),

@@ -6,6 +6,7 @@ use consensus::consensus::ConsensusRound;
 use consensus::dag::Dag;
 use consensus::utils::gc_round;
 use crypto::Hash;
+use fastcrypto::traits::KeyPair as _;
 use futures::{stream::FuturesUnordered, StreamExt};
 use itertools::Itertools;
 use network::client::NetworkClient;
@@ -31,6 +32,7 @@ async fn accept_certificates() {
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let authority_id = primary.id();
     let client = NetworkClient::new_from_keypair(&primary.network_keypair());
+    let genesis_certs = Certificate::genesis(&fixture.committee(), primary.keypair().private());
 
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (tx_new_certificates, mut rx_new_certificates) = test_utils::test_channel!(3);
@@ -57,6 +59,7 @@ async fn accept_certificates() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
 
     let own_address = committee
@@ -118,6 +121,7 @@ async fn accept_suspended_certificates() {
     let primary = fixture.authorities().next().unwrap();
     let authority_id = primary.id();
     let client = NetworkClient::new_from_keypair(&primary.network_keypair());
+    let genesis_certs = Certificate::genesis(&fixture.committee(), primary.keypair().private());
 
     let (_header_store, certificate_store, payload_store) = create_db_stores();
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(100);
@@ -141,17 +145,18 @@ async fn accept_suspended_certificates() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
 
     // Make fake certificates.
     let committee = fixture.committee();
-    let genesis = Certificate::genesis(&committee)
+    let genesis = genesis_certs
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();
     let keys: Vec<_> = fixture
         .authorities()
-        .map(|a| (a.id(), a.keypair().copy()))
+        .map(|a| (a.id(), a.keypair().clone()))
         .collect();
     let (certificates, next_parents) =
         make_optimal_signed_certificates(1..=5, &genesis, &committee, keys.as_slice());
@@ -214,6 +219,7 @@ async fn synchronizer_recover_basic() {
     let client = NetworkClient::new_from_keypair(&primary.network_keypair());
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let name = primary.id();
+    let genesis_certs = Certificate::genesis(&committee, primary.keypair().private());
 
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (tx_new_certificates, _rx_new_certificates) = test_utils::test_channel!(3);
@@ -240,6 +246,7 @@ async fn synchronizer_recover_basic() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
 
     let own_address = committee
@@ -289,6 +296,7 @@ async fn synchronizer_recover_basic() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
     let _ = tx_synchronizer_network.send(network.clone());
 
@@ -319,6 +327,7 @@ async fn synchronizer_recover_partial_certs() {
     let client = NetworkClient::new_from_keypair(&primary.network_keypair());
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let name = primary.id();
+    let genesis_certs = Certificate::genesis(&committee, primary.keypair().private());
 
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (tx_new_certificates, _rx_new_certificates) = test_utils::test_channel!(3);
@@ -345,6 +354,7 @@ async fn synchronizer_recover_partial_certs() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
 
     let own_address = committee
@@ -396,6 +406,7 @@ async fn synchronizer_recover_partial_certs() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
     let _ = tx_synchronizer_network.send(network.clone());
 
@@ -429,6 +440,7 @@ async fn synchronizer_recover_previous_round() {
     let client = NetworkClient::new_from_keypair(&primary.network_keypair());
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let name = primary.id();
+    let genesis_certs = Certificate::genesis(&committee, primary.keypair().private());
 
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (tx_new_certificates, _rx_new_certificates) = test_utils::test_channel!(6);
@@ -455,6 +467,7 @@ async fn synchronizer_recover_previous_round() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
 
     let own_address = committee
@@ -470,14 +483,13 @@ async fn synchronizer_recover_previous_round() {
     let _ = tx_synchronizer_network.send(network.clone());
 
     // Send 3 certificates from round 1, and 2 certificates from round 2 to Synchronizer.
-    let genesis_certs = Certificate::genesis(&committee);
     let genesis = genesis_certs
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();
     let keys = fixture
         .authorities()
-        .map(|a| (a.id(), a.keypair().copy()))
+        .map(|a| (a.id(), a.keypair().clone()))
         .take(3)
         .collect::<Vec<_>>();
     let (all_certificates, _next_parents) =
@@ -520,6 +532,7 @@ async fn synchronizer_recover_previous_round() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
+        genesis_certs,
     ));
     let _ = tx_synchronizer_network.send(network.clone());
 
@@ -556,7 +569,7 @@ async fn deliver_certificate_using_dag() {
     let primary = fixture.authorities().next().unwrap();
     let keypair = primary.keypair().clone();
     let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
-    let dag = Arc::new(Dag::new(&committee, rx_consensus, tx_shutdown.subscribe(), genesis_certs.clone()).1);
+    let dag = Arc::new(Dag::new(rx_consensus, tx_shutdown.subscribe(), genesis_certs.clone()).1);
 
     let synchronizer = Synchronizer::new(
         name,
@@ -576,7 +589,6 @@ async fn deliver_certificate_using_dag() {
     );
 
     // create some certificates in a complete DAG form
-    let genesis_certs = Certificate::genesis(&committee);
     let genesis = genesis_certs
         .iter()
         .map(|x| x.digest())
@@ -764,7 +776,6 @@ async fn sync_batches_drops_old() {
         watch::channel(ConsensusRound::new(1, 0));
     let (_tx_synchronizer_network, rx_synchronizer_network) = oneshot::channel();
 
-    let primary = fixture.authorities().next().unwrap();
     let keypair = primary.keypair().clone();
     let committee = fixture.committee();
     let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
@@ -791,7 +802,8 @@ async fn sync_batches_drops_old() {
             author
                 .header_builder(&fixture.committee())
                 .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 0, 0)
-                .build(author.keypair().private()),
+                .signed(author.keypair().private())
+                .build(),
         );
 
         let certificate = fixture.certificate(&header);
@@ -809,7 +821,8 @@ async fn sync_batches_drops_old() {
             .round(2)
             .parents(certificates.keys().cloned().collect())
             .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 1, 0)
-            .build(author.keypair().private())
+            .signed(author.keypair().private())
+            .build()
     );
 
     tokio::task::spawn(async move {
@@ -835,6 +848,7 @@ async fn gc_suspended_certificates() {
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().next().unwrap();
     let client = NetworkClient::new_from_keypair(&primary.network_keypair());
+    let genesis_certs = Certificate::genesis(&fixture.committee(), primary.keypair().private());
 
     let (_header_store, certificate_store, payload_store) = create_db_stores();
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(100);
@@ -858,17 +872,18 @@ async fn gc_suspended_certificates() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
+        genesis_certs,
     ));
 
     // Make fake certificates.
     let committee: Committee = fixture.committee();
-    let genesis = Certificate::genesis(&committee)
+    let genesis = Certificate::genesis(&committee, primary.keypair().private())
         .iter()
         .map(|x| x.digest())
         .collect::<BTreeSet<_>>();
     let keys: Vec<_> = fixture
         .authorities()
-        .map(|a| (a.id(), a.keypair().copy()))
+        .map(|a| (a.id(), a.keypair().clone()))
         .collect();
     let (certificates, _next_parents) =
         make_optimal_signed_certificates(1..=5, &genesis, &committee, keys.as_slice());
