@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 use config::{AuthorityIdentifier, Committee, Stake};
 use crypto::{PublicKey, Signature};
-use fastcrypto::traits::KeyPair;
 use indexmap::IndexMap;
 use narwhal_types::{Certificate, Header, HeaderV1, Vote, VoteAPI};
 use rand::rngs::OsRng;
@@ -38,7 +37,7 @@ async fn test_certificate_singers_are_ordered() {
         let vote = Vote::new_with_signer(
             &Header::V1(header.clone()),
             &authority.id(),
-            authority.keypair(),
+            authority.keypair().private(),
         );
         votes.push((vote.author(), vote.signature().clone()));
     }

@@ -4,18 +4,15 @@
 use consensus::{
     bullshark::Bullshark,
     consensus::{ConsensusProtocol, ConsensusState},
-    metrics::ConsensusMetrics,
 };
 use criterion::{
     criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode, Throughput,
 };
-use fastcrypto::hash::Hash;
+use crypto::Hash;
 use narwhal_consensus as consensus;
-use pprof::criterion::{Output, PProfProfiler};
-use prometheus::Registry;
-use std::{collections::BTreeSet, sync::Arc};
+use std::collections::BTreeSet;
 use storage::NodeStorage;
-use test_utils::{make_consensus_store, make_optimal_certificates, temp_dir, CommitteeFixture};
+use test_utils::{make_optimal_certificates, temp_dir, CommitteeFixture};
 use tokio::time::Instant;
 use types::{Certificate, Round};
 
@@ -27,6 +24,8 @@ pub fn process_certificates(c: &mut Criterion) {
 
     let fixture = CommitteeFixture::builder().build();
     let committee = fixture.committee();
+    let primary = fixture.authorities().nth(1).unwrap();
+    let keypair = primary.keypair().clone();
     let keys: Vec<_> = fixture.authorities().map(|a| a.id()).collect();
 
     for size in &BATCH_SIZES {
@@ -34,7 +33,7 @@ pub fn process_certificates(c: &mut Criterion) {
         let rounds: Round = *size;
 
         // process certificates for rounds, check we don't grow the dag too much
-        let genesis = Certificate::genesis(&committee)
+        let genesis = Certificate::genesis(&committee, keypair.private())
             .iter()
             .map(|x| x.digest())
             .collect::<BTreeSet<_>>();
@@ -42,10 +41,9 @@ pub fn process_certificates(c: &mut Criterion) {
             make_optimal_certificates(&committee, 1..=rounds, &genesis, &keys);
 
         let store_path = temp_dir();
-        let store = NodeStorage::reopen(&store_path, None);
-        let metrics = Arc::new(ConsensusMetrics::new(&Registry::new()));
+        let store = NodeStorage::reopen(&store_path);
 
-        let mut state = ConsensusState::new(metrics.clone(), gc_depth);
+        let mut state = ConsensusState::new(gc_depth);
 
         let data_size: usize = certificates
             .iter()
@@ -56,7 +54,6 @@ pub fn process_certificates(c: &mut Criterion) {
         let mut ordering_engine = Bullshark {
             committee: committee.clone(),
             store: store.consensus_store,
-            metrics,
             last_successful_leader_election_timestamp: Instant::now(),
             last_leader_election: Default::default(),
             max_inserted_certificate_round: 0,

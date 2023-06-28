@@ -130,7 +130,7 @@ impl PayloadStore {
 #[cfg(test)]
 mod tests {
     use crate::PayloadStore;
-    use fastcrypto::hash::Hash;
+    use crypto::Hash;
     use futures::future::join_all;
     use types::Batch;
 

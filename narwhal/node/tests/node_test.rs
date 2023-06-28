@@ -44,7 +44,7 @@ async fn simple_primary_worker_node_start_stop() {
     primary_node
         .start(
             key_pair.clone(),
-            network_key_pair.clone(),
+            network_key_pair.copy(),
             committee.clone(),
             worker_cache.clone(),
             client.clone(),
@@ -60,7 +60,7 @@ async fn simple_primary_worker_node_start_stop() {
     workers
         .start(
             key_pair.public().clone(),
-            vec![(0, authority.worker(0).keypair().clone())],
+            vec![(0, authority.worker(0).keypair().copy())],
             committee,
             worker_cache,
             client,

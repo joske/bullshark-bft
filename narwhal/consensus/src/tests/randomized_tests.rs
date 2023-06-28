@@ -6,8 +6,7 @@ use crate::consensus::ConsensusState;
 use crate::consensus_utils::make_consensus_store;
 use crate::consensus_utils::NUM_SUB_DAGS_PER_SCHEDULE;
 use config::{Authority, AuthorityIdentifier, Committee, Stake};
-use fastcrypto::hash::Hash;
-use fastcrypto::hash::HashFunction;
+use crypto::Hash;
 use rand::distributions::Bernoulli;
 use rand::distributions::Distribution;
 use rand::prelude::SliceRandom;
@@ -57,7 +56,7 @@ impl ExecutionPlan {
         self.certificates.iter().for_each(|c| {
             hasher.update(c.digest());
         });
-        hasher.finalize().into()
+        hasher.finalize().to_inner()
     }
 }
 
@@ -187,7 +186,9 @@ fn generate_randomised_dag(
         .rng(rand)
         .build();
     let committee: Committee = fixture.committee();
-    let genesis = Certificate::genesis(&committee);
+    let primary = fixture.authorities().nth(1).unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis = Certificate::genesis(&committee, keypair.private());
 
     // Create a known DAG
     let (original_certificates, _last_round) =

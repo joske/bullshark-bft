@@ -420,8 +420,6 @@ impl HeaderV1Builder {
 
     /// This should be the last method called on the builder before `build`.
     pub fn signed(mut self, signer: &PrivateKey) -> Self {
-        todo!("Add signature to HeaderV1");
-
         let unsigned_header = UnsignedHeaderV1 {
             author: self.author.unwrap_or_default(),
             round: self.round.unwrap_or_default(),
@@ -433,8 +431,8 @@ impl HeaderV1Builder {
         };
         let digest = Hash::digest(&unsigned_header);
         unsigned_header.digest.set(digest).unwrap();
-        let signature = signer.sign_bytes(digest.0.as_ref(), &mut thread_rng()).expect("Signing failed");
         self.digest = Some(digest.into());
+        // let signature = signer.sign_bytes(digest.0.as_ref(), &mut thread_rng()).expect("Signing failed");
         // TODO: Add signature
         // self.signature = Some(signature);
         self
@@ -465,7 +463,7 @@ impl HeaderV1 {
         epoch: Epoch,
         payload: IndexMap<BatchDigest, (WorkerId, TimestampMs)>,
         parents: BTreeSet<CertificateDigest>,
-        signer: &PrivateKey,
+        // signer: &PrivateKey,
     ) -> Self {
         let header = UnsignedHeaderV1 {
             author,
@@ -478,7 +476,7 @@ impl HeaderV1 {
         };
         let digest = Hash::digest(&header);
         header.digest.set(digest).unwrap();
-        let signature = signer.sign_bytes(digest.0.as_ref(), &mut thread_rng()).expect("Signing failed");
+        // let signature = signer.sign_bytes(digest.0.as_ref(), &mut thread_rng()).expect("Signing failed");
         Self {
             author: header.author,
             round: header.round,

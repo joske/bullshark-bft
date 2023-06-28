@@ -21,6 +21,7 @@ tracing = "0.1.36"
 tracing-subscriber = { version = "0.3.15", default-features = false, features = ["std", "smallvec", "fmt", "ansi", "time", "env-filter"] }
 url = "2.3.1"
 axum.workspace = true
+anyhow = "1.0.71"
 
 config = { path = "../config", package = "narwhal-config" }
 consensus = { path = "../consensus", package = "narwhal-consensus" }

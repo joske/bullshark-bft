@@ -3,7 +3,7 @@
 
 use anyhow::anyhow;
 pub use fastcrypto::traits::KeyPair as KeypairTraits;
-use crypto::{EncodeBase64, KeyPair};
+use crypto::{KeyPair, EncodeDecodeBase64};
 use fastcrypto::{
     ed25519::Ed25519KeyPair,
     traits::{EncodeDecodeBase64 as _, VerifyingKey},

@@ -97,6 +97,10 @@ impl Digest {
     pub fn size() -> usize {
         DIGEST_LENGTH
     }
+
+    pub fn to_inner(&self) -> [u8; DIGEST_LENGTH] {
+        self.0
+    }
 }
 
 impl AsRef<[u8]> for Digest {
