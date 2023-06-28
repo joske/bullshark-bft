@@ -255,6 +255,7 @@ mod tests {
     use std::{collections::HashSet, fmt};
 
     use crypto::{Digest, Hash};
+    use fastcrypto::encoding::*;
     use proptest::prelude::*;
 
     use super::*;
@@ -309,7 +310,7 @@ mod tests {
         pub fn arb_test_digest()(
             hash in prop::collection::vec(any::<u8>(), crypto::DIGEST_LENGTH..=crypto::DIGEST_LENGTH),
         ) -> TestDigest {
-            TestDigest(hash.try_into().unwrap())
+            TestDigest(Digest::new(hash.try_into().unwrap()))
         }
     }
 

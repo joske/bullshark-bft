@@ -13,7 +13,7 @@ use crypto::{
     to_intent_message, AggregateSignature,
     NarwhalAuthorityAggregateSignature, NetworkPublicKey,
 };
-use rand::{rngs::{StdRng, ThreadRng}, thread_rng, SeedableRng};
+use rand::{rngs::StdRng, thread_rng, SeedableRng};
 use dag::node_dag::Affiliated;
 use derive_builder::Builder;
 use enum_dispatch::enum_dispatch;
@@ -24,7 +24,6 @@ use roaring::RoaringBitmap;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use snarkvm_console::prelude::ToBytes;
-use tonic::codegen::http::uri::Authority;
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     fmt,
@@ -228,7 +227,7 @@ impl Header {
             payload,
             parents,
             digest: Default::default(),
-            created_at: Default::default(),
+            created_at: now(),
         })
     }
 
