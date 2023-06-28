@@ -705,15 +705,13 @@ mod test {
         for i in 0..rounds {
             let parents: BTreeSet<_> = current_round
                 .iter()
-                .map(|header| fixture.certificate(header).digest())
+                .map(|cert| fixture.certificate(cert.header()).digest())
                 .collect();
-            (_, current_round) = fixture.headers_round(i, &parents);
+            let (_, current_headers) = fixture.headers_round(i, &parents);
+            current_round = current_headers.into_iter().map(|h| fixture.certificate(&h)).collect();
 
             result.extend(
-                current_round
-                    .iter()
-                    .map(|h| fixture.certificate(h))
-                    .collect::<Vec<Certificate>>(),
+                current_round.clone()
             );
         }
 
