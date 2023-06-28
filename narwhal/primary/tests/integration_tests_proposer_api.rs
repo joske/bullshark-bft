@@ -5,7 +5,7 @@ use bytes::Bytes;
 use config::{AuthorityIdentifier, CommitteeBuilder, Epoch, Parameters};
 use consensus::consensus::ConsensusRound;
 use consensus::dag::Dag;
-use crypto::{Hash, PublicKey};
+use crypto::{Hash, KeyPair};
 use fastcrypto::traits::KeyPair as _;
 use narwhal_primary as primary;
 use narwhal_primary::NUM_SHUTDOWN_RECEIVERS;
@@ -38,7 +38,7 @@ async fn test_rounds_errors() {
     let name = keypair.public().clone();
     let client = NetworkClient::new_from_keypair(&author.network_keypair());
 
-    let other_keypair = KeyPair::generate(&mut thread_rng());
+    let other_keypair = KeyPair::new(&mut thread_rng()).unwrap();
 
     struct TestCase {
         public_key: Bytes,
@@ -55,7 +55,7 @@ async fn test_rounds_errors() {
                     .to_string(),
         },
         TestCase {
-            public_key: Bytes::from(other_keypair.public().as_bytes().to_vec()),
+            public_key: Bytes::from(other_keypair.public().to_bytes().to_vec()),
             test_case_name: "Valid public key, but authority not found in committee".to_string(),
             expected_error: "Invalid public key: unknown authority".to_string(),
         },
@@ -117,17 +117,12 @@ async fn test_rounds_errors() {
         rx_consensus_round_updates,
         /* external_consensus */
         Some(Arc::new(
-            Dag::new(
-                rx_new_certificates,
-                tx_shutdown.subscribe(),
-                vec![]
-            )
-            .1,
+            Dag::new(rx_new_certificates, tx_shutdown.subscribe(), vec![]).1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
         tx_feedback,
-        vec![]
+        vec![],
     );
 
     // AND Wait for tasks to start
@@ -191,7 +186,14 @@ async fn test_rounds_return_successful_response() {
     let mut genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     // AND setup the DAG
-    let dag = Arc::new(Dag::new(&committee, rx_new_certificates, tx_shutdown.subscribe(), genesis_certs.clone()).1);
+    let dag = Arc::new(
+        Dag::new(
+            rx_new_certificates,
+            tx_shutdown.subscribe(),
+            genesis_certs.clone(),
+        )
+        .1,
+    );
 
     Primary::spawn(
         author.authority().clone(),
@@ -213,7 +215,7 @@ async fn test_rounds_return_successful_response() {
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
         tx_feedback,
-        genesis_certs.clone()
+        genesis_certs.clone(),
     );
 
     // AND Wait for tasks to start
@@ -285,7 +287,14 @@ async fn test_node_read_causal_signed_certificates() {
     let keypair = authority_1.keypair().clone();
     let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
-    let dag = Arc::new(Dag::new(&committee, rx_new_certificates, tx_shutdown.subscribe(), genesis_certs.clone()).1);
+    let dag = Arc::new(
+        Dag::new(
+            rx_new_certificates,
+            tx_shutdown.subscribe(),
+            genesis_certs.clone(),
+        )
+        .1,
+    );
 
     // Write genesis certs to primary 1 & 2
     primary_store_1
@@ -367,7 +376,7 @@ async fn test_node_read_causal_signed_certificates() {
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
         tx_feedback,
-        genesis_certs.clone()
+        genesis_certs.clone(),
     );
 
     let (tx_new_certificates_2, rx_new_certificates_2) =
@@ -403,7 +412,12 @@ async fn test_node_read_causal_signed_certificates() {
         rx_consensus_round_updates_2,
         /* external_consensus */
         Some(Arc::new(
-            Dag::new(&committee, rx_new_certificates_2, tx_shutdown.subscribe()).1,
+            Dag::new(
+                rx_new_certificates_2,
+                tx_shutdown.subscribe(),
+                genesis_certs.clone(),
+            )
+            .1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown_2,

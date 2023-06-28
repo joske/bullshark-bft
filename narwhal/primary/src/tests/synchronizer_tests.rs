@@ -822,7 +822,7 @@ async fn sync_batches_drops_old() {
             .parents(certificates.keys().cloned().collect())
             .with_payload_batch(test_utils::fixture_batch_with_transactions(10), 1, 0)
             .signed(author.keypair().private())
-            .build()
+            .build(),
     );
 
     tokio::task::spawn(async move {

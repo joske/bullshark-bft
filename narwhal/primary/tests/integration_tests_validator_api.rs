@@ -4,7 +4,7 @@
 use config::{AuthorityIdentifier, BlockSynchronizerParameters, Committee, Parameters};
 use consensus::consensus::ConsensusRound;
 use consensus::dag::Dag;
-use crypto::{Hash, KeyPair};
+use crypto::Hash;
 use fastcrypto::traits::KeyPair as _;
 use indexmap::IndexMap;
 use narwhal_primary as primary;
@@ -43,7 +43,6 @@ async fn test_get_collections() {
     let worker_cache = fixture.worker_cache();
 
     let author = fixture.authorities().last().unwrap();
-    let signer = author.keypair().copy();
     let client = NetworkClient::new_from_keypair(&author.network_keypair());
 
     let worker_id = 0;
@@ -55,7 +54,7 @@ async fn test_get_collections() {
     let mut header_digests = Vec::new();
     // Blocks/Collections
     let mut collection_digests = Vec::new();
-    let mut missing_certificate = CertificateDigest::new([0; 32]);
+    let mut missing_certificate = CertificateDigest::default();
 
     // Generate headers
     for n in 0..5 {
@@ -65,8 +64,7 @@ async fn test_get_collections() {
             author
                 .header_builder(&committee)
                 .with_payload_batch(batch.clone(), worker_id, 0)
-                .build()
-                .unwrap(),
+                .build(),
         );
 
         let certificate = fixture.certificate(&header);
@@ -107,8 +105,8 @@ async fn test_get_collections() {
 
     Primary::spawn(
         author.authority().clone(),
-        signer.copy(),
-        author.network_keypair().copy(),
+        signer.clone(),
+        author.network_keypair(),
         committee.clone(),
         worker_cache.clone(),
         parameters.clone(),
@@ -123,7 +121,12 @@ async fn test_get_collections() {
         rx_consensus_round_updates,
         /* dag */
         Some(Arc::new(
-            Dag::new(rx_new_certificates, tx_shutdown.subscribe(), genesis_certs.clone()).1,
+            Dag::new(
+                rx_new_certificates,
+                tx_shutdown.subscribe(),
+                genesis_certs.clone(),
+            )
+            .1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
@@ -234,7 +237,6 @@ async fn test_remove_collections() {
     let worker_cache = fixture.worker_cache();
 
     let author = fixture.authorities().last().unwrap();
-    let signer = author.keypair().copy();
     let network_client = NetworkClient::new_from_keypair(&author.network_keypair());
 
     let worker_id = 0;
@@ -254,7 +256,14 @@ async fn test_remove_collections() {
         test_utils::test_new_certificates_channel!(CHANNEL_CAPACITY);
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
 
-    let dag = Arc::new(Dag::new(rx_new_certificates, tx_shutdown.subscribe(), genesis_certs.clone()).1);
+    let dag = Arc::new(
+        Dag::new(
+            rx_new_certificates,
+            tx_shutdown.subscribe(),
+            genesis_certs.clone(),
+        )
+        .1,
+    );
     // No need to populate genesis in the Dag
 
     // Generate headers
@@ -265,8 +274,7 @@ async fn test_remove_collections() {
             author
                 .header_builder(&committee)
                 .with_payload_batch(batch.clone(), worker_id, 0)
-                .build()
-                .unwrap(),
+                .build(),
         );
 
         let certificate = fixture.certificate(&header);
@@ -479,7 +487,14 @@ async fn test_read_causal_signed_certificates() {
     let keypair_1 = authority_1.keypair().clone();
     let genesis_certs = Certificate::genesis(&committee.clone(), keypair_1.private());
 
-    let dag = Arc::new(Dag::new(rx_new_certificates, tx_shutdown.subscribe(), genesis_certs.clone()).1);
+    let dag = Arc::new(
+        Dag::new(
+            rx_new_certificates,
+            tx_shutdown.subscribe(),
+            genesis_certs.clone(),
+        )
+        .1,
+    );
 
     // Write genesis certs to primary 1 & 2
     primary_store_1
@@ -498,7 +513,7 @@ async fn test_read_causal_signed_certificates() {
 
     let keys = fixture
         .authorities()
-        .map(|a| (a.id(), a.keypair().copy()))
+        .map(|a| (a.id(), a.keypair().clone()))
         .collect::<Vec<_>>();
     let (certificates, _next_parents) =
         make_optimal_signed_certificates(1..=4, &genesis, &committee, &keys);
@@ -576,13 +591,13 @@ async fn test_read_causal_signed_certificates() {
         batch_size: 200, // Two transactions.
         ..Parameters::default()
     };
-    let keypair_2 = authority_2.keypair().copy();
+    let keypair_2 = authority_2.keypair().clone();
 
     // Spawn Primary 2
     Primary::spawn(
         authority_2.authority().clone(),
-        keypair_2.copy(),
-        authority_2.network_keypair().copy(),
+        keypair_2.clone(),
+        authority_2.network_keypair(),
         committee.clone(),
         worker_cache.clone(),
         primary_2_parameters.clone(),
@@ -597,12 +612,17 @@ async fn test_read_causal_signed_certificates() {
         rx_consensus_round_updates_2,
         /* external_consensus */
         Some(Arc::new(
-            Dag::new(rx_new_certificates_2, tx_shutdown_2.subscribe(), genesis_certs.clone()).1,
+            Dag::new(
+                rx_new_certificates_2,
+                tx_shutdown_2.subscribe(),
+                genesis_certs.clone(),
+            )
+            .1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown_2,
         tx_feedback_2,
-        genesis_certs,
+        genesis_certs.clone(),
     );
 
     // Wait for tasks to start
@@ -676,7 +696,7 @@ async fn test_read_causal_unsigned_certificates() {
         ..Parameters::default()
     };
     let keypair_2 = authority_2.keypair().clone();
-    let network_keypair_2 = authority_2.network_keypair().copy();
+    let network_keypair_2 = authority_2.network_keypair();
 
     // Make the data store.
     let primary_store_1 = NodeStorage::reopen(temp_dir());
@@ -692,7 +712,14 @@ async fn test_read_causal_unsigned_certificates() {
         test_utils::test_new_certificates_channel!(CHANNEL_CAPACITY);
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
 
-    let dag = Arc::new(Dag::new(rx_new_certificates, tx_shutdown.subscribe(), genesis_certs.clone()).1);
+    let dag = Arc::new(
+        Dag::new(
+            rx_new_certificates,
+            tx_shutdown.subscribe(),
+            genesis_certs.clone(),
+        )
+        .1,
+    );
 
     // Write genesis certs to primary 1 & 2
     primary_store_1
@@ -753,7 +780,7 @@ async fn test_read_causal_unsigned_certificates() {
     Primary::spawn(
         authority_1.authority().clone(),
         keypair_1.clone(),
-        authority_1.network_keypair().copy(),
+        authority_1.network_keypair(),
         committee.clone(),
         worker_cache.clone(),
         primary_1_parameters.clone(),
@@ -770,7 +797,7 @@ async fn test_read_causal_unsigned_certificates() {
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
         tx_feedback,
-        genesis_certs,
+        genesis_certs.clone(),
     );
 
     let (tx_new_certificates_2, rx_new_certificates_2) =
@@ -785,7 +812,7 @@ async fn test_read_causal_unsigned_certificates() {
     // Spawn Primary 2
     Primary::spawn(
         authority_2.authority().clone(),
-        keypair_2.copy(),
+        keypair_2.clone(),
         network_keypair_2,
         committee.clone(),
         worker_cache.clone(),
@@ -801,11 +828,17 @@ async fn test_read_causal_unsigned_certificates() {
         rx_consensus_round_updates_2,
         /* external_consensus */
         Some(Arc::new(
-            Dag::new(&committee, rx_new_certificates_2, tx_shutdown_2.subscribe()).1,
+            Dag::new(
+                rx_new_certificates_2,
+                tx_shutdown_2.subscribe(),
+                genesis_certs.clone(),
+            )
+            .1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown_2,
         tx_feedback_2,
+        genesis_certs.clone(),
     );
 
     // Wait for tasks to start
@@ -938,8 +971,8 @@ async fn test_get_collections_with_missing_certificates() {
     .await;
 
     let worker_id = 0;
-    let worker_1_keypair = authority_1.worker(worker_id).keypair().copy();
-    let worker_2_keypair = authority_2.worker(worker_id).keypair().copy();
+    let worker_1_keypair = authority_1.worker(worker_id).keypair();
+    let worker_2_keypair = authority_2.worker(worker_id).keypair();
 
     // AND keep a map of batches and payload
     let mut batches_map = HashMap::new();
@@ -961,7 +994,7 @@ async fn test_get_collections_with_missing_certificates() {
     Primary::spawn(
         authority_1.authority().clone(),
         authority_1.keypair().clone(),
-        authority_1.network_keypair().copy(),
+        authority_1.network_keypair(),
         committee.clone(),
         worker_cache.clone(),
         parameters_1.clone(),
@@ -976,12 +1009,17 @@ async fn test_get_collections_with_missing_certificates() {
         rx_consensus_round_updates,
         /* external_consensus */
         Some(Arc::new(
-            Dag::new(rx_new_certificates_1, tx_shutdown.subscribe(), genesis_certs.clone()).1,
+            Dag::new(
+                rx_new_certificates_1,
+                tx_shutdown.subscribe(),
+                genesis_certs.clone(),
+            )
+            .1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
         tx_feedback_1,
-        genesis_certs,
+        genesis_certs.clone(),
     );
 
     let mut tx_shutdown_worker_1 = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
@@ -1023,8 +1061,8 @@ async fn test_get_collections_with_missing_certificates() {
 
     Primary::spawn(
         authority_2.authority().clone(),
-        authority_2.keypair().copy(),
-        authority_2.network_keypair().copy(),
+        authority_2.keypair().clone(),
+        authority_2.network_keypair(),
         committee.clone(),
         worker_cache.clone(),
         parameters_2.clone(),
@@ -1042,6 +1080,7 @@ async fn test_get_collections_with_missing_certificates() {
         NetworkModel::Asynchronous,
         &mut tx_shutdown_2,
         tx_feedback_2,
+        genesis_certs,
     );
 
     let mut tx_shutdown_worker_2 = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
@@ -1140,13 +1179,7 @@ async fn fixture_certificate(
     let mut payload = IndexMap::new();
     payload.insert(batch_digest, (worker_id, 0));
 
-    let header = Header::V1(
-        authority
-            .header_builder(committee)
-            .payload(payload)
-            .build()
-            .unwrap(),
-    );
+    let header = Header::V1(authority.header_builder(committee).payload(payload).build());
 
     let certificate = fixture.certificate(&header);
 

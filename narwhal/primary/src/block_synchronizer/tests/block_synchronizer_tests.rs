@@ -62,8 +62,7 @@ async fn test_successful_headers_synchronization() {
                 .header_builder(&committee)
                 .with_payload_batch(batch_1.clone(), worker_id_0, 0)
                 .with_payload_batch(batch_2.clone(), worker_id_1, 0)
-                .build()
-                .unwrap(),
+                .build(),
         );
 
         let certificate = fixture.certificate(&header);
@@ -213,7 +212,7 @@ async fn test_successful_payload_synchronization() {
                 .header_builder(&committee)
                 .with_payload_batch(batch_1.clone(), worker_id_0, 0)
                 .with_payload_batch(batch_2.clone(), worker_id_1, 0)
-                .build(author.keypair().private())
+                .build(),
         );
 
         let certificate = fixture.certificate(&header);
@@ -391,7 +390,7 @@ async fn test_timeout_while_waiting_for_certificates() {
                 author
                     .header_builder(&committee)
                     .with_payload_batch(fixture_batch_with_transactions(10), 0, 0)
-                    .build(author.keypair().private())
+                    .build(),
             );
 
             fixture.certificate(&header).digest()
@@ -543,7 +542,7 @@ async fn test_reply_with_certificates_already_in_storage() {
             author
                 .header_builder(&committee)
                 .with_payload_batch(batch.clone(), 0, 0)
-                .build(author.keypair().private())
+                .build(),
         );
 
         let certificate = fixture.certificate(&header);
@@ -651,7 +650,7 @@ async fn test_reply_with_payload_already_in_storage() {
             author
                 .header_builder(&committee)
                 .with_payload_batch(batch.clone(), 0, 0)
-                .build(author.keypair().private())
+                .build(),
         );
 
         let certificate = fixture.certificate(&header);
@@ -756,6 +755,7 @@ async fn test_reply_with_payload_already_in_storage_for_own_certificates() {
     let mut certificates = Vec::new();
 
     // AND storing some certificates
+    let author = fixture.authorities().next().unwrap();
     for _ in 0..5 {
         let batch = fixture_batch_with_transactions(10);
 
@@ -763,7 +763,7 @@ async fn test_reply_with_payload_already_in_storage_for_own_certificates() {
             primary
                 .header_builder(&committee)
                 .with_payload_batch(batch.clone(), 0, 0)
-                .build(author.keypair().private())
+                .build(),
         );
 
         let certificate = fixture.certificate(&header);

@@ -2,8 +2,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 use super::*;
-use crypto::Digest;
 use crate::NUM_SHUTDOWN_RECEIVERS;
+use crypto::Digest;
 use indexmap::IndexMap;
 use test_utils::{fixture_payload, CommitteeFixture};
 use types::PreSubscribedBroadcastSender;
@@ -14,6 +14,8 @@ async fn propose_empty() {
     let committee = fixture.committee();
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().next().unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee, keypair.private());
     let name = primary.id();
 
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
@@ -40,6 +42,7 @@ async fn propose_empty() {
         /* tx_core */ tx_headers,
         tx_narwhal_round_updates,
         rx_committed_own_headers,
+        genesis_certs,
     );
 
     // Ensure the proposer makes a correct empty header.
@@ -55,6 +58,8 @@ async fn propose_payload_and_repropose_after_n_seconds() {
     let committee = fixture.committee();
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().next().unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee, keypair.private());
     let name = primary.id();
     let header_resend_delay = Duration::from_secs(3);
 
@@ -86,6 +91,7 @@ async fn propose_payload_and_repropose_after_n_seconds() {
         /* tx_core */ tx_headers,
         tx_narwhal_round_updates,
         rx_committed_own_headers,
+        genesis_certs,
     );
 
     // Send enough digests for the header payload.
@@ -177,6 +183,8 @@ async fn equivocation_protection() {
     let committee = fixture.committee();
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().next().unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee, keypair.private());
     let authority_id = primary.id();
     let proposer_store = ProposerStore::new_for_tests();
 
@@ -206,6 +214,7 @@ async fn equivocation_protection() {
         /* tx_core */ tx_headers,
         tx_narwhal_round_updates,
         rx_committed_own_headers,
+        genesis_certs.clone(),
     );
 
     // Send enough digests for the header payload.
@@ -276,6 +285,7 @@ async fn equivocation_protection() {
         /* tx_core */ tx_headers,
         tx_narwhal_round_updates,
         rx_committed_own_headers,
+        genesis_certs,
     );
 
     // Send enough digests for the header payload.

@@ -184,7 +184,8 @@ impl<Value: Hash + Clone> Peers<Value> {
 #[cfg(test)]
 mod tests {
     use crate::block_synchronizer::peers::Peers;
-    use crypto::{Hash, KeyPair, NetworkKeyPair};
+    use crypto::{Digest, Hash, KeyPair, NetworkKeyPair};
+    use fastcrypto::traits::KeyPair as _;
     use rand::{
         rngs::{SmallRng, StdRng},
         SeedableRng,
@@ -381,7 +382,7 @@ mod tests {
     #[derive(Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
     pub struct MockDigest(Digest);
 
-    impl From<MockDigest> for Digest<{ crypto::DIGEST_LENGTH }> {
+    impl From<MockDigest> for Digest {
         fn from(hd: MockDigest) -> Self {
             hd.0
         }

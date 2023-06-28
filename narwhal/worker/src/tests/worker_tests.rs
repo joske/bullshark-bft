@@ -9,19 +9,17 @@ use bytes::Bytes;
 use consensus::consensus::ConsensusRound;
 use consensus::dag::Dag;
 use crypto::Hash;
-use fastcrypto::{
-    encoding::{Encoding, Hex},
-};
+use fastcrypto::encoding::{Encoding, Hex};
 use futures::stream::FuturesOrdered;
 use futures::StreamExt;
 use primary::{NetworkModel, Primary, CHANNEL_CAPACITY, NUM_SHUTDOWN_RECEIVERS};
-use types::Certificate;
 use std::time::Duration;
 use storage::NodeStorage;
 use store::rocks;
 use store::rocks::ReadWriteOptions;
 use test_utils::{batch, temp_dir, test_network, transaction, CommitteeFixture};
 use tokio::sync::watch;
+use types::Certificate;
 use types::{
     BatchAPI, MockWorkerToPrimary, MockWorkerToWorker, PreSubscribedBroadcastSender,
     TransactionProto, TransactionsClient, WorkerBatchMessage, WorkerToWorkerClient,
@@ -397,7 +395,12 @@ async fn get_network_peers_from_admin_server() {
         rx_consensus_round_updates,
         /* dag */
         Some(Arc::new(
-            Dag::new(rx_new_certificates, tx_shutdown.subscribe(), genesis_certs.clone()).1,
+            Dag::new(
+                rx_new_certificates,
+                tx_shutdown.subscribe(),
+                genesis_certs.clone(),
+            )
+            .1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown,
@@ -513,7 +516,12 @@ async fn get_network_peers_from_admin_server() {
         rx_consensus_round_updates,
         /* dag */
         Some(Arc::new(
-            Dag::new(rx_new_certificates_2, tx_shutdown.subscribe(), genesis_certs.clone()).1,
+            Dag::new(
+                rx_new_certificates_2,
+                tx_shutdown.subscribe(),
+                genesis_certs.clone(),
+            )
+            .1,
         )),
         NetworkModel::Asynchronous,
         &mut tx_shutdown_2,

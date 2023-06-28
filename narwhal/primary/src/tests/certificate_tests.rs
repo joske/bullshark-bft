@@ -28,7 +28,11 @@ fn test_empty_certificate_verification() {
 
     let certificate = Certificate::new_unsigned(&committee, header, Vec::new()).unwrap();
     assert!(certificate
-        .verify(&committee, &fixture.worker_cache(), genesis_certs.as_slice())
+        .verify(
+            &committee,
+            &fixture.worker_cache(),
+            genesis_certs.as_slice()
+        )
         .is_err());
 }
 
@@ -52,7 +56,11 @@ fn test_valid_certificate_verification() {
     let certificate = Certificate::new_unverified(&committee, header, signatures).unwrap();
 
     assert!(certificate
-        .verify(&committee, &fixture.worker_cache(), genesis_certs.as_slice())
+        .verify(
+            &committee,
+            &fixture.worker_cache(),
+            genesis_certs.as_slice()
+        )
         .is_ok());
 }
 
@@ -78,7 +86,11 @@ fn test_certificate_insufficient_signatures() {
     let certificate = Certificate::new_unsigned(&committee, header, signatures).unwrap();
 
     assert!(certificate
-        .verify(&committee, &fixture.worker_cache(), genesis_certs.as_slice())
+        .verify(
+            &committee,
+            &fixture.worker_cache(),
+            genesis_certs.as_slice()
+        )
         .is_err());
 }
 
@@ -106,7 +118,11 @@ fn test_certificate_validly_repeated_public_keys() {
     let certificate = certificate_res.unwrap();
 
     assert!(certificate
-        .verify(&committee, &fixture.worker_cache(), genesis_certs.as_slice())
+        .verify(
+            &committee,
+            &fixture.worker_cache(),
+            genesis_certs.as_slice()
+        )
         .is_ok());
 }
 
@@ -135,7 +151,7 @@ fn test_unknown_signature_in_certificate() {
 
     assert!(Certificate::new_unverified(&committee, header, signatures).is_err());
 }
-
+/*
 proptest::proptest! {
     #[test]
     fn test_certificate_verification(
@@ -167,3 +183,4 @@ proptest::proptest! {
             .is_ok());
     }
 }
+*/

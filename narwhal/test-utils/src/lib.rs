@@ -8,8 +8,8 @@ use config::{
     Stake, WorkerCache, WorkerId, WorkerIndex, WorkerInfo,
 };
 use crypto::{
-    Hash, KeyPair, NetworkKeyPair, NetworkPublicKey, PublicKey,
-    to_intent_message, NarwhalAuthoritySignature, Signature,
+    to_intent_message, Hash, KeyPair, NarwhalAuthoritySignature, NetworkKeyPair, NetworkPublicKey,
+    PublicKey, Signature,
 };
 use fastcrypto::traits::{AllowedRng, KeyPair as _};
 use indexmap::IndexMap;
@@ -651,7 +651,6 @@ pub fn mock_signed_certificate(
     parents: BTreeSet<CertificateDigest>,
     committee: &Committee,
 ) -> (CertificateDigest, Certificate) {
-    let author = signers.iter().find(|(id, _kp)| id == &origin).unwrap();
     let header_builder = HeaderV1Builder::default()
         .author(origin)
         .payload(fixture_payload(1))
@@ -665,9 +664,9 @@ pub fn mock_signed_certificate(
         Certificate::new_unsigned(committee, Header::V1(header.clone()), Vec::new()).unwrap();
 
     let mut votes = Vec::new();
-    let rng = &mut rand::thread_rng();
     for (name, signer) in signers {
-        let sig = Signature::new_secure(&to_intent_message(cert.header().digest()), signer.private());
+        let sig =
+            Signature::new_secure(&to_intent_message(cert.header().digest()), signer.private());
         votes.push((*name, sig))
     }
     let cert = Certificate::new_unverified(committee, Header::V1(header), votes).unwrap();

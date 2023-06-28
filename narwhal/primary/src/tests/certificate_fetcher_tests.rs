@@ -203,6 +203,14 @@ async fn fetch_certificates_basic() {
         .await
         .unwrap();
 
+    // Generate headers and certificates in successive rounds
+    let genesis_certs: Vec<_> = Certificate::genesis(&fixture.committee(), keypair.private());
+    for cert in genesis_certs.iter() {
+        certificate_store
+            .write(cert.clone())
+            .expect("Writing certificate to store failed");
+    }
+
     // Make a certificate fetcher
     let _certificate_fetcher_handle = CertificateFetcher::spawn(
         id,
@@ -213,15 +221,8 @@ async fn fetch_certificates_basic() {
         tx_shutdown.subscribe(),
         rx_certificate_fetcher,
         synchronizer.clone(),
+        genesis_certs.clone(),
     );
-
-    // Generate headers and certificates in successive rounds
-    let genesis_certs: Vec<_> = Certificate::genesis(&fixture.committee(), keypair.private());
-    for cert in genesis_certs.iter() {
-        certificate_store
-            .write(cert.clone())
-            .expect("Writing certificate to store failed");
-    }
 
     let mut current_round: Vec<_> = genesis_certs
         .into_iter()

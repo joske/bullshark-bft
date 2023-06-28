@@ -34,7 +34,7 @@ async fn test_successful_blocks_delete() {
     let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     // AND a Dag with genesis populated
-    let dag = Arc::new(Dag::new(&committee, rx_consensus, tx_shutdown.subscribe(), genesis_certs.clone()).1);
+    let dag = Arc::new(Dag::new(rx_consensus, tx_shutdown.subscribe(), genesis_certs.clone()).1);
     populate_genesis(&dag, &committee, author.keypair().private()).await;
 
     let network = test_utils::test_network(primary.network_keypair(), primary.address());
@@ -68,7 +68,7 @@ async fn test_successful_blocks_delete() {
                 .header_builder(&committee)
                 .with_payload_batch(batch_1.clone(), worker_id_0, 0)
                 .with_payload_batch(batch_2.clone(), worker_id_1, 0)
-                .build(author.keypair().private()),
+                .build(),
         );
 
         let certificate = fixture.certificate(&header);
@@ -196,7 +196,7 @@ async fn test_failed_blocks_delete() {
     let genesis_certs = Certificate::genesis(&committee.clone(), keypair.private());
 
     // AND a Dag with genesis populated
-    let dag = Arc::new(Dag::new(&committee, rx_consensus, tx_shutdown.subscribe(), genesis_certs.clone()).1);
+    let dag = Arc::new(Dag::new(rx_consensus, tx_shutdown.subscribe(), genesis_certs.clone()).1);
     populate_genesis(&dag, &committee, keypair.private()).await;
 
     let network = test_utils::test_network(primary.network_keypair(), primary.address());
@@ -230,7 +230,7 @@ async fn test_failed_blocks_delete() {
                 .header_builder(&committee)
                 .with_payload_batch(batch_1.clone(), worker_id_0, 0)
                 .with_payload_batch(batch_2.clone(), worker_id_1, 0)
-                .build(author.keypair().private()),
+                .build(),
         );
 
         let certificate = fixture.certificate(&header);

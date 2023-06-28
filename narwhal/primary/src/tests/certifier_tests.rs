@@ -27,10 +27,12 @@ async fn propose_header() {
     let committee = fixture.committee();
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().last().unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee, keypair.private());
     let client = NetworkClient::new_from_keypair(&primary.network_keypair());
-    let network_key = primary.network_keypair().copy().private().0.to_bytes();
+    let network_key = primary.network_keypair().private().0.to_bytes();
     let id = primary.id();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (tx_headers, rx_headers) = test_utils::test_channel!(1);
@@ -61,7 +63,7 @@ async fn propose_header() {
     for primary in fixture.authorities().filter(|a| a.id() != id) {
         let address = committee.primary(&primary.public_key()).unwrap();
         let name = primary.id();
-        let signature_service = SignatureService::new(primary.keypair().copy());
+        let signature_service = SignatureService::new(*primary.keypair().private());
         let vote = Vote::new(&proposed_header, &name, &signature_service).await;
         let mut mock_server = MockPrimaryToPrimary::new();
         let mut mock_seq = mockall::Sequence::new();
@@ -112,6 +114,7 @@ async fn propose_header() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
 
     let _handle = Certifier::spawn(
@@ -141,10 +144,12 @@ async fn propose_header_failure() {
     let committee = fixture.committee();
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().last().unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee, keypair.private());
     let client = NetworkClient::new_from_keypair(&primary.network_keypair());
-    let network_key = primary.network_keypair().copy().private().0.to_bytes();
+    let network_key = primary.network_keypair().private().0.to_bytes();
     let authority_id = primary.id();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (tx_headers, rx_headers) = test_utils::test_channel!(1);
@@ -209,6 +214,7 @@ async fn propose_header_failure() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
 
     let _handle = Certifier::spawn(
@@ -260,9 +266,9 @@ async fn run_vote_aggregator_with_param(
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().last().unwrap();
     let client = NetworkClient::new_from_keypair(&primary.network_keypair());
-    let network_key = primary.network_keypair().copy().private().0.to_bytes();
+    let network_key = primary.network_keypair().private().0.to_bytes();
     let id: AuthorityIdentifier = primary.id();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (tx_headers, rx_headers) = test_utils::test_channel!(1);
@@ -272,6 +278,7 @@ async fn run_vote_aggregator_with_param(
         watch::channel(ConsensusRound::new(0, 0));
     let (_tx_synchronizer_network, rx_synchronizer_network) = oneshot::channel();
     let (header_store, certificate_store, payload_store) = create_db_stores();
+    let genesis_certs = Certificate::genesis(&fixture.committee(), primary.keypair().private());
 
     // Create a fake header.
     let proposed_header = primary.header(&committee);
@@ -295,10 +302,11 @@ async fn run_vote_aggregator_with_param(
         let name = primary.id();
         // Create bad signature for a number of byzantines.
         let vote = if i < num_byzantine {
-            let bad_key: DefinedKeyPair = DefinedKeyPair::generate(&mut StdRng::from_seed([0; 32]));
-            Vote::new_with_signer(&proposed_header, &name, &bad_key)
+            let bad_key: DefinedKeyPair =
+                DefinedKeyPair::new(&mut StdRng::from_seed([0; 32])).unwrap();
+            Vote::new_with_signer(&proposed_header, &name, bad_key.private())
         } else {
-            Vote::new_with_signer(&proposed_header, &name, primary.keypair())
+            Vote::new_with_signer(&proposed_header, &name, primary.keypair().private())
         };
         let mut mock_server = MockPrimaryToPrimary::new();
         let mut mock_seq = mockall::Sequence::new();
@@ -339,6 +347,7 @@ async fn run_vote_aggregator_with_param(
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
+        genesis_certs,
     ));
     let _handle = Certifier::spawn(
         id,
@@ -375,10 +384,12 @@ async fn shutdown_core() {
     let committee = fixture.committee();
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().next().unwrap();
+    let keypair = primary.keypair().clone();
+    let genesis_certs = Certificate::genesis(&committee, keypair.private());
     let client = NetworkClient::new_from_keypair(&primary.network_keypair());
-    let network_key = primary.network_keypair().copy().private().0.to_bytes();
+    let network_key = primary.network_keypair().private().0.to_bytes();
     let id: AuthorityIdentifier = primary.id();
-    let signature_service = SignatureService::new(primary.keypair().copy());
+    let signature_service = SignatureService::new(*primary.keypair().private());
 
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
@@ -407,6 +418,7 @@ async fn shutdown_core() {
         rx_consensus_round_updates.clone(),
         rx_synchronizer_network,
         None,
+        genesis_certs.clone(),
     ));
 
     let own_address = committee
