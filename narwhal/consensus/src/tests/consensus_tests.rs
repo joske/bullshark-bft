@@ -42,6 +42,7 @@ async fn test_consensus_recovery_with_bullshark() {
     // AND Setup consensus
     let fixture = CommitteeFixture::builder().build();
     let committee = fixture.committee();
+    let authority = fixture.authorities().next().unwrap();
 
     // AND make certificates for rounds 1 to 7 (inclusive)
     let ids: Vec<_> = fixture.authorities().map(|a| a.id()).collect();
