@@ -1,4 +1,7 @@
 ---
+AggregateSignature:
+  NEWTYPESTRUCT:
+    SEQ: BYTES
 AuthorityIdentifier:
   NEWTYPESTRUCT: U16
 Batch:
@@ -9,9 +12,7 @@ Batch:
           TYPENAME: BatchV1
 BatchDigest:
   NEWTYPESTRUCT:
-    TUPLEARRAY:
-      CONTENT: U8
-      SIZE: 32
+    TYPENAME: Digest
 BatchV1:
   STRUCT:
     - transactions:
@@ -27,20 +28,21 @@ Certificate:
           TYPENAME: CertificateV1
 CertificateDigest:
   NEWTYPESTRUCT:
-    TUPLEARRAY:
-      CONTENT: U8
-      SIZE: 32
+    TYPENAME: Digest
 CertificateV1:
   STRUCT:
     - header:
         TYPENAME: Header
     - aggregated_signature:
-        TUPLEARRAY:
-          CONTENT: U8
-          SIZE: 48
+        TYPENAME: AggregateSignature
     - signed_authorities: BYTES
     - metadata:
         TYPENAME: Metadata
+Digest:
+  NEWTYPESTRUCT:
+    TUPLEARRAY:
+      CONTENT: U8
+      SIZE: 32
 Header:
   ENUM:
     0:
@@ -49,9 +51,7 @@ Header:
           TYPENAME: HeaderV1
 HeaderDigest:
   NEWTYPESTRUCT:
-    TUPLEARRAY:
-      CONTENT: U8
-      SIZE: 32
+    TYPENAME: Digest
 HeaderV1:
   STRUCT:
     - author:
@@ -72,6 +72,11 @@ HeaderV1:
 Metadata:
   STRUCT:
     - created_at: U64
+PublicKey:
+  NEWTYPESTRUCT:
+    TUPLEARRAY:
+      CONTENT: U8
+      SIZE: 32
 WorkerIndex:
   NEWTYPESTRUCT:
     MAP:

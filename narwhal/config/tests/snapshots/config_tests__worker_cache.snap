@@ -4,51 +4,7 @@ expression: worker_cache
 ---
 {
   "workers": {
-    "ku8PylNwBUMzkshpDSeMnbV25O8rPkUFDPcqAyeEXztH02eOq6WemzFMEsi1p0LrBvKBvTLpwLwHhkCatYptihcO75iZRjtFkYwkAlv0GmQQyHZ+xO+UYweLQiYdFHtf": {
-      "0": {
-        "name": "+vUstEd3Zwmk1MRBNU6KMe93it1bV/ouTWPUDuDQHOQ=",
-        "transactions": "/ip4/127.0.0.1/tcp/0/http",
-        "worker_address": "/ip4/127.0.0.1/udp/0"
-      },
-      "1": {
-        "name": "tA1h9P/tjZVdIaW52V7TMpsYevOffi+wZ52uzvqizy8=",
-        "transactions": "/ip4/127.0.0.1/tcp/0/http",
-        "worker_address": "/ip4/127.0.0.1/udp/0"
-      },
-      "2": {
-        "name": "a+K1bOynGp8UECGdYL1AKu+VboCKFzkuas1YrJv9USs=",
-        "transactions": "/ip4/127.0.0.1/tcp/0/http",
-        "worker_address": "/ip4/127.0.0.1/udp/0"
-      },
-      "3": {
-        "name": "4kBB/sEnfuQrFVX4wKIWDruoWE0FdGQoAAxV3dH5Ruw=",
-        "transactions": "/ip4/127.0.0.1/tcp/0/http",
-        "worker_address": "/ip4/127.0.0.1/udp/0"
-      }
-    },
-    "mfJe9h+AMrkUY2RgmCxcxvE07x3a52ZX8sv+wev8jQlzdAgN9vzw3Li8Sw2OCvXYDrv/K0xZn1T0LWMS38MUJ2B4wcw0fru+xRmL4lhRPzhrkw0CwnSagD4jMJVevRoQ": {
-      "0": {
-        "name": "Rl8pi3pQBvFS3qQ4Ge8XfGIWJ89Ig6gaG+hs27ITsoY=",
-        "transactions": "/ip4/127.0.0.1/tcp/0/http",
-        "worker_address": "/ip4/127.0.0.1/udp/0"
-      },
-      "1": {
-        "name": "LEP9AK0+iW5NcUyhZbcmNIb5RYHgH69slDisEtztjG0=",
-        "transactions": "/ip4/127.0.0.1/tcp/0/http",
-        "worker_address": "/ip4/127.0.0.1/udp/0"
-      },
-      "2": {
-        "name": "7e+czQHszqp2FRfx2nfFWAO0P62dYPZStGZrvhXxsrk=",
-        "transactions": "/ip4/127.0.0.1/tcp/0/http",
-        "worker_address": "/ip4/127.0.0.1/udp/0"
-      },
-      "3": {
-        "name": "E9/Bo/26Ipc5+PcH6FrVcSX/vQpmNQOdnsvrQHha22g=",
-        "transactions": "/ip4/127.0.0.1/tcp/0/http",
-        "worker_address": "/ip4/127.0.0.1/udp/0"
-      }
-    },
-    "ofT8sYBvqkB+c/sjDYTwar96xgZbTdi/ncbet8ja9ePYhtSje59zyarNpF/ZxM1dAncK6uyr9Xv1lS7bJs+nSj2k0bMvbStf5RORLeuPwYz/yJrDOQQf4MxOnW0u8Gzo": {
+    "aleo19vqr0cv6yxydfzpxjvewsgycqsxm6sty6yucs3vaktlsu3u6cg9q7c7gsp": {
       "0": {
         "name": "XfUKCTzkq/woZ4O5HhvOQYx2Mjmj53+b2Zvf47bUNAs=",
         "transactions": "/ip4/127.0.0.1/tcp/0/http",
@@ -70,24 +26,68 @@ expression: worker_cache
         "worker_address": "/ip4/127.0.0.1/udp/0"
       }
     },
-    "q1ys+9ZU8B5aHgYbgyC5N0XQlGdq1B7xY9D8JOyT89upZpiuKRUDBsq3h/WbLtd4AvLNFNECBjlAG06r8heq7tEs6ol97VfaS2579e4b337eJAwd/y1bIt4F+LhEc3sV": {
+    "aleo1r2hsvg5pqvs5eund3rm6flzktkvnvnxl8rts0clzedut6wftlqrq2ynk78": {
       "0": {
-        "name": "ZHHGcv0FFVsZHJGRHt9GyGNjuEVHfPRQtzzvr0muwdw=",
-        "transactions": "/ip4/127.0.0.1/tcp/0/http",
-        "worker_address": "/ip4/127.0.0.1/udp/0"
-      },
-      "1": {
         "name": "8mDA/X8DSIDB1xgO2aWggBs6c1CHpwO/8yOObxDvDVg=",
         "transactions": "/ip4/127.0.0.1/tcp/0/http",
         "worker_address": "/ip4/127.0.0.1/udp/0"
       },
-      "2": {
+      "1": {
         "name": "qk4EPcTqK1qa8nSDxvWLOc4eNK08K8jStJYuu4r19/I=",
         "transactions": "/ip4/127.0.0.1/tcp/0/http",
         "worker_address": "/ip4/127.0.0.1/udp/0"
       },
-      "3": {
+      "2": {
         "name": "8g85A29s6Un8b8sRwTLdQ626jFtHpDJOwtWEVy2t7MA=",
+        "transactions": "/ip4/127.0.0.1/tcp/0/http",
+        "worker_address": "/ip4/127.0.0.1/udp/0"
+      },
+      "3": {
+        "name": "G/U/v2tM7tdKo38u5pq67Q/5FVgCaNA/6IZDglefMmA=",
+        "transactions": "/ip4/127.0.0.1/tcp/0/http",
+        "worker_address": "/ip4/127.0.0.1/udp/0"
+      }
+    },
+    "aleo1se3y988xnw65yhldxdjjs5u8dtdh5gcvj4c2agrhhgdjelgemcys5kn7yu": {
+      "0": {
+        "name": "Rl8pi3pQBvFS3qQ4Ge8XfGIWJ89Ig6gaG+hs27ITsoY=",
+        "transactions": "/ip4/127.0.0.1/tcp/0/http",
+        "worker_address": "/ip4/127.0.0.1/udp/0"
+      },
+      "1": {
+        "name": "LEP9AK0+iW5NcUyhZbcmNIb5RYHgH69slDisEtztjG0=",
+        "transactions": "/ip4/127.0.0.1/tcp/0/http",
+        "worker_address": "/ip4/127.0.0.1/udp/0"
+      },
+      "2": {
+        "name": "7e+czQHszqp2FRfx2nfFWAO0P62dYPZStGZrvhXxsrk=",
+        "transactions": "/ip4/127.0.0.1/tcp/0/http",
+        "worker_address": "/ip4/127.0.0.1/udp/0"
+      },
+      "3": {
+        "name": "E9/Bo/26Ipc5+PcH6FrVcSX/vQpmNQOdnsvrQHha22g=",
+        "transactions": "/ip4/127.0.0.1/tcp/0/http",
+        "worker_address": "/ip4/127.0.0.1/udp/0"
+      }
+    },
+    "aleo1ukyjtjp8vm67k2zwaqj7jfnke6kjtlac3w40994hxz54h4z8j5xqlknymw": {
+      "0": {
+        "name": "+vUstEd3Zwmk1MRBNU6KMe93it1bV/ouTWPUDuDQHOQ=",
+        "transactions": "/ip4/127.0.0.1/tcp/0/http",
+        "worker_address": "/ip4/127.0.0.1/udp/0"
+      },
+      "1": {
+        "name": "tA1h9P/tjZVdIaW52V7TMpsYevOffi+wZ52uzvqizy8=",
+        "transactions": "/ip4/127.0.0.1/tcp/0/http",
+        "worker_address": "/ip4/127.0.0.1/udp/0"
+      },
+      "2": {
+        "name": "a+K1bOynGp8UECGdYL1AKu+VboCKFzkuas1YrJv9USs=",
+        "transactions": "/ip4/127.0.0.1/tcp/0/http",
+        "worker_address": "/ip4/127.0.0.1/udp/0"
+      },
+      "3": {
+        "name": "4kBB/sEnfuQrFVX4wKIWDruoWE0FdGQoAAxV3dH5Ruw=",
         "transactions": "/ip4/127.0.0.1/tcp/0/http",
         "worker_address": "/ip4/127.0.0.1/udp/0"
       }
