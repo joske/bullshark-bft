@@ -36,7 +36,7 @@ async fn test_successfully_retrieve_block() {
             .build(),
     );
     let certificate = fixture.certificate(&header);
-    let digest = CertificateDigest::default();
+    let digest = certificate.digest();
 
     let network = test_network(primary.network_keypair(), primary.address());
 

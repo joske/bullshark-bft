@@ -9,7 +9,6 @@ use rand::{
     rngs::{OsRng, StdRng},
     SeedableRng,
 };
-use std::num::NonZeroUsize;
 use test_utils::CommitteeFixture;
 use types::{Certificate, Vote, VoteAPI};
 
