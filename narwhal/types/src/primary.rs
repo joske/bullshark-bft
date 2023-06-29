@@ -8,20 +8,14 @@ use crate::{
 };
 use bytes::Bytes;
 use config::{AuthorityIdentifier, Committee, Epoch, Stake, WorkerCache, WorkerId, WorkerInfo};
-use crypto::{
-    to_intent_message, AggregateSignature, Digest, Hash, NarwhalAuthorityAggregateSignature,
-    NetworkPublicKey, PrivateKey, PublicKey, Signature, SignatureService,
-};
+use crypto::{Hash, PrivateKey, PublicKey, Signature, SignatureService, Digest, to_intent_message, AggregateSignature, NarwhalAuthorityAggregateSignature, NetworkPublicKey, NarwhalAuthoritySignature};
+use rand::{rngs::{StdRng, ThreadRng}, thread_rng, SeedableRng};
 use dag::node_dag::Affiliated;
 use derive_builder::Builder;
 use enum_dispatch::enum_dispatch;
 use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
 use proptest_derive::Arbitrary;
-use rand::{
-    rngs::{StdRng, ThreadRng},
-    thread_rng, SeedableRng,
-};
 use roaring::RoaringBitmap;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -733,11 +727,8 @@ impl VoteV1 {
             origin: header.author(),
             author: author.clone(),
         };
-        let mut rng = thread_rng();
         let vote_digest: Digest = unsigned_vote.digest.into();
-        let signature = signer
-            .sign_bytes(vote_digest.as_ref(), &mut rng)
-            .expect("signing failed");
+        let signature = Signature::new_secure(&to_intent_message(vote_digest), signer);
 
         Self {
             header_digest: unsigned_vote.digest,

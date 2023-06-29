@@ -69,7 +69,7 @@ impl VotesAggregator {
                     while i < self.votes.len() {
                         let (id, sig) = &self.votes[i];
                         let pk = committee.authority_safe(id).protocol_key();
-                        if sig.verify_secure(&to_intent_message(certificate_digest), pk) {
+                        if !sig.verify_secure(&to_intent_message(certificate_digest), pk) {
                             warn!("Invalid signature on header from authority: {}", id);
                             self.weight -= committee.stake(pk);
                             self.votes.remove(i);
