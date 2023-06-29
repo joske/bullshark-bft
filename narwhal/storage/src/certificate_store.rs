@@ -708,11 +708,12 @@ mod test {
                 .map(|cert| fixture.certificate(cert.header()).digest())
                 .collect();
             let (_, current_headers) = fixture.headers_round(i, &parents);
-            current_round = current_headers.into_iter().map(|h| fixture.certificate(&h)).collect();
+            current_round = current_headers
+                .into_iter()
+                .map(|h| fixture.certificate(&h))
+                .collect();
 
-            result.extend(
-                current_round.clone()
-            );
+            result.extend(current_round.clone());
         }
 
         result

@@ -3,8 +3,8 @@
 
 #![allow(clippy::mutable_key_type)]
 
-use std::collections::BTreeSet;
 use crypto::Hash;
+use std::collections::BTreeSet;
 use storage::NodeStorage;
 use telemetry_subscribers::TelemetryGuards;
 use test_utils::{temp_dir, CommitteeFixture};

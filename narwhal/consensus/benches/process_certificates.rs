@@ -8,9 +8,9 @@ use consensus::{
 use criterion::{
     criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode, Throughput,
 };
-use pprof::criterion::{Output, PProfProfiler};
 use crypto::Hash;
 use narwhal_consensus as consensus;
+use pprof::criterion::{Output, PProfProfiler};
 use std::collections::BTreeSet;
 use storage::NodeStorage;
 use test_utils::{make_optimal_certificates, temp_dir, CommitteeFixture};

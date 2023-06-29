@@ -55,7 +55,11 @@ async fn test_dag_read_notify() {
     // set up a Dag
     let (_tx_cert, rx_cert) = test_utils::test_channel!(1);
     let mut tx_shutdown = PreSubscribedBroadcastSender::new(NUM_SHUTDOWN_RECEIVERS);
-    let arc = Arc::new(Dag::new(rx_cert, tx_shutdown.subscribe(), genesis_certs.clone()));
+    let arc = Arc::new(Dag::new(
+        rx_cert,
+        tx_shutdown.subscribe(),
+        genesis_certs.clone(),
+    ));
     let cloned = arc.clone();
     let handle = tokio::spawn(async move {
         let _ = &arc;

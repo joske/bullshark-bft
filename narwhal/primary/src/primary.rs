@@ -28,7 +28,10 @@ use async_trait::async_trait;
 use config::{Authority, AuthorityIdentifier, Committee, Parameters, WorkerCache};
 use consensus::consensus::ConsensusRound;
 use consensus::dag::Dag;
-use crypto::{EncodeDecodeBase64, Hash, KeyPair, NetworkKeyPair, NetworkPublicKey, PublicKey, SignatureService};
+use crypto::{
+    EncodeDecodeBase64, Hash, KeyPair, NetworkKeyPair, NetworkPublicKey, PublicKey,
+    SignatureService,
+};
 use fastcrypto::traits::{KeyPair as _, ToFromBytes};
 use futures::{stream::FuturesUnordered, StreamExt};
 use mysten_network::{multiaddr::Protocol, Multiaddr};

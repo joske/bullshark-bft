@@ -11,8 +11,7 @@ pub struct Peer<Value: Hash + Clone> {
 
     /// Those are the values that we got from the peer and that is able
     /// to serve.
-    pub values_able_to_serve:
-        HashMap<<Value as Hash>::TypedDigest, Value>,
+    pub values_able_to_serve: HashMap<<Value as Hash>::TypedDigest, Value>,
 
     /// Those are the assigned values after a re-balancing event
     assigned_values: HashMap<<Value as Hash>::TypedDigest, Value>,
@@ -20,11 +19,10 @@ pub struct Peer<Value: Hash + Clone> {
 
 impl<Value: Hash + Clone> Peer<Value> {
     pub fn new(name: NetworkPublicKey, values_able_to_serve: Vec<Value>) -> Self {
-        let certs: HashMap<<Value as Hash>::TypedDigest, Value> =
-            values_able_to_serve
-                .into_iter()
-                .map(|c| (c.digest(), c))
-                .collect();
+        let certs: HashMap<<Value as Hash>::TypedDigest, Value> = values_able_to_serve
+            .into_iter()
+            .map(|c| (c.digest(), c))
+            .collect();
 
         Peer {
             name,
@@ -139,10 +137,7 @@ impl<Value: Hash + Clone> Peers<Value> {
     /// 1) Will filter only the peers that value dictated by the
     /// provided `value_id`
     /// 2) Will pick a peer in random to assign the value to
-    fn peer_to_assign_value(
-        &mut self,
-        value_id: <Value as Hash>::TypedDigest,
-    ) -> Peer<Value> {
+    fn peer_to_assign_value(&mut self, value_id: <Value as Hash>::TypedDigest) -> Peer<Value> {
         // step 1 - find the peers who have this id
         let peers_with_value: Vec<Peer<Value>> = self
             .peers
@@ -164,10 +159,7 @@ impl<Value: Hash + Clone> Peers<Value> {
 
     // Deletes the value identified by the provided id from the list of
     // available values from all the peers.
-    fn delete_values_from_peers(
-        &mut self,
-        id: <Value as Hash>::TypedDigest,
-    ) {
+    fn delete_values_from_peers(&mut self, id: <Value as Hash>::TypedDigest) {
         for (_, peer) in self.peers.iter_mut() {
             peer.values_able_to_serve.remove(&id);
         }

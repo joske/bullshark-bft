@@ -4,8 +4,8 @@
 
 use crate::{Batch, Certificate, CertificateAPI, CertificateDigest, HeaderAPI, Round, TimestampMs};
 use config::{AuthorityIdentifier, Committee};
-use enum_dispatch::enum_dispatch;
 use crypto::{Hash, PublicKey};
+use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;

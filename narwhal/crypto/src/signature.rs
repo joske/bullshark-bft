@@ -78,11 +78,7 @@ pub trait NarwhalAuthoritySignature {
         T: Serialize;
 
     /// Verify the signature on an intent message against the public key.
-    fn verify_secure<T>(
-        &self,
-        value: &IntentMessage<T>,
-        author: &PublicKey,
-    ) -> bool
+    fn verify_secure<T>(&self, value: &IntentMessage<T>, author: &PublicKey) -> bool
     where
         T: Serialize;
 }
@@ -93,14 +89,12 @@ impl NarwhalAuthoritySignature for Signature {
         T: Serialize,
     {
         let message = bcs::to_bytes(&value).expect("Message serialization should not fail");
-        secret.sign_bytes(message.as_slice(), &mut rand::thread_rng()).expect("Signing failed")
+        secret
+            .sign_bytes(message.as_slice(), &mut rand::thread_rng())
+            .expect("Signing failed")
     }
 
-    fn verify_secure<T>(
-        &self,
-        value: &IntentMessage<T>,
-        public_key: &PublicKey,
-    ) -> bool
+    fn verify_secure<T>(&self, value: &IntentMessage<T>, public_key: &PublicKey) -> bool
     where
         T: Serialize,
     {

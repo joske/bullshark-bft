@@ -255,7 +255,7 @@ mod tests {
     use std::{collections::HashSet, fmt};
 
     use crypto::{Digest, Hash};
-    use fastcrypto::encoding::{Hex, Encoding};
+    use fastcrypto::encoding::{Encoding, Hex};
     use proptest::prelude::*;
 
     use super::*;

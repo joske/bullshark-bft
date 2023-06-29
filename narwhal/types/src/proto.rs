@@ -14,7 +14,7 @@ use std::{array::TryFromSliceError, ops::Deref};
 
 use crate::{BlockError, BlockErrorKind, CertificateDigest, Transaction};
 use bytes::Bytes;
-use crypto::{PublicKey, Digest};
+use crypto::{Digest, PublicKey};
 use snarkvm_console::prelude::ToBytes;
 
 pub use narwhal::{

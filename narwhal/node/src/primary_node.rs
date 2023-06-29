@@ -8,8 +8,8 @@ use consensus::consensus::ConsensusRound;
 use consensus::dag::Dag;
 use consensus::Consensus;
 use crypto::{KeyPair, NetworkKeyPair, PublicKey};
-use fastcrypto::traits::KeyPair as _;
 use executor::{get_restored_consensus_output, ExecutionState, Executor, SubscriberResult};
+use fastcrypto::traits::KeyPair as _;
 use network::client::NetworkClient;
 use primary::{NetworkModel, Primary, NUM_SHUTDOWN_RECEIVERS};
 use std::sync::Arc;
@@ -192,12 +192,16 @@ impl PrimaryNodeInner {
         let mut handles = Vec::new();
         let (tx_consensus_round_updates, rx_consensus_round_updates) =
             watch::channel(ConsensusRound::new(0, 0));
-        
+
         let genesis_certs = Certificate::genesis(&committee, keypair.private());
 
         let (dag, network_model) = if !internal_consensus {
             debug!("Consensus is disabled: the primary will run w/o Bullshark");
-            let (handle, dag) = Dag::new(rx_new_certificates, tx_shutdown.subscribe(), genesis_certs.clone());
+            let (handle, dag) = Dag::new(
+                rx_new_certificates,
+                tx_shutdown.subscribe(),
+                genesis_certs.clone(),
+            );
 
             handles.push(handle);
 
