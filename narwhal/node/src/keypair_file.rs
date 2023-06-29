@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::anyhow;
+use crypto::{EncodeDecodeBase64, KeyPair};
 pub use fastcrypto::traits::KeyPair as KeypairTraits;
-use crypto::{KeyPair, EncodeDecodeBase64};
 use fastcrypto::{
     ed25519::Ed25519KeyPair,
     traits::{EncodeDecodeBase64 as _, VerifyingKey},
 };
-use rand::{rngs::StdRng, Rng, CryptoRng, SeedableRng};
+use rand::{rngs::StdRng, CryptoRng, Rng, SeedableRng};
 
 pub type AuthorityKeyPair = KeyPair;
 pub type NetworkKeyPair = Ed25519KeyPair;

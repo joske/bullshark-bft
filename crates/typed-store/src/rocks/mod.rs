@@ -1362,8 +1362,7 @@ impl DBOptions {
     // Optimize tables with a mix of lookup and scan workloads.
     pub fn optimize_for_read(mut self, block_cache_size_mb: usize) -> DBOptions {
         let mut block_options = BlockBasedOptions::default();
-        block_options
-            .set_block_cache(&Cache::new_lru_cache(block_cache_size_mb * 1024 * 1024));
+        block_options.set_block_cache(&Cache::new_lru_cache(block_cache_size_mb * 1024 * 1024));
         // Set a bloomfilter with 1% false positive rate.
         block_options.set_bloom_filter(10.0, false);
         self.options.set_block_based_table_factory(&block_options);

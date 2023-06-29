@@ -9,22 +9,24 @@ use crate::{
 use bytes::Bytes;
 use config::{AuthorityIdentifier, Committee, Epoch, Stake, WorkerCache, WorkerId, WorkerInfo};
 use crypto::{
-    Hash, PrivateKey, PublicKey, Signature, SignatureService, Digest,
-    to_intent_message, AggregateSignature,
-    NarwhalAuthorityAggregateSignature, NetworkPublicKey,
+    to_intent_message, AggregateSignature, Digest, Hash, NarwhalAuthorityAggregateSignature,
+    NarwhalAuthoritySignature, NetworkPublicKey, PrivateKey, PublicKey, Signature,
+    SignatureService,
 };
-use rand::{rngs::{StdRng, ThreadRng}, thread_rng, SeedableRng};
 use dag::node_dag::Affiliated;
 use derive_builder::Builder;
 use enum_dispatch::enum_dispatch;
 use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
 use proptest_derive::Arbitrary;
+use rand::{
+    rngs::{StdRng, ThreadRng},
+    thread_rng, SeedableRng,
+};
 use roaring::RoaringBitmap;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use snarkvm_console::prelude::ToBytes;
-use tonic::codegen::http::uri::Authority;
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     fmt,
@@ -33,6 +35,7 @@ use std::{
     collections::{HashMap, HashSet},
     time::{Duration, SystemTime},
 };
+use tonic::codegen::http::uri::Authority;
 use tracing::warn;
 
 /// The round number.
@@ -200,9 +203,9 @@ impl Hash for BatchV1 {
     type TypedDigest = BatchDigest;
 
     fn digest(&self) -> Self::TypedDigest {
-        BatchDigest::new(
-            crypto::DefaultHashFunction::digest_iterator(self.transactions.iter()),
-        )
+        BatchDigest::new(crypto::DefaultHashFunction::digest_iterator(
+            self.transactions.iter(),
+        ))
     }
 }
 
@@ -279,7 +282,7 @@ pub struct HeaderV1 {
     pub round: Round,
     pub epoch: Epoch,
     pub created_at: TimestampMs,
-    #[serde(with = "indexmap::serde_seq")]
+    #[serde(with = "indexmap::map::serde_seq")]
     pub payload: IndexMap<BatchDigest, (WorkerId, TimestampMs)>,
     pub parents: BTreeSet<CertificateDigest>,
     #[serde(skip)]
@@ -293,7 +296,9 @@ impl HeaderV1 {
     fn from_unsigned(unsigned_header: UnsignedHeaderV1, signer: &PrivateKey) -> Self {
         let digest = Hash::digest(&unsigned_header);
         unsigned_header.digest.set(digest).unwrap();
-        let signature = signer.sign_bytes(digest.0.as_ref(), &mut thread_rng()).expect("Signing failed");
+        let signature = signer
+            .sign_bytes(digest.0.as_ref(), &mut thread_rng())
+            .expect("Signing failed");
         Self {
             author: unsigned_header.author,
             round: unsigned_header.round,
@@ -578,10 +583,7 @@ impl fmt::Debug for Header {
                     data.round,
                     data.author,
                     data.epoch,
-                    data.payload
-                        .keys()
-                        .map(|_| Digest::size())
-                        .sum::<usize>(),
+                    data.payload.keys().map(|_| Digest::size()).sum::<usize>(),
                 )
             }
         }
@@ -624,8 +626,11 @@ impl Vote {
         Vote::V1(VoteV1::new(header, author, signature_service).await)
     }
 
-    pub fn new_with_signer(header: &Header, author: &AuthorityIdentifier, signer: &PrivateKey) -> Self
-    {
+    pub fn new_with_signer(
+        header: &Header,
+        author: &AuthorityIdentifier,
+        signer: &PrivateKey,
+    ) -> Self {
         Vote::V1(VoteV1::new_with_signer(header, author, signer))
     }
 }
@@ -713,12 +718,15 @@ impl VoteV1 {
             epoch: unsigned_vote.epoch,
             origin: unsigned_vote.origin,
             author: unsigned_vote.author,
-            signature
+            signature,
         }
     }
 
-    pub fn new_with_signer(header: &Header, author: &AuthorityIdentifier, signer: &PrivateKey) -> Self
-    {
+    pub fn new_with_signer(
+        header: &Header,
+        author: &AuthorityIdentifier,
+        signer: &PrivateKey,
+    ) -> Self {
         let unsigned_vote = UnsignedVoteV1 {
             digest: header.digest(),
             round: header.round(),
@@ -726,9 +734,8 @@ impl VoteV1 {
             origin: header.author(),
             author: author.clone(),
         };
-        let mut rng = thread_rng();
         let vote_digest: Digest = unsigned_vote.digest.into();
-        let signature = signer.sign_bytes(vote_digest.as_ref(), &mut rng).expect("signing failed");
+        let signature = Signature::new_secure(&to_intent_message(vote_digest), signer);
 
         Self {
             header_digest: unsigned_vote.digest,
@@ -736,7 +743,7 @@ impl VoteV1 {
             epoch: unsigned_vote.epoch,
             origin: unsigned_vote.origin,
             author: unsigned_vote.author,
-            signature
+            signature,
         }
     }
 }
@@ -843,9 +850,16 @@ impl Certificate {
         }
     }
 
-    pub fn verify(&self, committee: &Committee, worker_cache: &WorkerCache, genesis_certs: &[Certificate]) -> DagResult<()> {
+    pub fn verify(
+        &self,
+        committee: &Committee,
+        worker_cache: &WorkerCache,
+        genesis_certs: &[Certificate],
+    ) -> DagResult<()> {
         match self {
-            Certificate::V1(certificate) => certificate.verify(committee, worker_cache, genesis_certs),
+            Certificate::V1(certificate) => {
+                certificate.verify(committee, worker_cache, genesis_certs)
+            }
         }
     }
 
@@ -1067,7 +1081,12 @@ impl CertificateV1 {
 
     /// Verifies the validity of the certificate.
     /// TODO: Output a different type, similar to Sui VerifiedCertificate.
-    pub fn verify(&self, committee: &Committee, worker_cache: &WorkerCache, genesis_certs: &[Certificate]) -> DagResult<()> {
+    pub fn verify(
+        &self,
+        committee: &Committee,
+        worker_cache: &WorkerCache,
+        genesis_certs: &[Certificate],
+    ) -> DagResult<()> {
         // Ensure the header is from the correct epoch.
         ensure!(
             self.epoch() == committee.epoch(),

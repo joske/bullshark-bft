@@ -25,12 +25,7 @@ fn get_registry() -> Result<Registry> {
     // Trace the corresponding header
     let mut rng = StdRng::from_seed([0; 32]);
     let (keys, network_keys): (Vec<_>, Vec<_>) = (0..4)
-        .map(|_| {
-            (
-                KeyPair::new(&mut rng),
-                NetworkKeyPair::generate(&mut rng),
-            )
-        })
+        .map(|_| (KeyPair::new(&mut rng), NetworkKeyPair::generate(&mut rng)))
         .unzip();
 
     let kp = keys[0].as_ref().unwrap().clone();
@@ -80,7 +75,9 @@ fn get_registry() -> Result<Registry> {
     let worker_pk = network_keys[0].public().clone();
     let certificate =
         Certificate::new_unsigned(&committee, Header::V1(header.clone()), vec![]).unwrap();
-    let signature = private.sign_bytes(certificate.digest().as_ref(), &mut thread_rng()).unwrap();
+    let signature = private
+        .sign_bytes(certificate.digest().as_ref(), &mut thread_rng())
+        .unwrap();
     let certificate = Certificate::new_unsigned(
         &committee,
         Header::V1(header.clone()),

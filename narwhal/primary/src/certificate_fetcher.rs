@@ -268,7 +268,15 @@ impl CertificateFetcher {
             // TODO(metrics): Increment `certificate_fetcher_inflight_fetch`
 
             let now = Instant::now();
-            match run_fetch_task(state.clone(), committee, gc_round, written_rounds, genesis_certs).await {
+            match run_fetch_task(
+                state.clone(),
+                committee,
+                gc_round,
+                written_rounds,
+                genesis_certs,
+            )
+            .await
+            {
                 Ok(_) => {
                     debug!(
                         "Finished task to fetch certificates successfully, elapsed = {}s",

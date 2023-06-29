@@ -8,9 +8,9 @@ pub use storage::NodeStorage;
 use thiserror::Error;
 
 pub mod execution_state;
+pub mod keypair_file;
 pub mod primary_node;
 pub mod worker_node;
-pub mod keypair_file;
 
 #[derive(Debug, Error, Clone)]
 pub enum NodeError {

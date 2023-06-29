@@ -2,10 +2,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 use anemo::{rpc::Status, Network, Request, Response};
-use config::{AuthorityIdentifier, Epoch, WorkerCache, Committee};
+use config::{AuthorityIdentifier, Committee, Epoch, WorkerCache};
 use consensus::consensus::ConsensusRound;
 use consensus::dag::Dag;
-use crypto::{Hash, PublicKey, NetworkPublicKey, PrivateKey};
+use crypto::{Hash, NetworkPublicKey, PrivateKey, PublicKey};
 use futures::{stream::FuturesOrdered, StreamExt};
 use mysten_common::sync::notify_once::NotifyOnce;
 use network::{
@@ -500,7 +500,10 @@ impl Synchronizer {
         Ok(())
     }
 
-    fn make_genesis(committee: &Committee, signer: &PrivateKey) -> HashMap<CertificateDigest, Certificate> {
+    fn make_genesis(
+        committee: &Committee,
+        signer: &PrivateKey,
+    ) -> HashMap<CertificateDigest, Certificate> {
         Certificate::genesis(committee, signer)
             .into_iter()
             .map(|x| (x.digest(), x))
@@ -509,7 +512,11 @@ impl Synchronizer {
 
     /// Checks if the certificate is valid and can potentially be accepted into the DAG.
     // TODO: produce a different type after sanitize, e.g. VerifiedCertificate.
-    pub fn sanitize_certificate(&self, certificate: &Certificate, genesis_certs: Vec<Certificate>) -> DagResult<()> {
+    pub fn sanitize_certificate(
+        &self,
+        certificate: &Certificate,
+        genesis_certs: Vec<Certificate>,
+    ) -> DagResult<()> {
         ensure!(
             self.inner.committee.epoch() == certificate.epoch(),
             DagError::InvalidEpoch {
@@ -525,7 +532,11 @@ impl Synchronizer {
         );
         // Verify the certificate (and the embedded header).
         certificate
-            .verify(&self.inner.committee, &self.inner.worker_cache, genesis_certs.as_slice())
+            .verify(
+                &self.inner.committee,
+                &self.inner.worker_cache,
+                genesis_certs.as_slice(),
+            )
             .map_err(DagError::from)
     }
 
@@ -551,7 +562,14 @@ impl Synchronizer {
             }
         }
         if sanitize {
-            self.sanitize_certificate(&certificate, self.inner.genesis.values().map(Clone::clone).collect::<Vec<_>>())?;
+            self.sanitize_certificate(
+                &certificate,
+                self.inner
+                    .genesis
+                    .values()
+                    .map(Clone::clone)
+                    .collect::<Vec<_>>(),
+            )?;
         }
 
         debug!(

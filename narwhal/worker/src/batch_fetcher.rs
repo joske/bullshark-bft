@@ -10,7 +10,7 @@ use std::{
 use anemo::Network;
 use anyhow::bail;
 use async_trait::async_trait;
-use crypto::{NetworkPublicKey, Hash};
+use crypto::{Hash, NetworkPublicKey};
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use itertools::Itertools;
 use network::WorkerRpc;
@@ -260,7 +260,7 @@ impl RequestBatchesNetwork for RequestBatchesNetworkImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crypto::{NetworkKeyPair, Hash};
+    use crypto::{Hash, NetworkKeyPair};
     use fastcrypto::traits::KeyPair;
     use itertools::Itertools;
     use rand::rngs::StdRng;

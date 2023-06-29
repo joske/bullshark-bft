@@ -3,7 +3,7 @@
 use criterion::{
     criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode, Throughput,
 };
-use fastcrypto::hash::Hash;
+use crypto::Hash;
 use narwhal_types as types;
 use rand::Rng;
 use types::Batch;
