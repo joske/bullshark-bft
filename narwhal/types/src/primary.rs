@@ -281,7 +281,7 @@ pub struct HeaderV1 {
     pub round: Round,
     pub epoch: Epoch,
     pub created_at: TimestampMs,
-    #[serde(with = "indexmap::serde_seq")]
+    #[serde(with = "indexmap::map::serde_seq")]
     pub payload: IndexMap<BatchDigest, (WorkerId, TimestampMs)>,
     pub parents: BTreeSet<CertificateDigest>,
     #[serde(skip)]
