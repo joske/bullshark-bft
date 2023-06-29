@@ -8,14 +8,21 @@ use crate::{
 };
 use bytes::Bytes;
 use config::{AuthorityIdentifier, Committee, Epoch, Stake, WorkerCache, WorkerId, WorkerInfo};
-use crypto::{Hash, PrivateKey, PublicKey, Signature, SignatureService, Digest, to_intent_message, AggregateSignature, NarwhalAuthorityAggregateSignature, NetworkPublicKey, NarwhalAuthoritySignature};
-use rand::{rngs::{StdRng, ThreadRng}, thread_rng, SeedableRng};
+use crypto::{
+    to_intent_message, AggregateSignature, Digest, Hash, NarwhalAuthorityAggregateSignature,
+    NarwhalAuthoritySignature, NetworkPublicKey, PrivateKey, PublicKey, Signature,
+    SignatureService,
+};
 use dag::node_dag::Affiliated;
 use derive_builder::Builder;
 use enum_dispatch::enum_dispatch;
 use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
 use proptest_derive::Arbitrary;
+use rand::{
+    rngs::{StdRng, ThreadRng},
+    thread_rng, SeedableRng,
+};
 use roaring::RoaringBitmap;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
