@@ -8,6 +8,7 @@ use consensus::{
 use criterion::{
     criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode, Throughput,
 };
+use pprof::criterion::{Output, PProfProfiler};
 use crypto::Hash;
 use narwhal_consensus as consensus;
 use std::collections::BTreeSet;

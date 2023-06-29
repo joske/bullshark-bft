@@ -46,6 +46,8 @@ version = "0.9.14"
 [dev-dependencies]
 serde_test = "1.0.147"
 test-utils = { path = "../test-utils", package = "narwhal-test-utils" }
+criterion = "0.5.1"
+pprof = { version = "0.11.1", features = ["cpp", "frame-pointer", "criterion", "flamegraph"] }
 
 [target.'cfg(not(target_env = "msvc"))'.build-dependencies]
 protobuf-src = "1.1.0"

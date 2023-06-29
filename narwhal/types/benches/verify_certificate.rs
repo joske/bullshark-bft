@@ -24,7 +24,8 @@ pub fn verify_certificates(c: &mut Criterion) {
         let keypair = primary.keypair().clone();
 
         // process certificates for rounds, check we don't grow the dag too much
-        let genesis = Certificate::genesis(&committee, keypair.private())
+        let genesis_certs = Certificate::genesis(&committee, keypair.private());
+        let genesis = genesis_certs
             .iter()
             .map(|x| x.digest())
             .collect::<BTreeSet<_>>();
@@ -41,7 +42,7 @@ pub fn verify_certificates(c: &mut Criterion) {
             |b, cert| {
                 let worker_cache = fixture.worker_cache();
                 b.iter(|| {
-                    let _ = cert.verify(&committee, &worker_cache);
+                    let _ = cert.verify(&committee, &worker_cache, genesis_certs.as_slice());
                 })
             },
         );
