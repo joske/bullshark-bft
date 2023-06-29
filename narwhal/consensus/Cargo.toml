@@ -49,7 +49,7 @@ indexmap = { version = "2.0.0", features = ["serde"] }
 telemetry-subscribers = { path = "../../crates/telemetry-subscribers" }
 test-utils = { path = "../test-utils", package = "narwhal-test-utils" }
 node = { path = "../node", package = "narwhal-node" }
-criterion = "0.5.1"
+criterion = "0.4"
 pprof = { version = "0.11.1", features = ["cpp", "frame-pointer", "criterion", "flamegraph"] }
 bcs = "0.1.5"
 

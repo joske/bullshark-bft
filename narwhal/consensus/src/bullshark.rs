@@ -144,7 +144,7 @@ impl ConsensusProtocol for Bullshark {
         // Get an ordered list of past leaders that are linked to the current leader.
         debug!("Leader {:?} has enough support", leader);
         let mut committed_sub_dags = Vec::new();
-        let mut total_committed_certificates = 0;
+        let mut _total_committed_certificates = 0;
 
         // TODO: duplicated in tusk.rs
         for leader in utils::order_leaders(&self.committee, leader, state, Self::leader)
@@ -172,7 +172,7 @@ impl ConsensusProtocol for Bullshark {
             }
             debug!(min_round, "Subdag has {} certificates", sequence.len());
 
-            total_committed_certificates += sequence.len();
+            _total_committed_certificates += sequence.len();
 
             // We resolve the reputation score that should be stored alongside with this sub dag.
             let reputation_score = self.resolve_reputation_score(state, &sequence, sub_dag_index);

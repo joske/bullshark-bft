@@ -96,6 +96,7 @@ pub struct Proposer {
     /// our own headers have been committed.
     rx_committed_own_headers: Receiver<(Round, Vec<Round>)>,
 
+    #[allow(dead_code)]
     genesis_certs: Vec<Certificate>,
 }
 

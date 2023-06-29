@@ -1,7 +1,6 @@
 use crate::{to_intent_message, CurrentNetwork, Digest, PrivateKey, PublicKey};
 
 use eyre::eyre;
-
 use serde::{Deserialize, Serialize};
 use shared_crypto::intent::IntentMessage;
 use tokio::sync::{

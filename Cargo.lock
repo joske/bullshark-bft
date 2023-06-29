@@ -3133,7 +3133,7 @@ dependencies = [
  "bincode",
  "bytes",
  "cfg-if",
- "criterion 0.5.1",
+ "criterion 0.4.0",
  "fastcrypto",
  "futures",
  "indexmap 2.0.0",

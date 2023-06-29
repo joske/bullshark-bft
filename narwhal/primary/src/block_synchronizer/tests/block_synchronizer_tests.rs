@@ -755,7 +755,6 @@ async fn test_reply_with_payload_already_in_storage_for_own_certificates() {
     let mut certificates = Vec::new();
 
     // AND storing some certificates
-    let _author = fixture.authorities().next().unwrap();
     for _ in 0..5 {
         let batch = fixture_batch_with_transactions(10);
 

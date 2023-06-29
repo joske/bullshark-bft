@@ -500,6 +500,7 @@ impl Synchronizer {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn make_genesis(
         committee: &Committee,
         signer: &PrivateKey,
@@ -1137,6 +1138,7 @@ impl State {
         to_accept
     }
 
+    #[allow(dead_code)]
     fn num_suspended(&self) -> usize {
         self.suspended.len()
     }

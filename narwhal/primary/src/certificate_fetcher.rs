@@ -85,6 +85,7 @@ struct CertificateFetcherState {
     network: anemo::Network,
     /// Accepts Certificates into local storage.
     synchronizer: Arc<Synchronizer>,
+    #[allow(dead_code)]
     genesis_certs: Vec<Certificate>,
 }
 
