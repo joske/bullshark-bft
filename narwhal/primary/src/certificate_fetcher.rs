@@ -431,7 +431,7 @@ async fn process_certificates_helper(
             let sync = synchronizer.clone();
             // Use threads dedicated to computation heavy work.
             spawn_blocking(move || {
-                let now = Instant::now();
+                let _now = Instant::now();
                 for c in &certs {
                     sync.sanitize_certificate(c, genesis_certs.clone())?;
                 }
@@ -443,7 +443,7 @@ async fn process_certificates_helper(
     // Process verified certificates in the same order as received.
     for task in verify_tasks {
         let certificates = task.await.map_err(|_| DagError::Canceled)??;
-        let now = Instant::now();
+        let _now = Instant::now();
         for cert in certificates {
             if let Err(e) = synchronizer.try_accept_fetched_certificate(cert).await {
                 // It is possible that subsequent certificates are useful,

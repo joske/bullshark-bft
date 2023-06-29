@@ -511,7 +511,7 @@ unsafe impl<K: Send, V: Send> Send for DBMap<K, V> {}
 impl<K, V> DBMap<K, V> {
     pub(crate) fn new(db: Arc<RocksDB>, opts: &ReadWriteOptions, opt_cf: &str) -> Self {
         DBMap {
-            rocksdb: db.clone(),
+            rocksdb: db,
             opts: opts.clone(),
             _phantom: PhantomData,
             cf: opt_cf.to_string(),
@@ -1136,7 +1136,7 @@ where
         let key_buf = be_fix_int_ser(key)?;
         let value_buf = bcs::to_bytes(value)?;
         self.rocksdb
-            .put_cf(&self.cf(), &key_buf, &value_buf, &self.opts.writeopts())?;
+            .put_cf(&self.cf(), key_buf, value_buf, &self.opts.writeopts())?;
         Ok(())
     }
 

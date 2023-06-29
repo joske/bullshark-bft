@@ -1,7 +1,7 @@
 use crate::{to_intent_message, CurrentNetwork, Digest, PrivateKey, PublicKey};
 
 use eyre::eyre;
-use rand::thread_rng;
+
 use serde::{Deserialize, Serialize};
 use shared_crypto::intent::IntentMessage;
 use tokio::sync::{
@@ -128,6 +128,7 @@ mod tests {
     use super::*;
     use crate::KeyPair;
     use base64ct::{Base64, Encoding};
+    use rand::thread_rng;
     use snarkvm_console::prelude::ToBytes;
 
     #[tokio::test]

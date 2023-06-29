@@ -1,6 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
-use crypto::{Hash, PublicKey};
+use crypto::Hash;
 use lru::LruCache;
 use parking_lot::Mutex;
 use std::collections::HashMap;
@@ -623,7 +623,7 @@ mod test {
     use crate::certificate_store::{CertificateStore, NoCache};
     use crate::{Cache, CertificateStoreCache};
     use config::AuthorityIdentifier;
-    use crypto::{Hash, PublicKey};
+    use crypto::Hash;
     use futures::future::join_all;
     use std::num::NonZeroUsize;
     use std::{

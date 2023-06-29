@@ -6,7 +6,7 @@ use bincode::Options;
 use config::{AuthorityIdentifier, Committee, Parameters, WorkerId};
 use consensus::consensus::ConsensusRound;
 use consensus::dag::Dag;
-use crypto::{Hash, PublicKey, SignatureService};
+use crypto::{Hash, SignatureService};
 use fastcrypto::{
     encoding::{Encoding, Hex},
     traits::KeyPair,

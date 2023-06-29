@@ -5,7 +5,7 @@ use crate::{certificate_fetcher::CertificateFetcher, synchronizer::Synchronizer}
 use anemo::async_trait;
 use anyhow::Result;
 use config::{AuthorityIdentifier, Epoch, WorkerId};
-use crypto::{Hash, PublicKey, Signature, SignatureService};
+use crypto::Hash;
 use fastcrypto::traits::KeyPair;
 use indexmap::IndexMap;
 use itertools::Itertools;

@@ -29,8 +29,7 @@ use config::{Authority, AuthorityIdentifier, Committee, Parameters, WorkerCache}
 use consensus::consensus::ConsensusRound;
 use consensus::dag::Dag;
 use crypto::{
-    EncodeDecodeBase64, Hash, KeyPair, NetworkKeyPair, NetworkPublicKey, PublicKey,
-    SignatureService,
+    EncodeDecodeBase64, Hash, KeyPair, NetworkKeyPair, NetworkPublicKey, SignatureService,
 };
 use fastcrypto::traits::{KeyPair as _, ToFromBytes};
 use futures::{stream::FuturesUnordered, StreamExt};
@@ -491,7 +490,7 @@ impl Primary {
                 payload_store.clone(),
                 certificate_store.clone(),
                 parameters.clone(),
-                genesis_certs.clone(),
+                genesis_certs,
             );
 
             // Retrieves a block's data by contacting the worker nodes that contain the

@@ -4,7 +4,7 @@
 use crate::{aggregators::VotesAggregator, synchronizer::Synchronizer};
 
 use config::{AuthorityIdentifier, Committee};
-use crypto::{NetworkPublicKey, Signature, SignatureService};
+use crypto::{NetworkPublicKey, SignatureService};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use network::anemo_ext::NetworkExt;

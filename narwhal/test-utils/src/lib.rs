@@ -900,7 +900,7 @@ impl CommitteeFixture {
         let votes: Vec<_> = self
             .votes(header)
             .into_iter()
-            .map(|x| (x.author(), x.signature().clone()))
+            .map(|x| (x.author(), *x.signature()))
             .collect();
         Certificate::new_unverified(&committee, header.clone(), votes).unwrap()
     }
@@ -1003,7 +1003,7 @@ impl AuthorityFixture {
     }
 
     pub fn vote(&self, header: &Header) -> Vote {
-        Vote::new_with_signer(header, &self.id(), &self.keypair.private())
+        Vote::new_with_signer(header, &self.id(), self.keypair.private())
     }
 
     fn generate<R, P>(mut rng: R, number_of_workers: NonZeroUsize, mut get_port: P) -> Self

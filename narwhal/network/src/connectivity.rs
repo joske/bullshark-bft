@@ -139,7 +139,7 @@ impl ConnectionMonitor {
     }
 
     // TODO: Replace this with ClosureMetric
-    fn update_quinn_metrics_for_peer(&self, peer_id: &str, stats: &ConnectionStats) {
+    fn update_quinn_metrics_for_peer(&self, _peer_id: &str, _stats: &ConnectionStats) {
         // Update PathStats
         // self.connection_metrics
         //     .network_peer_rtt

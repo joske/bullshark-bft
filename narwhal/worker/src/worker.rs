@@ -18,7 +18,7 @@ use anemo_tower::{
 };
 use anemo_tower::{rate_limit, set_header::SetResponseHeaderLayer};
 use config::{Authority, AuthorityIdentifier, Committee, Parameters, WorkerCache, WorkerId};
-use crypto::{NetworkKeyPair, NetworkPublicKey, PublicKey};
+use crypto::{NetworkKeyPair, NetworkPublicKey};
 use fastcrypto::traits::KeyPair;
 use mysten_network::{multiaddr::Protocol, Multiaddr};
 use network::client::NetworkClient;

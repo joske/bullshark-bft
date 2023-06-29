@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::NetworkModel;
 use config::{AuthorityIdentifier, Committee, Epoch, WorkerId};
-use crypto::{Hash as _, PublicKey, SignatureService};
+use crypto::Hash as _;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, VecDeque};
 use storage::ProposerStore;
@@ -230,7 +230,7 @@ impl Proposer {
         )
         .await;
 
-        let leader_and_support = if this_round % 2 == 0 {
+        let _leader_and_support = if this_round % 2 == 0 {
             let authority = self.committee.leader(this_round);
             if self.authority_id == authority.id() {
                 "even_round_is_leader"
@@ -463,14 +463,14 @@ impl Proposer {
                 gauge!(snarkos_metrics::primary::CURRENT_ROUND, self.round as f64);
 
                 let current_timestamp = now();
-                let reason = if max_delay_timed_out {
+                let _reason = if max_delay_timed_out {
                     "max_timeout"
                 } else if enough_digests {
                     "threshold_size_reached"
                 } else {
                     "min_timeout"
                 };
-                if let Some(t) = &self.last_round_timestamp {
+                if let Some(_t) = &self.last_round_timestamp {
                     // TODO(metrics): Observe `Duration::from_millis(current_timestamp - t).as_secs_f64()` on `proposal_latency`
                 }
                 self.last_round_timestamp = Some(current_timestamp);
@@ -480,7 +480,7 @@ impl Proposer {
                 match self.make_header().await {
                     Err(e @ DagError::ShuttingDown) => debug!("{e}"),
                     Err(e) => panic!("Unexpected error: {e}"),
-                    Ok((header, digests)) => {
+                    Ok((header, _digests)) => {
                         // Save the header
                         opt_latest_header = Some(header);
                         header_repeat_timer = Box::pin(sleep(header_resend_timeout));
@@ -626,7 +626,7 @@ impl Proposer {
                     // we ignore this check and advance anyway.
                     advance = self.ready();
 
-                    let round_type = if self.round % 2 == 0 {
+                    let _round_type = if self.round % 2 == 0 {
                         "even"
                     } else {
                         "odd"

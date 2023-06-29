@@ -39,7 +39,7 @@ async fn test_certificate_singers_are_ordered() {
             &authority.id(),
             authority.keypair().private(),
         );
-        votes.push((vote.author(), vote.signature().clone()));
+        votes.push((vote.author(), *vote.signature()));
     }
 
     // Just shuffle to ensure that any underlying sorting will work correctly

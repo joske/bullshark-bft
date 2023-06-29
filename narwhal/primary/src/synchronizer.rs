@@ -5,7 +5,7 @@ use anemo::{rpc::Status, Network, Request, Response};
 use config::{AuthorityIdentifier, Committee, Epoch, WorkerCache};
 use consensus::consensus::ConsensusRound;
 use consensus::dag::Dag;
-use crypto::{Hash, NetworkPublicKey, PrivateKey, PublicKey};
+use crypto::{Hash, NetworkPublicKey, PrivateKey};
 use futures::{stream::FuturesOrdered, StreamExt};
 use mysten_common::sync::notify_once::NotifyOnce;
 use network::{
@@ -159,11 +159,11 @@ impl Inner {
         // to avoid inconsistencies in certificate store and consensus dag.
 
         // Update metrics for accepted certificates.
-        let highest_processed_round = self
+        let _highest_processed_round = self
             .highest_processed_round
             .fetch_max(certificate.round(), Ordering::AcqRel)
             .max(certificate.round());
-        let certificate_source = if self.authority_id.eq(&certificate.origin()) {
+        let _certificate_source = if self.authority_id.eq(&certificate.origin()) {
             "own"
         } else {
             "other"
@@ -477,7 +477,7 @@ impl Synchronizer {
         }
 
         // Update metrics.
-        let round = certificate.round();
+        let _round = certificate.round();
         let header_to_certificate_duration = Duration::from_millis(
             certificate.metadata().created_at - *certificate.header().created_at(),
         )
@@ -578,12 +578,12 @@ impl Synchronizer {
             certificate.round()
         );
 
-        let certificate_source = if self.inner.authority_id.eq(&certificate.origin()) {
+        let _certificate_source = if self.inner.authority_id.eq(&certificate.origin()) {
             "own"
         } else {
             "other"
         };
-        let highest_received_round = self
+        let _highest_received_round = self
             .inner
             .highest_received_round
             .fetch_max(certificate.round(), Ordering::AcqRel)

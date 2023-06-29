@@ -132,14 +132,14 @@ fn test_unknown_signature_in_certificate() {
     let header = fixture.header();
     let primary = fixture.authorities().nth(1).unwrap();
     let keypair = primary.keypair().clone();
-    let genesis_certs = Certificate::genesis(&committee, keypair.private());
+    let _genesis_certs = Certificate::genesis(&committee, keypair.private());
 
     let mut signatures = Vec::new();
 
     // 2 Signatures. This is less than 2F + 1 (3).
     for authority in fixture.authorities().take(2) {
         let vote = authority.vote(&header);
-        signatures.push((vote.author(), vote.signature().clone()));
+        signatures.push((vote.author(), *vote.signature()));
     }
 
     let malicious_key = KeyPair::new(&mut StdRng::from_rng(OsRng).unwrap()).unwrap();

@@ -47,7 +47,7 @@ impl VotesAggregator {
             DagError::AuthorityReuse(author.to_string())
         );
 
-        self.votes.push((author, vote.signature().clone()));
+        self.votes.push((author, *vote.signature()));
         self.weight += committee.stake_by_id(author);
 
         // TODO(metrics): Set `votes_received_last_round` to `self.votes.len() as i64`

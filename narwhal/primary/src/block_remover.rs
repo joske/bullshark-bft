@@ -4,7 +4,7 @@ use crate::utils;
 use anyhow::Result;
 use config::{AuthorityIdentifier, Committee, WorkerCache, WorkerId};
 use consensus::dag::{Dag, ValidatorDagError};
-use crypto::{Hash, PublicKey};
+use crypto::Hash;
 use futures::future::try_join_all;
 use itertools::Either;
 use network::PrimaryToWorkerRpc;

@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use config::{AuthorityIdentifier, Committee};
+use config::AuthorityIdentifier;
 use crypto::Hash;
 use dag::node_dag::{NodeDag, NodeDagError};
 use std::{

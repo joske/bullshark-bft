@@ -3,7 +3,7 @@
 use crate::{errors::SubscriberResult, ExecutionState};
 
 use config::{AuthorityIdentifier, Committee, WorkerCache, WorkerId};
-use crypto::{Hash, NetworkPublicKey, PublicKey};
+use crypto::{Hash, NetworkPublicKey};
 
 use futures::stream::FuturesOrdered;
 use futures::StreamExt;
@@ -342,7 +342,7 @@ impl Subscriber {
                 }
             };
             for (digest, batch) in batches {
-                let batch_fetch_duration = batch.metadata().created_at.elapsed().as_secs_f64();
+                let _batch_fetch_duration = batch.metadata().created_at.elapsed().as_secs_f64();
                 // TODO(metrics): Observe `batch_fetch_duration` on `batch_fetch_latency`
 
                 fetched_batches.insert(digest, batch);

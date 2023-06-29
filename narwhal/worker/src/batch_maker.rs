@@ -155,7 +155,7 @@ impl BatchMaker {
         &self,
         timeout: bool,
         mut batch: Batch,
-        size: usize,
+        _size: usize,
         responses: Vec<TxResponse>,
     ) -> Option<impl Future<Output = ()>> {
         #[cfg(feature = "benchmark")]

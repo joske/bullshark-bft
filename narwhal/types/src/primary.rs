@@ -19,10 +19,7 @@ use enum_dispatch::enum_dispatch;
 use indexmap::IndexMap;
 use once_cell::sync::OnceCell;
 use proptest_derive::Arbitrary;
-use rand::{
-    rngs::{StdRng, ThreadRng},
-    thread_rng, SeedableRng,
-};
+use rand::{rngs::StdRng, thread_rng, SeedableRng};
 use roaring::RoaringBitmap;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -35,7 +32,7 @@ use std::{
     collections::{HashMap, HashSet},
     time::{Duration, SystemTime},
 };
-use tonic::codegen::http::uri::Authority;
+
 use tracing::warn;
 
 /// The round number.
@@ -296,7 +293,7 @@ impl HeaderV1 {
     fn from_unsigned(unsigned_header: UnsignedHeaderV1, signer: &PrivateKey) -> Self {
         let digest = Hash::digest(&unsigned_header);
         unsigned_header.digest.set(digest).unwrap();
-        let signature = signer
+        let _signature = signer
             .sign_bytes(digest.0.as_ref(), &mut thread_rng())
             .expect("Signing failed");
         Self {
@@ -325,7 +322,7 @@ impl HeaderV1 {
         h.digest.set(digest).unwrap();
         let signer = PrivateKey::default();
         let mut rng = StdRng::seed_from_u64(42);
-        let signature = signer
+        let _signature = signer
             .sign_bytes(Digest::from(digest).as_ref(), &mut rng)
             .unwrap();
         HeaderV1 {
@@ -424,7 +421,7 @@ impl HeaderV1Builder {
     }
 
     /// This should be the last method called on the builder before `build`.
-    pub fn signed(mut self, signer: &PrivateKey) -> Self {
+    pub fn signed(mut self, _signer: &PrivateKey) -> Self {
         let unsigned_header = UnsignedHeaderV1 {
             author: self.author.unwrap_or_default(),
             round: self.round.unwrap_or_default(),
@@ -568,7 +565,7 @@ impl Hash for HeaderV1 {
     fn digest(&self) -> HeaderDigest {
         let mut hasher = crypto::DefaultHashFunction::new();
         hasher.update(bcs::to_bytes(&self).expect("Serialization should not fail"));
-        HeaderDigest(hasher.finalize().into())
+        HeaderDigest(hasher.finalize())
     }
 }
 
@@ -707,7 +704,7 @@ impl VoteV1 {
             round: header.round(),
             epoch: header.epoch(),
             origin: header.author(),
-            author: author.clone(),
+            author: *author,
         };
         let signature = signature_service
             .request_signature(unsigned_vote.digest.into())
@@ -732,7 +729,7 @@ impl VoteV1 {
             round: header.round(),
             epoch: header.epoch(),
             origin: header.author(),
-            author: author.clone(),
+            author: *author,
         };
         let vote_digest: Digest = unsigned_vote.digest.into();
         let signature = Signature::new_secure(&to_intent_message(vote_digest), signer);

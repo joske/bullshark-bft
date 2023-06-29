@@ -10,7 +10,7 @@ use crate::{
 use anemo::PeerId;
 use anyhow::anyhow;
 use config::{AuthorityIdentifier, Committee, Parameters, WorkerCache, WorkerId};
-use crypto::{Hash, NetworkPublicKey, PublicKey};
+use crypto::{Hash, NetworkPublicKey};
 use fastcrypto::traits::ToFromBytes;
 use futures::{
     future::{join_all, BoxFuture},
