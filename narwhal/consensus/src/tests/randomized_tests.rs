@@ -185,7 +185,6 @@ fn generate_randomised_dag(
         .committee_size(NonZeroUsize::new(committee_size).unwrap())
         .rng(rand)
         .build();
-    let _authority = fixture.authorities().next().unwrap();
     let committee: Committee = fixture.committee();
     let primary = fixture.authorities().nth(1).unwrap();
     let keypair = primary.keypair().clone();

@@ -590,6 +590,7 @@ struct PrimaryReceiverHandler {
     vote_digest_store: VoteDigestStore,
     /// Get a signal when the round changes.
     rx_narwhal_round_updates: watch::Receiver<Round>,
+    #[allow(dead_code)]
     genesis_certs: Vec<Certificate>,
 }
 

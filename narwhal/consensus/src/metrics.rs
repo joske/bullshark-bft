@@ -1,10 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-const LATENCY_SEC_BUCKETS: &[f64] = &[
-    0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 8.0, 10.0, 15.0, 20.0, 30.0, 50.0, 100.0, 200.0,
-];
-
 #[derive(Clone)]
 pub struct ConsensusMetrics {
     /* TODO: Fix metrics

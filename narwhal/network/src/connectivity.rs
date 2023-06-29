@@ -69,7 +69,7 @@ impl ConnectionMonitor {
         // we report first all the known peers as disconnected - so we can see
         // their labels in the metrics reporting tool
         let mut known_peers = Vec::new();
-        for (peer_id, _ty) in &self.peer_id_types {
+        for peer_id in self.peer_id_types.keys() {
             known_peers.push(*peer_id);
             // TODO(metrics): Set `network_peer_connected` to 0.
         }

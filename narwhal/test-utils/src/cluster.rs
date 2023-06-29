@@ -403,6 +403,7 @@ impl PrimaryNodeDetails {
 pub struct WorkerNodeDetails {
     pub id: WorkerId,
     pub transactions_address: Multiaddr,
+    #[allow(dead_code)]
     name: AuthorityIdentifier,
     primary_key: PublicKey,
     node: WorkerNode,

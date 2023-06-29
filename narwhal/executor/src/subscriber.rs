@@ -4,26 +4,22 @@ use crate::{errors::SubscriberResult, ExecutionState};
 
 use config::{AuthorityIdentifier, Committee, WorkerCache, WorkerId};
 use crypto::{Hash, NetworkPublicKey};
-
 use futures::stream::FuturesOrdered;
 use futures::StreamExt;
-
-use network::PrimaryToWorkerClient;
-
 use network::client::NetworkClient;
+use network::PrimaryToWorkerClient;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::{sync::Arc, time::Duration, vec};
-use types::FetchBatchesRequest;
-
 use tokio::{
     sync::mpsc::{channel, Receiver, Sender},
     task::JoinHandle,
 };
 use tracing::{debug, error, info};
+use types::FetchBatchesRequest;
 use types::{
-    Batch, BatchAPI, BatchDigest, Certificate, CertificateAPI, CommittedSubDag,
-    ConditionalBroadcastReceiver, ConsensusOutput, HeaderAPI, Timestamp,
+    Batch, BatchDigest, Certificate, CertificateAPI, CommittedSubDag, ConditionalBroadcastReceiver,
+    ConsensusOutput, HeaderAPI, Timestamp,
 };
 
 #[cfg(feature = "metrics")]
@@ -342,7 +338,7 @@ impl Subscriber {
                 }
             };
             for (digest, batch) in batches {
-                let _batch_fetch_duration = batch.metadata().created_at.elapsed().as_secs_f64();
+                // let batch_fetch_duration = batch.metadata().created_at.elapsed().as_secs_f64();
                 // TODO(metrics): Observe `batch_fetch_duration` on `batch_fetch_latency`
 
                 fetched_batches.insert(digest, batch);
