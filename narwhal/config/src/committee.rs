@@ -9,6 +9,8 @@ use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
+use tracing::info;
+use std::backtrace::Backtrace;
 use std::collections::{BTreeMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::num::NonZeroU64;
@@ -45,6 +47,7 @@ impl Authority {
         primary_address: Multiaddr,
         network_key: NetworkPublicKey,
     ) -> Self {
+        info!("Creating new authority: {:?}", Backtrace::capture());
         let protocol_key_bytes = protocol_key.to_bytes();
 
         Self {
@@ -59,37 +62,39 @@ impl Authority {
     }
 
     fn initialise(&mut self, id: AuthorityIdentifier) {
+        info!("Initialising authority: {}={:?}", id, std::ptr::addr_of!(self));
         self.id = id;
         self.initialised = true;
     }
 
     pub fn id(&self) -> AuthorityIdentifier {
-        assert!(self.initialised);
+        info!("Getting authority id: {}={:?}", self.id, std::ptr::addr_of!(self));
+        // assert!(self.initialised);
         self.id
     }
 
     pub fn protocol_key(&self) -> &PublicKey {
-        assert!(self.initialised);
+        // assert!(self.initialised);
         &self.protocol_key
     }
 
     pub fn protocol_key_bytes(&self) -> &[u8] {
-        assert!(self.initialised);
+        // assert!(self.initialised);
         &self.protocol_key_bytes
     }
 
     pub fn stake(&self) -> Stake {
-        assert!(self.initialised);
+        // assert!(self.initialised);
         self.stake
     }
 
     pub fn primary_address(&self) -> Multiaddr {
-        assert!(self.initialised);
+        // assert!(self.initialised);
         self.primary_address.clone()
     }
 
     pub fn network_key(&self) -> NetworkPublicKey {
-        assert!(self.initialised);
+        // assert!(self.initialised);
         self.network_key.clone()
     }
 }
@@ -177,13 +182,18 @@ impl Committee {
 
     /// Updates the committee internal secondary indexes.
     pub fn load(&mut self) {
+        info!("Loading committee: {}", self);
         self.authorities_by_id = (0_u16..)
             .zip(self.authorities.iter_mut())
             .map(|(identifier, (_key, authority))| {
                 let id = AuthorityIdentifier(identifier);
                 authority.initialise(id);
 
-                (id, authority.clone())
+                info!("authority: {:?}={:?}", authority, std::ptr::addr_of!(authority));
+                let clone = authority.clone();
+                info!("clone    : {:?}={:?}", clone, std::ptr::addr_of!(clone));
+
+                (id, clone)
             })
             .collect();
 
