@@ -1,4 +1,4 @@
-use crate::{CurrentNetwork, Digest, PrivateKey, PublicKey};
+use crate::{to_intent_message, CurrentNetwork, Digest, PrivateKey, PublicKey};
 
 use eyre::eyre;
 use rand::thread_rng;
@@ -23,14 +23,7 @@ impl SignatureService {
         let (tx, mut rx): (Sender<(Digest, oneshot::Sender<Signature>)>, _) = channel(100);
         tokio::spawn(async move {
             while let Some((msg, sender)) = rx.recv().await {
-                // TODO(nkls): can we do better with the rng here?
-                let mut rng = thread_rng();
-
-                // Note: fastcrypto also uses infallible signing in their impl of the signature
-                // service.
-                let signature = pk
-                    .sign_bytes(msg.as_ref(), &mut rng)
-                    .expect("signing failed");
+                let signature = Signature::new_secure(&to_intent_message(msg), &pk);
                 let _ = sender.send(signature);
             }
         });
@@ -61,9 +54,9 @@ impl AggregateSignature {
                 "number of signatures does not match number of public keys"
             ));
         }
-        for (pk, sig) in pks.iter().zip(self.0.iter()) {
+        for (i, (pk, sig)) in pks.iter().zip(self.0.iter()).enumerate() {
             if !sig.verify_bytes(pk, digest) {
-                return Err(eyre!("signature verification failed"));
+                return Err(eyre!("signature verification failed (#{i})"));
             }
         }
         Ok(())
@@ -89,6 +82,9 @@ impl NarwhalAuthoritySignature for Signature {
         T: Serialize,
     {
         let message = bcs::to_bytes(&value).expect("Message serialization should not fail");
+        // TODO(nkls): can we do better with the rng here?
+        // Note: fastcrypto also uses infallible signing in their impl of the signature
+        // service.
         secret
             .sign_bytes(message.as_slice(), &mut rand::thread_rng())
             .expect("Signing failed")
@@ -159,6 +155,6 @@ mod tests {
             pks.push(kp.public().clone());
         }
         let agg_sig = AggregateSignature(v);
-        agg_sig.verify(pks.as_slice(), digest.as_ref()).unwrap();
+        let _ = agg_sig.verify_secure(&to_intent_message(digest), pks.as_slice());
     }
 }
